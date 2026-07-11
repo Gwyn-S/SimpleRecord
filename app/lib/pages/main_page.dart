@@ -40,9 +40,7 @@ class _MainPageState extends State<MainPage> {
           GestureDetector(
             onTap: _closeMenu,
             behavior: HitTestBehavior.translucent,
-            child: SafeArea(
-              child: _pages[_tab],
-            ),
+            child: _pages[_tab],
           ),
           if (_menuOpen)
             Positioned(
