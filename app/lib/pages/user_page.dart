@@ -22,10 +22,16 @@ class UserPage extends StatelessWidget {
     Color(0xFFE91E63),
   ];
 
+  void _applyColor(BuildContext context, Color c) {
+    themeColorNotifier.value = c;
+    saveThemeColor(c);
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('用户'), backgroundColor: Colors.white, elevation: 0),
+      appBar: AppBar(title: const Text('用户'), backgroundColor: Colors.white, elevation: 0, leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context))),
       body: ListView(
         children: [
           const SizedBox(height: 20),
@@ -33,7 +39,7 @@ class UserPage extends StatelessWidget {
             title: '主题颜色',
             trailing: ValueListenableBuilder<Color>(
               valueListenable: themeColorNotifier,
-              builder: (_, color, __) => Container(
+              builder: (_, color, _2) => Container(
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
@@ -86,10 +92,7 @@ class UserPage extends StatelessWidget {
                   ..._colors.map((c) {
                     final selected = c == currentColor;
                     return GestureDetector(
-                      onTap: () {
-                        themeColorNotifier.value = c;
-                        Navigator.pop(context);
-                      },
+                      onTap: () => _applyColor(context, c),
                       child: Container(
                         width: 44,
                         height: 44,
@@ -175,10 +178,7 @@ class UserPage extends StatelessWidget {
                   )),
                   const SizedBox(height: 12),
                   GestureDetector(
-                    onTap: () {
-                      themeColorNotifier.value = hsv.toColor();
-                      Navigator.pop(context);
-                    },
+                    onTap: () => _applyColor(context, hsv.toColor()),
                     child: Container(
                       width: double.infinity,
                       height: 40,
