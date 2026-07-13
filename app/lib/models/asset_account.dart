@@ -7,22 +7,22 @@ const _storageKey = 'asset_accounts';
 final ValueNotifier<int> assetAccountsVersion = ValueNotifier(0);
 
 class AssetAccountCategory {
-  final IconData icon;
+  final IconData? icon;
+  final String? iconPath;
   final String name;
 
-  const AssetAccountCategory({required this.icon, required this.name});
+  const AssetAccountCategory({this.icon, this.iconPath, required this.name});
 }
 
 final assetAccountCategories = [
-  AssetAccountCategory(icon: Icons.payments, name: '现金'),
-  AssetAccountCategory(icon: Icons.account_balance, name: '储蓄卡'),
-  AssetAccountCategory(icon: Icons.credit_card, name: '信用卡'),
-  AssetAccountCategory(icon: Icons.account_balance_wallet, name: '支付宝'),
-  AssetAccountCategory(icon: Icons.chat_bubble, name: '微信'),
-  AssetAccountCategory(icon: Icons.candlestick_chart, name: '股票'),
-  AssetAccountCategory(icon: Icons.pie_chart, name: '基金'),
-  AssetAccountCategory(icon: Icons.currency_bitcoin, name: '虚拟货币'),
-  AssetAccountCategory(icon: Icons.more_horiz, name: '其他'),
+  const AssetAccountCategory(iconPath: 'assets/icons/cash.svg', name: '现金'),
+  const AssetAccountCategory(iconPath: 'assets/icons/online_banking.svg', name: '网络支付'),
+  const AssetAccountCategory(iconPath: 'assets/icons/savings_card.svg', name: '储蓄卡'),
+  const AssetAccountCategory(iconPath: 'assets/icons/credit_card.svg', name: '信用卡'),
+  const AssetAccountCategory(iconPath: 'assets/icons/investment.svg', name: '投资'),
+  const AssetAccountCategory(iconPath: 'assets/icons/total_debt.svg', name: '负债'),
+  const AssetAccountCategory(iconPath: 'assets/icons/bonds.svg', name: '债券'),
+  const AssetAccountCategory(iconPath: 'assets/icons/assets.svg', name: '自定义资产'),
 ];
 
 class AssetAccount {
@@ -38,11 +38,11 @@ class AssetAccount {
     this.balance = 0,
   });
 
-  IconData get icon {
+  AssetAccountCategory? get category {
     for (final c in assetAccountCategories) {
-      if (c.name == categoryName) return c.icon;
+      if (c.name == categoryName) return c;
     }
-    return Icons.account_balance_wallet;
+    return null;
   }
 
   Map<String, dynamic> toJson() => {

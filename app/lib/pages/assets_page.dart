@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 import 'user_page.dart';
@@ -113,7 +114,14 @@ class _AssetsPageState extends State<AssetsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
-                        const Icon(Icons.pie_chart_outline, size: 22, color: Colors.white),
+                        SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CustomPaint(
+                            painter: _ChartAxisPainter(),
+                            child: const Icon(Icons.show_chart, size: 16, color: Colors.white),
+                          ),
+                        ),
                         const Spacer(),
                         const Text(
                           '资产管理',
@@ -179,7 +187,15 @@ class _AssetsPageState extends State<AssetsPage> {
                                   color: color.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(account.icon, size: 22, color: color),
+                                child: account.category?.iconPath != null
+                                    ? SvgPicture.asset(
+                                        account.category!.iconPath!,
+                                        width: 24,
+                                        height: 24,
+                                        fit: BoxFit.contain,
+                                        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                                      )
+                                    : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: 24, color: color),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -259,4 +275,28 @@ class _AssetsPageState extends State<AssetsPage> {
       ),
     );
   }
+}
+
+class _ChartAxisPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      const Offset(2, 4),
+      Offset(2, size.height - 2),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(2, size.height - 2),
+      Offset(size.width - 2, size.height - 2),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

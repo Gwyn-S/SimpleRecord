@@ -165,11 +165,38 @@ class _MainPageState extends State<MainPage> {
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  selected ? fillIcon : outlineIcon,
-                  size: selected ? 25 : 22,
-                  color: selected ? color : const Color(0xFF333333),
-                ),
+                index == 1
+                    ? SizedBox(
+                        width: selected ? 25 : 22,
+                        height: selected ? 25 : 22,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                              selected ? fillIcon : outlineIcon,
+                              size: selected ? 25 : 22,
+                              color: selected ? color : const Color(0xFF333333),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 5),
+                              child: Text(
+                                '${DateTime.now().day}',
+                                style: TextStyle(
+                                  fontSize: selected ? 9 : 8,
+                                  fontWeight: FontWeight.w700,
+                                  color: selected ? color : const Color(0xFF333333),
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Icon(
+                        selected ? fillIcon : outlineIcon,
+                        size: selected ? 25 : 22,
+                        color: selected ? color : const Color(0xFF333333),
+                      ),
                 const SizedBox(height: 2),
                 Text(
                   label,

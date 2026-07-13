@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 
@@ -14,14 +15,13 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
 
   final _categoryColors = const [
     Color(0xFFE53935), // 现金
-    Color(0xFF1E88E5), // 储蓄卡
+    Color(0xFF1E88E5), // 网络支付
+    Color(0xFF43A047), // 储蓄卡
     Color(0xFFFDD835), // 信用卡
-    Color(0xFF43A047), // 支付宝
-    Color(0xFF66BB6A), // 微信
-    Color(0xFFE53935), // 股票
-    Color(0xFFFB8C00), // 基金
-    Color(0xFF8E24AA), // 虚拟货币
-    Color(0xFF546E7A), // 其他
+    Color(0xFFFB8C00), // 投资
+    Color(0xFF8E24AA), // 负债
+    Color(0xFF66BB6A), // 债券
+    Color(0xFF546E7A), // 自定义资产
   ];
 
   void _showEditDialog(int index) {
@@ -117,7 +117,15 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                       color: color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(cat.icon, size: 22, color: color),
+                    child: cat.iconPath != null
+                        ? SvgPicture.asset(
+                            cat.iconPath!,
+                            width: 24,
+                            height: 24,
+                            fit: BoxFit.contain,
+                            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                          )
+                        : Icon(cat.icon ?? Icons.account_balance_wallet, size: 24, color: color),
                   ),
                   const SizedBox(width: 16),
                   Text(
