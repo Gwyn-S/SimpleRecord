@@ -26,7 +26,7 @@ class _MainPageState extends State<MainPage> {
     if (_menuOpen) setState(() => _menuOpen = false);
   }
 
-  static const _pages = [
+  static final _pages = const [
     BillsPage(),
     CalendarPage(),
     SizedBox(),
@@ -48,7 +48,10 @@ class _MainPageState extends State<MainPage> {
           GestureDetector(
             onTap: _closeMenu,
             behavior: HitTestBehavior.translucent,
-            child: _pages[_tab],
+            child: IndexedStack(
+              index: _tab,
+              children: _pages,
+            ),
           ),
           if (_menuOpen)
             Positioned(

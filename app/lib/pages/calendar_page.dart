@@ -28,6 +28,8 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   double _monthIncome = 0;
   double _monthExpense = 0;
   final Map<String, LunarInfo> _lunarCache = {};
+  final Map<String, List<Record>> _dayRecordsCache = {};
+  Map<int, LunarInfo> _monthLunarCache = {};
 
   @override
   void initState() {
@@ -85,6 +87,20 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         _dayAmountsCache[dayKey] = (income: inc, expense: exp);
       }
     }
+
+    _dayRecordsCache.clear();
+    for (final r in _monthRecordsCache) {
+      (_dayRecordsCache['${r.date.day}'] ??= []).add(r);
+    }
+
+    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    _monthLunarCache = {};
+    for (var d = firstDay.day; d <= lastDay.day; d++) {
+      final date = DateTime(_currentMonth.year, _currentMonth.month, d);
+      final cacheKey = '${date.year}-${date.month}-${date.day}';
+      _monthLunarCache[d] = _lunarCache[cacheKey] ??= lunarInfo(date);
+    }
   }
 
   void _prevMonth() {
@@ -114,12 +130,11 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   double get _monthBalance => _monthIncome - _monthExpense;
 
   List<Record> _recordsForDay(DateTime day) {
-    return _monthRecordsCache.where((r) => r.date.day == day.day).toList();
+    return _dayRecordsCache['${day.day}'] ?? [];
   }
 
   LunarInfo _getLunarInfo(DateTime date) {
-    final key = '${date.year}-${date.month}-${date.day}';
-    return _lunarCache[key] ??= lunarInfo(date);
+    return _monthLunarCache[date.day] ?? const LunarInfo(text: '', isFestival: false);
   }
 
   String _fmt(double v) => v.toStringAsFixed(2);
@@ -151,7 +166,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         Expanded(
           child: Column(
             children: [
-              _buildCalendarGrid(),
+              RepaintBoundary(child: _buildCalendarGrid()),
               Expanded(
                 child: DayRecordsPanel(
                   selectedDay: _selectedDay,
@@ -250,36 +265,40 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
               child: child,
             );
           },
-          child: GridView.builder(
-            key: ValueKey(_currentMonth),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 0,
-              crossAxisSpacing: 0,
-              childAspectRatio: 0.85,
-            ),
-            itemCount: totalCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemBuilder: (context, index) {
-              if (index < startWeekday) return const SizedBox();
-              final day = index - startWeekday + 1;
-              final date = DateTime(_currentMonth.year, _currentMonth.month, day);
-              final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
-              final isSelected = _selectedDay != null &&
-                  date.year == _selectedDay!.year && date.month == _selectedDay!.month && date.day == _selectedDay!.day;
-              final amounts = _dayAmounts(date);
+          child: ValueListenableBuilder<Color>(
+            valueListenable: themeColorNotifier,
+            builder: (context, color, _) => GridView.builder(
+              key: ValueKey(_currentMonth),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 0,
+                crossAxisSpacing: 0,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: totalCount,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                if (index < startWeekday) return const SizedBox();
+                final day = index - startWeekday + 1;
+                final date = DateTime(_currentMonth.year, _currentMonth.month, day);
+                final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+                final isSelected = _selectedDay != null &&
+                    date.year == _selectedDay!.year && date.month == _selectedDay!.month && date.day == _selectedDay!.day;
+                final amounts = _dayAmounts(date);
 
-              return CalendarCell(
-                date: date,
-                isToday: isToday,
-                isSelected: isSelected,
-                expense: amounts.expense,
-                income: amounts.income,
-                lunar: _getLunarInfo(date),
-                onTap: () => setState(() => _selectedDay = date),
-              );
-            },
+                return CalendarCell(
+                  date: date,
+                  isToday: isToday,
+                  isSelected: isSelected,
+                  expense: amounts.expense,
+                  income: amounts.income,
+                  lunar: _getLunarInfo(date),
+                  onTap: () => setState(() => _selectedDay = date),
+                  themeColor: color,
+                );
+              },
+            ),
           ),
         ),
       ),
