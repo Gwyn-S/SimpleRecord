@@ -26,20 +26,28 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   String _evaluate(String expr) {
     expr = expr.replaceAll('×', '*').replaceAll('÷', '/');
     try {
-      double result = 0;
-      String op = '+';
+      final nums = <double>[];
       final parts = expr.split(RegExp(r'([+\-*/])'));
-      final ops = RegExp(r'[+\-*/]').allMatches(expr).map((m) => m.group(0)!).toList();
-      for (int i = 0; i < parts.length; i++) {
-        if (parts[i].isEmpty) continue;
-        final num = double.parse(parts[i]);
-        switch (op) {
-          case '+': result += num; break;
-          case '-': result -= num; break;
-          case '*': result *= num; break;
-          case '/': result = num == 0 ? 0 : result / num; break;
+      for (final p in parts) {
+        if (p.isEmpty) continue;
+        nums.add(double.parse(p));
+      }
+      final operators = RegExp(r'[+\-*/]').allMatches(expr).map((m) => m.group(0)!).toList();
+      int i = 0;
+      while (i < operators.length) {
+        if (operators[i] == '*' || operators[i] == '/') {
+          final a = nums[i];
+          final b = nums[i + 1];
+          nums[i] = operators[i] == '*' ? a * b : (b == 0 ? 0 : a / b);
+          nums.removeAt(i + 1);
+          operators.removeAt(i);
+        } else {
+          i++;
         }
-        if (i < ops.length) op = ops[i];
+      }
+      double result = nums.first;
+      for (int j = 0; j < operators.length; j++) {
+        result = operators[j] == '+' ? result + nums[j + 1] : result - nums[j + 1];
       }
       if (result == result.roundToDouble() && !expr.contains('.')) {
         return result.toInt().toString();
@@ -109,13 +117,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       } else if (key == '00') {
         final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
         if (segment.contains('.')) {
-          if (segment.split('.')[1].length < 2) _amount += '00';
-        } else {
-          if (_amount == '0') {
-            _amount = '00';
-          } else {
+          final decimals = segment.split('.')[1];
+          if (decimals.isEmpty) {
             _amount += '00';
+          } else if (decimals.length == 1) {
+            _amount += '0';
           }
+        } else if (segment != '0' && segment != '00') {
+          _amount += '00';
         }
       } else if ('+-×÷'.contains(key)) {
         if (_endsWithOp(_amount)) {
@@ -340,22 +349,31 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             },
           ),
           const SizedBox(width: 24),
+          // TODO: 接入账户选择功能（关联 asset_accounts）
           _buildOptionItem(
             icon: Icons.account_balance_wallet_outlined,
             label: '账户',
-            onTap: () {},
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('账户选择功能开发中'), duration: Duration(seconds: 1)),
+            ),
           ),
           const SizedBox(width: 24),
+          // TODO: 接入标签功能（关联 tags 表）
           _buildOptionItem(
             icon: Icons.label_outline,
             label: '标签',
-            onTap: () {},
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('标签功能开发中'), duration: Duration(seconds: 1)),
+            ),
           ),
           const SizedBox(width: 24),
+          // TODO: 接入图片附件功能
           _buildOptionItem(
             icon: Icons.camera_alt_outlined,
             label: '图片',
-            onTap: () {},
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('图片附件功能开发中'), duration: Duration(seconds: 1)),
+            ),
           ),
         ],
       ),

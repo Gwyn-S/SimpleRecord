@@ -11,8 +11,6 @@ class AddAssetAccountPage extends StatefulWidget {
 }
 
 class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
-  int? _selectedCategory;
-
   final _categoryColors = const [
     Color(0xFFE53935), // 现金
     Color(0xFF1E88E5), // 网络支付
@@ -24,7 +22,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
     Color(0xFF546E7A), // 自定义资产
   ];
 
-  void _showEditDialog(int index) {
+  void _showAddDialog(int index) {
     final cat = assetAccountCategories[index];
     final nameController = TextEditingController(text: cat.name);
     final balanceController = TextEditingController(text: '0');
@@ -105,7 +103,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
           final color = _categoryColors[index % _categoryColors.length];
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _showEditDialog(index),
+            onTap: () => _showAddDialog(index),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(

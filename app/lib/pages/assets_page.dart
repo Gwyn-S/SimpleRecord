@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
+import '../widgets/summary_block.dart';
 import 'user_page.dart';
 
 class AssetsPage extends StatefulWidget {
@@ -144,9 +145,9 @@ class _AssetsPageState extends State<AssetsPage> {
                           height: 90,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: 60, child: _block('净资产', _fmt(_totalBalance), large: true)),
-                              Positioned(left: 0, top: 60, width: halfW, child: _block('资产', _fmt(_totalBalance))),
-                              Positioned(left: halfW, top: 60, width: halfW, child: _block('负债', '0.00')),
+                              Positioned(left: 0, top: 0, width: halfW, height: 60, child: SummaryBlock('净资产', _fmt(_totalBalance), large: true)),
+                              Positioned(left: 0, top: 60, width: halfW, child: SummaryBlock('资产', _fmt(_totalBalance))),
+                              Positioned(left: halfW, top: 60, width: halfW, child: SummaryBlock('负债', '0.00')),
                             ],
                           ),
                         );
@@ -234,47 +235,6 @@ class _AssetsPageState extends State<AssetsPage> {
     );
   }
 
-  Widget _block(String label, String amount, {bool large = false}) {
-    if (large) {
-      return FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                const Text('¥', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-                const SizedBox(width: 4),
-                Text(amount, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-          const SizedBox(width: 4),
-          const Text('¥', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-          const SizedBox(width: 2),
-          Text(amount, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
-        ],
-      ),
-    );
-  }
 }
 
 class _ChartAxisPainter extends CustomPainter {

@@ -38,6 +38,11 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(0),
+        child: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      ),
       body: Stack(
         children: [
           GestureDetector(
@@ -58,16 +63,19 @@ class _MainPageState extends State<MainPage> {
                     Positioned(
                       left: MediaQuery.of(context).size.width / 2 - 100,
                       top: 2,
+                      // TODO: 接入拍照记账功能
                       child: _miniFab(Icons.edit, _closeMenu),
                     ),
                     Positioned(
                       left: MediaQuery.of(context).size.width / 2 - 22,
                       top: -18,
+                      // TODO: 接入语音记账功能
                       child: _miniFab(Icons.mic, _closeMenu),
                     ),
                     Positioned(
                       right: MediaQuery.of(context).size.width / 2 - 100,
                       top: 2,
+                      // TODO: 接入扫码记账功能
                       child: _miniFab(Icons.camera_alt, _closeMenu),
                     ),
                   ],

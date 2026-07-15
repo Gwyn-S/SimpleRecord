@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'theme.dart';
 import 'models/record.dart';
 import 'pages/main_page.dart';
@@ -7,6 +8,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadThemeColor();
   await loadCurrentBookId();
+  initRecordsListener();
   runApp(const MyApp());
 }
 
@@ -30,6 +32,13 @@ class _MyAppState extends State<MyApp> {
             brightness: Brightness.light,
             scaffoldBackgroundColor: Colors.white,
             colorScheme: ColorScheme.fromSeed(seedColor: color),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              },
+            ),
           ),
           home: const MainPage(),
         );

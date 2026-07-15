@@ -275,7 +275,7 @@ class _BookListPageState extends State<BookListPage> {
                                       ),
                                     ),
                                     if (isCurrent)
-                                      Positioned(
+                                      const Positioned(
                                         top: 4,
                                         right: 4,
                                         child: Icon(Icons.check, color: Colors.white, size: 16),
@@ -284,41 +284,41 @@ class _BookListPageState extends State<BookListPage> {
                                 ),
                               ],
                             ),
-                              const SizedBox(width: 16),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                  const SizedBox(height: 4),
-                  Text('总收入：${_fmt(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                  const SizedBox(height: 4),
-                  Text('总支出：${_fmt(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                  const SizedBox(height: 4),
-                  Text('总结余：${_fmt(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: Colors.black)),
+                                  const SizedBox(height: 4),
+                                  Text('总收入：${_fmt(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
+                                  const SizedBox(height: 4),
+                                  Text('总支出：${_fmt(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
+                                  const SizedBox(height: 4),
+                                  Text('总结余：${_fmt(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
                                 ],
                               ),
                             ),
-                              SizedBox(
-                                height: 100,
-                                child: Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () => _showEditDialog(index),
-                                        child: Icon(Icons.edit, size: 30, color: color),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      GestureDetector(
-                                        onTap: () => _showDeleteDialog(index),
-                                        child: Icon(Icons.delete_outline, size: 30, color: color),
-                                      ),
-                                    ],
-                                  ),
+                            SizedBox(
+                              height: 100,
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _showEditDialog(index),
+                                      child: Icon(Icons.edit, size: 30, color: color),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    GestureDetector(
+                                      onTap: () => _showDeleteDialog(index),
+                                      child: Icon(Icons.delete_outline, size: 30, color: color),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            ),
                             ],
                           ),
                         ),

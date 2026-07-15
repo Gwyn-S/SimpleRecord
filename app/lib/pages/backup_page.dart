@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+// TODO: WebDAV 备份功能（Phase 5）
+// - 设置页面：填写坚果云 WebDAV 地址、账号、专用密码
+// - 备份按钮：导出全部数据为 JSON → 上传到坚果云
+// - 恢复按钮：从坚果云下载 → 解析 → 导入数据库
 class BackupPage extends StatelessWidget {
   const BackupPage({super.key});
 

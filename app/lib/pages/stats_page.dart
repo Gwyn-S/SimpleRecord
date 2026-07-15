@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+// TODO: Phase 4 - 统计图表功能
+// - 饼图：本月各分类支出占比
+// - 折线图：近6个月收支趋势
+// - 柱状图：各分类支出排行
+// - 时间范围选择（本月/近3月/近6月/本年）
 class StatsPage extends StatelessWidget {
   const StatsPage({super.key});
 

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+// TODO: 搜索功能
+// - 按日期范围搜索
+// - 按分类筛选
+// - 按金额区间搜索
+// - 关键词备注搜索
 class SearchPage extends StatelessWidget {
   const SearchPage({super.key});
 

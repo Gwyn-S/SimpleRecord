@@ -7,6 +7,17 @@ const _currentBookKey = 'currentBookId';
 
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
 final ValueNotifier<String?> currentBookId = ValueNotifier(null);
+final ValueNotifier<List<Record>> allRecords = ValueNotifier([]);
+
+void _syncRecords() async {
+  allRecords.value = await loadRecords();
+}
+
+void initRecordsListener() {
+  recordsVersion.addListener(_syncRecords);
+  currentBookId.addListener(_syncRecords);
+  _syncRecords();
+}
 
 Future<void> loadCurrentBookId() async {
   final prefs = await SharedPreferences.getInstance();
