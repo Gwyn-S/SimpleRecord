@@ -7,7 +7,7 @@ import '../theme.dart';
 import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
-import 'home_top_bar.dart';
+import '../widgets/home_top_bar.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});

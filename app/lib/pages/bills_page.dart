@@ -8,7 +8,7 @@ import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
-import 'home_top_bar.dart';
+import '../widgets/home_top_bar.dart';
 
 class BillsPage extends StatefulWidget {
   const BillsPage({super.key});
