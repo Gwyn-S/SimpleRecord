@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import '../theme.dart';
 import '../models/record.dart';
+import '../widgets/record_item.dart';
 import 'home_top_bar.dart';
-import 'calendar_cell.dart';
-import 'day_records_panel.dart';
-import 'calendar_lunar_utils.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -13,131 +12,93 @@ class CalendarPage extends StatefulWidget {
   State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
-  DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
-  DateTime? _selectedDay = DateTime.now();
-  bool _slideToRight = true;
-  late final AnimationController _slideCtrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 50),
-  )..value = 1.0;
-
-  Map<String, List<Record>> _bookRecordsCache = {};
-  Map<String, ({double income, double expense})> _dayAmountsCache = {};
-  List<Record> _monthRecordsCache = [];
-  double _monthIncome = 0;
-  double _monthExpense = 0;
-  final Map<String, LunarInfo> _lunarCache = {};
-  final Map<String, List<Record>> _dayRecordsCache = {};
-  Map<int, LunarInfo> _monthLunarCache = {};
+class _CalendarPageState extends State<CalendarPage> {
+  late final PageController _pageController;
+  late DateTime _currentMonth;
+  DateTime? _selectedDay;
+  static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
   @override
   void initState() {
     super.initState();
-    allRecords.addListener(_onRecordsChanged);
-    _rebuildMonthCache();
+    final now = DateTime.now();
+    _currentMonth = DateTime(now.year, now.month);
+    _selectedDay = DateTime(now.year, now.month, now.day);
+    _pageController = PageController(initialPage: now.year * 12 + now.month - 1);
+    allRecords.addListener(_setState);
   }
 
   @override
   void dispose() {
-    _slideCtrl.dispose();
-    allRecords.removeListener(_onRecordsChanged);
+    allRecords.removeListener(_setState);
+    _pageController.dispose();
     super.dispose();
   }
 
-  void _onRecordsChanged() {
-    if (!mounted) return;
-    _rebuildMonthCache();
-    setState(() {});
+  void _setState() {
+    if (mounted) setState(() {});
   }
 
   List<Record> get _records => allRecords.value;
 
-  void _rebuildMonthCache() {
-    final bid = currentBookId.value;
-    _bookRecordsCache = {};
-    for (final r in _records) {
-      if (r.bookId != bid) continue;
-      final key = '${r.date.year}-${r.date.month}';
-      (_bookRecordsCache[key] ??= []).add(r);
-    }
-    _rebuildCurrentMonthData();
+  DateTime _monthFromPage(int page) {
+    final year = (page + 1) ~/ 12;
+    final month = (page + 1) % 12;
+    return DateTime(year, month == 0 ? 12 : month);
   }
 
-  void _rebuildCurrentMonthData() {
-    final key = '${_currentMonth.year}-${_currentMonth.month}';
-    _monthRecordsCache = _bookRecordsCache[key] ?? [];
-    _monthIncome = 0;
-    _monthExpense = 0;
-    _dayAmountsCache = {};
+  int _pageFromMonth(DateTime m) => m.year * 12 + m.month - 1;
 
-    for (final r in _monthRecordsCache) {
-      if (r.isExpense) {
-        _monthExpense += r.amount;
-      } else {
-        _monthIncome += r.amount;
-      }
-      final dayKey = '${r.date.day}';
-      final prev = _dayAmountsCache[dayKey];
-      double inc = r.isExpense ? 0 : r.amount;
-      double exp = r.isExpense ? r.amount : 0;
-      if (prev != null) {
-        _dayAmountsCache[dayKey] = (income: prev.income + inc, expense: prev.expense + exp);
-      } else {
-        _dayAmountsCache[dayKey] = (income: inc, expense: exp);
-      }
-    }
-
-    _dayRecordsCache.clear();
-    for (final r in _monthRecordsCache) {
-      (_dayRecordsCache['${r.date.day}'] ??= []).add(r);
-    }
-
-    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    _monthLunarCache = {};
-    for (var d = firstDay.day; d <= lastDay.day; d++) {
-      final date = DateTime(_currentMonth.year, _currentMonth.month, d);
-      final cacheKey = '${date.year}-${date.month}-${date.day}';
-      _monthLunarCache[d] = _lunarCache[cacheKey] ??= lunarInfo(date);
-    }
+  List<Record> _recordsForDay(DateTime day) {
+    return _records.where((r) =>
+        r.date.year == day.year &&
+        r.date.month == day.month &&
+        r.date.day == day.day &&
+        r.bookId == currentBookId.value).toList();
   }
 
-  void _prevMonth() {
-    _slideToRight = true;
-    _slideCtrl.forward(from: 0.0);
-    setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
-      _selectedDay = null;
-      _rebuildCurrentMonthData();
-    });
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  void _nextMonth() {
-    _slideToRight = false;
-    _slideCtrl.forward(from: 0.0);
-    setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
-      _selectedDay = null;
-      _rebuildCurrentMonthData();
-    });
+  bool _isSelected(DateTime d) {
+    if (_selectedDay == null) return false;
+    return d.year == _selectedDay!.year &&
+        d.month == _selectedDay!.month &&
+        d.day == _selectedDay!.day;
   }
 
-  ({double expense, double income}) _dayAmounts(DateTime day) {
-    return _dayAmountsCache['${day.day}'] ?? (expense: 0.0, income: 0.0);
+  String get _monthLabel =>
+      '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}';
+
+  void _changeMonth(int delta) {
+    final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
+    _pageController.animateToPage(
+      _pageFromMonth(next),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
+
+  List<Record> get _monthRecords {
+    return _records.where((r) =>
+        r.date.year == _currentMonth.year &&
+        r.date.month == _currentMonth.month &&
+        r.bookId == currentBookId.value).toList();
+  }
+
+  double get _monthExpense => _monthRecords
+      .where((r) => r.isExpense)
+      .fold(0.0, (sum, r) => sum + r.amount);
+
+  double get _monthIncome => _monthRecords
+      .where((r) => !r.isExpense)
+      .fold(0.0, (sum, r) => sum + r.amount);
 
   double get _monthBalance => _monthIncome - _monthExpense;
 
-  List<Record> _recordsForDay(DateTime day) {
-    return _dayRecordsCache['${day.day}'] ?? [];
-  }
-
-  LunarInfo _getLunarInfo(DateTime date) {
-    return _monthLunarCache[date.day] ?? const LunarInfo(text: '', isFestival: false);
-  }
-
-  String _fmt(double v) => v.toStringAsFixed(2);
+  String _fmtAmt(double v) => v.toStringAsFixed(2);
 
   @override
   Widget build(BuildContext context) {
@@ -152,29 +113,59 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                 children: [
                   SizedBox(height: MediaQuery.of(context).padding.top),
                   HomeTopBar(
-                    monthLabel: '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}',
-                    onPrevMonth: _prevMonth,
-                    onNextMonth: _nextMonth,
+                    monthLabel: _monthLabel,
+                    onPrevMonth: () => _changeMonth(-1),
+                    onNextMonth: () => _changeMonth(1),
                   ),
-                  _buildMonthSummary(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _summaryItem('本月支出', _monthExpense),
+                        const SizedBox(width: 24),
+                        _summaryItem('本月收入', _monthIncome),
+                        const SizedBox(width: 24),
+                        _summaryItem('本月结余', _monthBalance),
+                      ],
+                    ),
+                  ),
+                  _buildWeekdayHeader(),
                 ],
               ),
             );
           },
         ),
-        _buildWeekHeader(),
         Expanded(
           child: Column(
             children: [
-              RepaintBoundary(child: _buildCalendarGrid()),
-              Expanded(
-                child: DayRecordsPanel(
-                  selectedDay: _selectedDay,
-                  records: _selectedDay != null ? _recordsForDay(_selectedDay!) : [],
-                  dayIncome: _selectedDay != null ? _dayAmounts(_selectedDay!).income : 0,
-                  dayExpense: _selectedDay != null ? _dayAmounts(_selectedDay!).expense : 0,
-                  fmt: _fmt,
+              SizedBox(
+                height: 320,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                  }),
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (page) => setState(() {
+                      _currentMonth = _monthFromPage(page);
+                      _selectedDay = null;
+                    }),
+                    itemBuilder: (context, page) {
+                      final month = _monthFromPage(page);
+                      return _buildMonthGrid(month);
+                    },
+                  ),
                 ),
+              ),
+              const Divider(height: 1, thickness: 0.5, color: Color(0xFFEEEEEE)),
+              Expanded(
+                child: _selectedDay == null
+                    ? const Center(
+                        child: Text('点击日期查看记录', style: TextStyle(fontSize: 13, color: Color(0xFF999999))),
+                      )
+                    : _buildDayRecords(),
               ),
             ],
           ),
@@ -183,125 +174,222 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildMonthSummary() {
+  Widget _summaryItem(String label, double value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(_fmtAmt(value), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
+      ],
+    );
+  }
+
+  Widget _buildWeekdayHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Row(
-        children: [
-          _summaryItem('本月收入', _fmt(_monthIncome)),
-          const SizedBox(width: 40),
-          _summaryItem('本月支出', _fmt(_monthExpense)),
-          const SizedBox(width: 40),
-          _summaryItem('本月结余', _fmt(_monthBalance)),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryItem(String label, String amount) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              const Text('¥', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-              const SizedBox(width: 4),
-              Text(amount, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeekHeader() {
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-      color: Colors.white,
-      child: Row(
-        children: weekdays.map((d) => Expanded(
-          child: Center(
-            child: Text(d, style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF999999),
-            )),
-          ),
-        )).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCalendarGrid() {
-    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    final startWeekday = (firstDay.weekday - 1) % 7;
-    final totalDays = lastDay.day;
-    final today = DateTime.now();
-    final totalCount = startWeekday + totalDays;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
-      child: Container(
-        color: Colors.white,
-        child: AnimatedBuilder(
-          animation: _slideCtrl,
-          builder: (context, child) {
-            final offset = Tween<double>(
-              begin: _slideToRight ? -1.0 : 1.0,
-              end: 0.0,
-            ).evaluate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut));
-            return Transform.translate(
-              offset: Offset(offset * MediaQuery.of(context).size.width, 0),
-              child: child,
-            );
-          },
-          child: ValueListenableBuilder<Color>(
-            valueListenable: themeColorNotifier,
-            builder: (context, color, _) => GridView.builder(
-              key: ValueKey(_currentMonth),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: 0,
-                crossAxisSpacing: 0,
-                childAspectRatio: 0.85,
+        children: _weekdayLabels.map((label) {
+          return Expanded(
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xAAFFFFFF),
+                ),
               ),
-              itemCount: totalCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                if (index < startWeekday) return const SizedBox();
-                final day = index - startWeekday + 1;
-                final date = DateTime(_currentMonth.year, _currentMonth.month, day);
-                final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
-                final isSelected = _selectedDay != null &&
-                    date.year == _selectedDay!.year && date.month == _selectedDay!.month && date.day == _selectedDay!.day;
-                final amounts = _dayAmounts(date);
-
-                return CalendarCell(
-                  date: date,
-                  isToday: isToday,
-                  isSelected: isSelected,
-                  expense: amounts.expense,
-                  income: amounts.income,
-                  lunar: _getLunarInfo(date),
-                  onTap: () => setState(() => _selectedDay = date),
-                  themeColor: color,
-                );
-              },
             ),
-          ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMonthGrid(DateTime month) {
+    final firstDay = DateTime(month.year, month.month, 1);
+    int startWeekday = firstDay.weekday;
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+
+    final cells = <DateTime?>[];
+    for (int i = 1; i < startWeekday; i++) {
+      cells.add(null);
+    }
+    for (int d = 1; d <= daysInMonth; d++) {
+      cells.add(DateTime(month.year, month.month, d));
+    }
+
+    final rows = <Widget>[];
+    for (int i = 0; i < cells.length; i += 7) {
+      final rowCells = cells.sublist(i, (i + 7).clamp(0, cells.length));
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: Row(
+          children: rowCells.map((day) => Expanded(child: _buildDayCell(day))).toList(),
+        ),
+      ));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _buildDayCell(DateTime? day) {
+    if (day == null) return const SizedBox(height: 44);
+
+    final dayRecords = _recordsForDay(day);
+    final hasData = dayRecords.isNotEmpty;
+    final today = _isToday(day);
+    final selected = _isSelected(day);
+    final isCurrentMonth = day.month == _currentMonth.month;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedDay = day),
+      child: SizedBox(
+        height: 44,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: selected
+                    ? themeColorNotifier.value
+                    : today
+                        ? themeColorNotifier.value.withValues(alpha: 0.12)
+                        : null,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: today || selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected
+                      ? Colors.white
+                      : today
+                          ? themeColorNotifier.value
+                          : isCurrentMonth
+                              ? const Color(0xFF333333)
+                              : const Color(0xFFCCCCCC),
+                ),
+              ),
+            ),
+            if (hasData)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (dayRecords.any((r) => !r.isExpense))
+                      Container(
+                        width: 4,
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4CAF50),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    if (dayRecords.any((r) => r.isExpense))
+                      Container(
+                        width: 4,
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF44336),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox(height: 6),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDayRecords() {
+    final day = _selectedDay!;
+    final records = _recordsForDay(day);
+    final weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    final dateStr = '${day.month}月${day.day}日 ${weekdays[(day.weekday - 1) % 7]}';
+
+    final income = records.where((r) => !r.isExpense).fold(0.0, (s, r) => s + r.amount);
+    final expense = records.where((r) => r.isExpense).fold(0.0, (s, r) => s + r.amount);
+
+    if (records.isEmpty) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Text(dateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF333333))),
+                const Spacer(),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: Center(
+              child: Text('当日无记录', style: TextStyle(fontSize: 13, color: Color(0xFF999999))),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Text(dateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF333333))),
+              const Spacer(),
+              if (income > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Text.rich(
+                    TextSpan(
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                      children: [
+                        const TextSpan(text: '收入 '),
+                        TextSpan(text: _fmtAmt(income), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF4CAF50))),
+                      ],
+                    ),
+                  ),
+                ),
+              if (expense > 0)
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                    children: [
+                      const TextSpan(text: '支出 '),
+                      TextSpan(text: _fmtAmt(expense), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFF44336))),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            children: [
+              ...records.map((r) => RecordItem(record: r)),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
