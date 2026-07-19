@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
-import 'book_list_page.dart';
-import 'backup_page.dart';
-import 'search_page.dart';
-import 'user_page.dart';
+import '../pages/book_list_page.dart';
+import '../pages/backup_page.dart';
+import '../pages/search_page.dart';
+import '../pages/user_page.dart';
 
 class HomeTopBar extends StatelessWidget {
   final String monthLabel;
