@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/record.dart';
+import '../services/record_service.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
 import 'home_top_bar.dart';

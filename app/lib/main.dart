@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'constants/app_colors.dart';
 import 'theme.dart';
-import 'models/record.dart';
+import 'services/record_service.dart';
 import 'pages/main_page.dart';
 
 void main() async {

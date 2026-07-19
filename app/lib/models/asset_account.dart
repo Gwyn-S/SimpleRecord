@@ -1,13 +1,5 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-const _storageKey = 'asset_accounts';
-
-final ValueNotifier<int> assetAccountsVersion = ValueNotifier(0);
-
 class AssetAccountCategory {
-  final IconData? icon;
+  final dynamic icon;
   final String? iconPath;
   final String name;
 
@@ -58,19 +50,4 @@ class AssetAccount {
     name: json['name'] as String,
     balance: (json['balance'] as num?)?.toDouble() ?? 0,
   );
-}
-
-Future<List<AssetAccount>> loadAssetAccounts() async {
-  final prefs = await SharedPreferences.getInstance();
-  final str = prefs.getString(_storageKey);
-  if (str == null) return [];
-  final list = jsonDecode(str) as List;
-  return list.map((e) => AssetAccount.fromJson(e as Map<String, dynamic>)).toList();
-}
-
-Future<void> saveAssetAccounts(List<AssetAccount> accounts) async {
-  final prefs = await SharedPreferences.getInstance();
-  final str = jsonEncode(accounts.map((a) => a.toJson()).toList());
-  await prefs.setString(_storageKey, str);
-  assetAccountsVersion.value++;
 }

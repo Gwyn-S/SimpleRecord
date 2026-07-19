@@ -1,11 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import '../models/book.dart';
+import '../services/record_service.dart';
+import '../services/book_service.dart';
 
 class BookListPage extends StatefulWidget {
   const BookListPage({super.key});
@@ -40,19 +40,12 @@ class _BookListPageState extends State<BookListPage> {
 
   Future<void> _loadBooks() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonStr = prefs.getString('books');
-      if (jsonStr != null && jsonStr.isNotEmpty) {
-        final list = jsonDecode(jsonStr) as List;
-        setState(() {
-          _books.clear();
-          _books.addAll(list.map((e) => Book.fromJson(e as Map<String, dynamic>)));
-        });
-      }
+      final loaded = await loadBooks();
+      setState(() => _books.addAll(loaded));
       if (_books.isEmpty) {
         final defaultBook = Book(id: DateTime.now().millisecondsSinceEpoch.toString(), name: '日常');
         setState(() => _books.add(defaultBook));
-        await _saveBooks();
+        await saveBooks(_books);
         await saveCurrentBookId(defaultBook.id);
       } else if (_books.length == 1) {
         if (currentBookId.value == null || !_books.any((b) => b.id == currentBookId.value)) {
@@ -73,16 +66,6 @@ class _BookListPageState extends State<BookListPage> {
   int _recordCount(String bookId) => _records.where((r) => r.bookId == bookId).length;
   double _totalIncome(String bookId) => _records.where((r) => r.bookId == bookId && !r.isExpense).fold(0.0, (s, r) => s + r.amount);
   double _totalExpense(String bookId) => _records.where((r) => r.bookId == bookId && r.isExpense).fold(0.0, (s, r) => s + r.amount);
-
-  Future<void> _saveBooks() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(_books.map((e) => e.toJson()).toList());
-      await prefs.setString('books', json);
-    } catch (e) {
-      debugPrint('保存账本失败: $e');
-    }
-  }
 
   String _fmt(double v) => v.toStringAsFixed(2);
 
@@ -110,7 +93,7 @@ class _BookListPageState extends State<BookListPage> {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 setState(() => _books.add(Book(id: DateTime.now().millisecondsSinceEpoch.toString(), name: name)));
-                await _saveBooks();
+                await saveBooks(_books);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -145,7 +128,7 @@ class _BookListPageState extends State<BookListPage> {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 setState(() => _books[index].name = name);
-                await _saveBooks();
+                await saveBooks(_books);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -178,7 +161,7 @@ class _BookListPageState extends State<BookListPage> {
             onPressed: () async {
               final deletedId = _books[index].id;
               setState(() => _books.removeAt(index));
-              await _saveBooks();
+              await saveBooks(_books);
               if (deletedId == currentBookId.value) {
                 await saveCurrentBookId(_books.isNotEmpty ? _books.first.id : null);
               }

@@ -1,17 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF009688));
-
-Future<void> loadThemeColor() async {
-  final prefs = await SharedPreferences.getInstance();
-  final colorValue = prefs.getInt('themeColor');
-  if (colorValue != null) {
-    themeColorNotifier.value = Color(colorValue);
-  }
-}
-
-Future<void> saveThemeColor(Color color) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('themeColor', color.toARGB32());
-}
+// theme.dart is kept for backward compatibility.
+// Actual implementation moved to services/theme_service.dart
+export '../services/theme_service.dart' show themeColorNotifier, loadThemeColor, saveThemeColor;

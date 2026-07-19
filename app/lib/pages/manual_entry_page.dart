@@ -4,6 +4,7 @@ import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
+import '../services/record_service.dart';
 
 class ManualEntryPage extends StatefulWidget {
   const ManualEntryPage({super.key});
