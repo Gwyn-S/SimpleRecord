@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../theme.dart';
-import '../icon/app_icons.dart';
+import '../models/category.dart';
 import '../models/record.dart';
 
 class RecordItem extends StatelessWidget {
