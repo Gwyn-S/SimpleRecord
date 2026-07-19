@@ -4,6 +4,8 @@ import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../utils/calendar_utils.dart';
+import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
 import 'home_top_bar.dart';
@@ -38,8 +40,6 @@ class _BillsPageState extends State<BillsPage> {
     setState(() => _loading = false);
   }
 
-  List<Record> get _records => allRecords.value;
-
   void _changeMonth(int delta) {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
@@ -48,33 +48,15 @@ class _BillsPageState extends State<BillsPage> {
     });
   }
 
-  String get _monthLabel =>
-      '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}';
+  String get _monthLabel => formatMonthLabel(_currentMonth);
 
-  List<Record> get _monthRecords {
-    return _records.where((r) =>
-        r.date.year == _currentMonth.year &&
-        r.date.month == _currentMonth.month &&
-        r.bookId == currentBookId.value).toList();
-  }
+  List<Record> get _monthRecords => monthRecords(_currentMonth);
 
-  double get _monthIncome => _monthRecords
-      .where((r) => !r.isExpense)
-      .fold(0.0, (sum, r) => sum + r.amount);
+  double get _monthIncome => monthIncome(_monthRecords);
 
-  double get _monthExpense => _monthRecords
-      .where((r) => r.isExpense)
-      .fold(0.0, (sum, r) => sum + r.amount);
+  double get _monthExpense => monthExpense(_monthRecords);
 
   double get _monthBalance => _monthIncome - _monthExpense;
-
-  String _formatAmount(double v) => v.toStringAsFixed(2);
-
-  static const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-
-  String _formatDate(DateTime d) {
-    return '${d.month}月${d.day}日 ${_weekdays[(d.weekday - 1) % 7]}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +84,10 @@ class _BillsPageState extends State<BillsPage> {
                           height: heightSummaryArea,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', _formatAmount(_monthBalance), large: true)),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月收入', _formatAmount(_monthIncome))),
+                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true)),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
                               Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月支出', _formatAmount(_monthExpense))),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
                             ],
                           ),
                         );
@@ -131,8 +113,8 @@ class _BillsPageState extends State<BillsPage> {
     if (_loading) {
       return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
     }
-    final monthRecords = _monthRecords;
-    if (monthRecords.isEmpty) {
+    final records = _monthRecords;
+    if (records.isEmpty) {
       return const SizedBox(
         height: 200,
         child: Center(
@@ -141,7 +123,7 @@ class _BillsPageState extends State<BillsPage> {
       );
     }
     final grouped = <String, List<Record>>{};
-    for (final r in monthRecords) {
+    for (final r in records) {
       final key = '${r.date.year}-${r.date.month}-${r.date.day}';
       grouped.putIfAbsent(key, () => []).add(r);
     }
@@ -155,8 +137,8 @@ class _BillsPageState extends State<BillsPage> {
       children: sortedKeys.map((key) {
         final dayRecords = grouped[key]!;
         final date = dayRecords.first.date;
-        final dayExpense = dayRecords.where((r) => r.isExpense).fold(0.0, (s, r) => s + r.amount);
-        final dayIncome = dayRecords.where((r) => !r.isExpense).fold(0.0, (s, r) => s + r.amount);
+        final dayExp = monthExpense(dayRecords);
+        final dayInc = monthIncome(dayRecords);
         final expanded = _expandedDays.contains(key);
         return Container(
           margin: const EdgeInsets.fromLTRB(spacingM, spacingSM, spacingM, spacingSM),
@@ -181,7 +163,7 @@ class _BillsPageState extends State<BillsPage> {
                   child: Row(
                     children: [
                       Text(
-                        _formatDate(date),
+                        formatDate(date),
                         style: const TextStyle(fontSize: 14, color: colorTextPrimary),
                       ),
                       const Spacer(),
@@ -190,9 +172,9 @@ class _BillsPageState extends State<BillsPage> {
                           style: const TextStyle(fontSize: 12, color: colorTextSecondary),
                           children: [
                             const TextSpan(text: '收入 '),
-                            TextSpan(text: _formatAmount(dayIncome), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                            TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
                             const TextSpan(text: '  支出 '),
-                            TextSpan(text: _formatAmount(dayExpense), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                            TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
                           ],
                         ),
                       ),
@@ -213,7 +195,7 @@ class _BillsPageState extends State<BillsPage> {
                     children: [
                       const Text('结余：', style: TextStyle(fontSize: 13, color: colorTextSecondary)),
                       Text(
-                        _formatAmount(dayIncome - dayExpense),
+                        formatAmount(dayInc - dayExp),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorTextPrimary),
                       ),
                     ],
@@ -226,7 +208,4 @@ class _BillsPageState extends State<BillsPage> {
       }).toList(),
     );
   }
-
-
-
 }

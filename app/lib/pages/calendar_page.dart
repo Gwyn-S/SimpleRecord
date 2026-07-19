@@ -4,8 +4,9 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../theme.dart';
-import '../models/record.dart';
 import '../services/record_service.dart';
+import '../utils/calendar_utils.dart';
+import '../utils/formatters.dart';
 import 'home_top_bar.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -28,8 +29,8 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     final now = DateTime.now();
     _currentMonth = DateTime(now.year, now.month);
-    _currentWeekStart = _weekStart(now);
-    _pageController = PageController(initialPage: now.year * 12 + now.month - 1);
+    _currentWeekStart = weekStart(now);
+    _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
     allRecords.addListener(_setState);
   }
 
@@ -44,22 +45,12 @@ class _CalendarPageState extends State<CalendarPage> {
     if (mounted) setState(() {});
   }
 
-  List<Record> get _records => allRecords.value;
-
-  DateTime _monthFromPage(int page) {
-    final year = (page + 1) ~/ 12;
-    final month = (page + 1) % 12;
-    return DateTime(year, month == 0 ? 12 : month);
-  }
-
-  int _pageFromMonth(DateTime m) => m.year * 12 + m.month - 1;
-
   String get _monthLabel {
     if (_weekMode) {
-      final start = _currentWeekStart ?? _weekStart(_selectedOrToday());
-      return '${start.year}-${start.month.toString().padLeft(2, '0')}';
+      final start = _currentWeekStart ?? weekStart(_selectedOrToday());
+      return formatMonthLabel(start);
     }
-    return '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}';
+    return formatMonthLabel(_currentMonth);
   }
 
   void _changeMonth(int delta) {
@@ -69,53 +60,27 @@ class _CalendarPageState extends State<CalendarPage> {
     }
     final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
     _pageController.animateToPage(
-      _pageFromMonth(next),
+      pageFromMonth(next),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
 
-  List<Record> get _monthRecords {
-    return _records.where((r) =>
-        r.date.year == _currentMonth.year &&
-        r.date.month == _currentMonth.month &&
-        r.bookId == currentBookId.value).toList();
-  }
+  List<Record> get _monthRecords => monthRecords(_currentMonth);
 
-  double get _monthExpense => _monthRecords
-      .where((r) => r.isExpense)
-      .fold(0.0, (sum, r) => sum + r.amount);
+  double get _monthExpense => monthExpense(_monthRecords);
 
-  double get _monthIncome => _monthRecords
-      .where((r) => !r.isExpense)
-      .fold(0.0, (sum, r) => sum + r.amount);
+  double get _monthIncome => monthIncome(_monthRecords);
 
   double get _monthBalance => _monthIncome - _monthExpense;
 
-  String _fmtAmt(double v) => v.toStringAsFixed(2);
-
   DateTime _selectedOrToday() => _selectedDay ?? DateTime.now();
 
-  DateTime _weekStart(DateTime day) {
-    return day.subtract(Duration(days: day.weekday - 1));
-  }
-
-  static final DateTime _epochMonday = DateTime(2020, 1, 6);
-
-  int _weekPageFromDay(DateTime day) {
-    final start = _weekStart(day);
-    return start.difference(_epochMonday).inDays ~/ 7;
-  }
-
-  DateTime _dayFromWeekPage(int page) {
-    return _epochMonday.add(Duration(days: page * 7));
-  }
-
   void _changeWeek(int delta) {
-    final currentStart = _weekStart(_selectedOrToday());
+    final currentStart = weekStart(_selectedOrToday());
     final next = currentStart.add(Duration(days: delta * 7));
     _pageController.animateToPage(
-      _weekPageFromDay(next),
+      weekPageFromDay(next),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -184,16 +149,16 @@ class _CalendarPageState extends State<CalendarPage> {
                 controller: _pageController,
                 onPageChanged: (page) => setState(() {
                   if (_weekMode) {
-                    _currentWeekStart = _dayFromWeekPage(page);
+                    _currentWeekStart = dayFromWeekPage(page);
                   } else {
-                    _currentMonth = _monthFromPage(page);
+                    _currentMonth = monthFromPage(page);
                   }
                 }),
                 itemBuilder: (context, page) {
                   if (_weekMode) {
-                    return _buildWeekGrid(_dayFromWeekPage(page));
+                    return _buildWeekGrid(dayFromWeekPage(page));
                   }
-                  return _buildMonthGrid(_monthFromPage(page));
+                  return _buildMonthGrid(monthFromPage(page));
                 },
               ),
             ),
@@ -209,7 +174,7 @@ class _CalendarPageState extends State<CalendarPage> {
       children: [
         Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
         const SizedBox(height: spacingXS),
-        Text(_fmtAmt(value), style: textAmountMedium),
+        Text(formatAmount(value), style: textAmountMedium),
       ],
     );
   }
@@ -224,11 +189,11 @@ class _CalendarPageState extends State<CalendarPage> {
               setState(() => _weekMode = !_weekMode);
               _pageController.dispose();
               if (_weekMode) {
-                final start = _weekStart(_selectedOrToday());
+                final start = weekStart(_selectedOrToday());
                 _currentWeekStart = start;
-                _pageController = PageController(initialPage: _weekPageFromDay(start));
+                _pageController = PageController(initialPage: weekPageFromDay(start));
               } else {
-                _pageController = PageController(initialPage: _pageFromMonth(_currentMonth));
+                _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
               }
             },
             child: Container(
@@ -296,8 +261,8 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildWeekGrid(DateTime weekStart) {
-    final days = List.generate(7, (i) => weekStart.add(Duration(days: i)));
+  Widget _buildWeekGrid(DateTime ws) {
+    final days = List.generate(7, (i) => ws.add(Duration(days: i)));
     final rowHeight = _monthRowHeight;
 
     return Container(

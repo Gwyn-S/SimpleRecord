@@ -6,6 +6,7 @@ import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
+import '../utils/formatters.dart';
 import '../widgets/summary_block.dart';
 import 'user_page.dart';
 
@@ -39,8 +40,6 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   double get _totalBalance => _accounts.fold(0.0, (s, a) => s + a.balance);
-
-  String _fmt(double v) => v.toStringAsFixed(2);
 
   void _showEditDialog(int index) {
     final account = _accounts[index];
@@ -149,8 +148,8 @@ class _AssetsPageState extends State<AssetsPage> {
                           height: heightSummaryArea,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', _fmt(_totalBalance), large: true)),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', _fmt(_totalBalance))),
+                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', formatAmount(_totalBalance), large: true)),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', formatAmount(_totalBalance))),
                               Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', '0.00')),
                             ],
                           ),
@@ -214,7 +213,7 @@ class _AssetsPageState extends State<AssetsPage> {
                                 ),
                               ),
                               Text(
-                                _fmt(account.balance),
+                                formatAmount(account.balance),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colorTextPrimary),
                               ),
                               const SizedBox(width: spacingS),

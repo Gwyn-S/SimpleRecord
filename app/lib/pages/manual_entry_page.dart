@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../utils/calculator.dart';
 
 class ManualEntryPage extends StatefulWidget {
   const ManualEntryPage({super.key});
@@ -26,43 +27,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     super.dispose();
   }
 
-  String _evaluate(String expr) {
-    expr = expr.replaceAll('×', '*').replaceAll('÷', '/');
-    try {
-      final nums = <double>[];
-      final parts = expr.split(RegExp(r'([+\-*/])'));
-      for (final p in parts) {
-        if (p.isEmpty) continue;
-        nums.add(double.parse(p));
-      }
-      final operators = RegExp(r'[+\-*/]').allMatches(expr).map((m) => m.group(0)!).toList();
-      int i = 0;
-      while (i < operators.length) {
-        if (operators[i] == '*' || operators[i] == '/') {
-          final a = nums[i];
-          final b = nums[i + 1];
-          nums[i] = operators[i] == '*' ? a * b : (b == 0 ? 0 : a / b);
-          nums.removeAt(i + 1);
-          operators.removeAt(i);
-        } else {
-          i++;
-        }
-      }
-      double result = nums.first;
-      for (int j = 0; j < operators.length; j++) {
-        result = operators[j] == '+' ? result + nums[j + 1] : result - nums[j + 1];
-      }
-      if (result == result.roundToDouble() && !expr.contains('.')) {
-        return result.toInt().toString();
-      }
-      return result.toStringAsFixed(2);
-    } catch (_) {
-      return expr;
-    }
-  }
-
-  bool _endsWithOp(String s) => s.endsWith('+') || s.endsWith('-') || s.endsWith('×') || s.endsWith('÷');
-
   String _getCategoryName() {
     final cats = _isExpense ? expenseCategories : incomeCategories;
     if (_selectedCategory == null || _selectedCategory! >= cats.length) return '其他';
@@ -70,7 +34,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   Future<void> _saveRecord() async {
-    final result = _evaluate(_amount);
+    final result = evaluate(_amount);
     final amount = double.tryParse(result) ?? 0;
     if (amount == 0) return;
     final record = Record(
@@ -130,7 +94,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           _amount += '00';
         }
       } else if ('+-×÷'.contains(key)) {
-        if (_endsWithOp(_amount)) {
+        if (endsWithOp(_amount)) {
           _amount = _amount.substring(0, _amount.length - 1) + key;
         } else if (_amount != '0') {
           _amount += key;
@@ -310,10 +274,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                 ),
                 Text(
-                  _endsWithOp(_amount)
+                  endsWithOp(_amount)
                       ? '¥ $_amount'
                       : _amount.contains(RegExp(r'[+\-×÷]'))
-                          ? '¥ $_amount = ${_evaluate(_amount)}'
+                          ? '¥ $_amount = ${evaluate(_amount)}'
                           : '¥ $_amount',
                   style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colorTextPrimary),
                 ),

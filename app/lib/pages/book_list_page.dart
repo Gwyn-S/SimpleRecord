@@ -6,6 +6,7 @@ import '../models/record.dart';
 import '../models/book.dart';
 import '../services/record_service.dart';
 import '../services/book_service.dart';
+import '../utils/formatters.dart';
 
 class BookListPage extends StatefulWidget {
   const BookListPage({super.key});
@@ -66,8 +67,6 @@ class _BookListPageState extends State<BookListPage> {
   int _recordCount(String bookId) => _records.where((r) => r.bookId == bookId).length;
   double _totalIncome(String bookId) => _records.where((r) => r.bookId == bookId && !r.isExpense).fold(0.0, (s, r) => s + r.amount);
   double _totalExpense(String bookId) => _records.where((r) => r.bookId == bookId && r.isExpense).fold(0.0, (s, r) => s + r.amount);
-
-  String _fmt(double v) => v.toStringAsFixed(2);
 
   void _showAddDialog() {
     final controller = TextEditingController();
@@ -261,11 +260,11 @@ class _BookListPageState extends State<BookListPage> {
                                 children: [
                                   Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
                                   const SizedBox(height: spacingXS),
-                                  Text('总收入：${_fmt(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总收入：${formatAmount(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
                                   const SizedBox(height: spacingXS),
-                                  Text('总支出：${_fmt(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总支出：${formatAmount(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
                                   const SizedBox(height: spacingXS),
-                                  Text('总结余：${_fmt(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
                                 ],
                               ),
                             ),
