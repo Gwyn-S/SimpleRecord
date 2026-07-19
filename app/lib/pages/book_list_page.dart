@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/record.dart';
 
@@ -198,7 +200,7 @@ class _BookListPageState extends State<BookListPage> {
               }
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: const Text('删除', style: TextStyle(color: colorDelete)),
           ),
         ],
       ),
@@ -215,11 +217,11 @@ class _BookListPageState extends State<BookListPage> {
           builder: (context, color, _) => AppBar(
             title: const Text('账本'),
             backgroundColor: color,
-            foregroundColor: Colors.white,
+            foregroundColor: colorTextOnPrimary,
             elevation: 0,
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(1),
-              child: Container(color: Colors.white.withValues(alpha: 0.3), height: 1),
+              child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
             ),
             leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context)),
             actions: [
@@ -232,13 +234,13 @@ class _BookListPageState extends State<BookListPage> {
         ),
       ),
       body: _books.isEmpty
-          ? const Center(child: Text('暂无账本，点击右上角 + 新建', style: TextStyle(color: Color(0xFFBBBBBB))))
+          ? const Center(child: Text('暂无账本，点击右上角 + 新建', style: TextStyle(color: colorTextPlaceholder)))
           : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: _books.length,
               separatorBuilder: (_, _2) => Container(
                 height: 1,
-                color: const Color(0xFFEEEEEE),
+                color: colorDivider,
               ),
               itemBuilder: (context, index) {
                 final book = _books[index];
@@ -249,7 +251,7 @@ class _BookListPageState extends State<BookListPage> {
                     valueListenable: themeColorNotifier,
                     builder: (context, color, _) {
                       return Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                        padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
                         child: SizedBox(
                           height: 100,
                           child: Row(
@@ -264,12 +266,12 @@ class _BookListPageState extends State<BookListPage> {
                                       height: 100,
                                       decoration: BoxDecoration(
                                         color: isCurrent ? color : color.withValues(alpha: 0.5),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(radiusSmall),
                                       ),
                                       child: Center(
                                         child: Text(
                                           book.name,
-                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorTextOnPrimary),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -278,25 +280,25 @@ class _BookListPageState extends State<BookListPage> {
                                       const Positioned(
                                         top: 4,
                                         right: 4,
-                                        child: Icon(Icons.check, color: Colors.white, size: 16),
+                                        child: Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeSmall),
                                       ),
                                   ],
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: spacingL),
                             Expanded(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                                  const SizedBox(height: 4),
-                                  Text('总收入：${_fmt(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                                  const SizedBox(height: 4),
-                                  Text('总支出：${_fmt(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
-                                  const SizedBox(height: 4),
-                                  Text('总结余：${_fmt(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: Colors.black)),
+                                  Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  const SizedBox(height: spacingXS),
+                                  Text('总收入：${_fmt(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  const SizedBox(height: spacingXS),
+                                  Text('总支出：${_fmt(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  const SizedBox(height: spacingXS),
+                                  Text('总结余：${_fmt(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
                                 ],
                               ),
                             ),
@@ -310,7 +312,7 @@ class _BookListPageState extends State<BookListPage> {
                                       onTap: () => _showEditDialog(index),
                                       child: Icon(Icons.edit, size: 30, color: color),
                                     ),
-                                    const SizedBox(width: 16),
+                                    const SizedBox(width: spacingL),
                                     GestureDetector(
                                       onTap: () => _showDeleteDialog(index),
                                       child: Icon(Icons.delete_outline, size: 30, color: color),
@@ -346,12 +348,12 @@ class _Toast extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: spacingXXL, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(20),
+              color: colorBackgroundToast,
+              borderRadius: BorderRadius.circular(radiusLarge),
             ),
-            child: Text(text, style: const TextStyle(color: Colors.black87, fontSize: 13)),
+            child: Text(text, style: const TextStyle(color: colorTextPrimary, fontSize: 13)),
           ),
         ),
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../icon/app_icons.dart';
 import '../models/record.dart';
@@ -153,7 +155,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           valueListenable: themeColorNotifier,
           builder: (context, color, _) => AppBar(
             backgroundColor: color,
-            foregroundColor: Colors.white,
+            foregroundColor: colorTextOnPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -176,8 +178,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                         width: 72,
                         height: 3,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(1.5),
+                          color: colorTextOnPrimary,
+                          borderRadius: BorderRadius.circular(radiusTiny),
                         ),
                       ),
                     ),
@@ -199,7 +201,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: _isExpense ? FontWeight.w600 : FontWeight.w400,
-                          color: Colors.white,
+                          color: colorTextOnPrimary,
                         ),
                       ),
                     ),
@@ -216,7 +218,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: !_isExpense ? FontWeight.w600 : FontWeight.w400,
-                          color: Colors.white,
+                          color: colorTextOnPrimary,
                         ),
                       ),
                     ),
@@ -235,12 +237,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               builder: (context, color, _) {
                 final categories = _isExpense ? expenseCategories : incomeCategories;
                 return Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(spacingL),
                   child: GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
+                      mainAxisSpacing: spacingM,
+                      crossAxisSpacing: spacingM,
                       childAspectRatio: 1,
                     ),
                     itemCount: categories.length,
@@ -253,19 +255,19 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 48,
-                              height: 48,
+                              width: sizeCategoryCircle,
+                              height: sizeCategoryCircle,
                               decoration: BoxDecoration(
-                                color: selected ? color.withValues(alpha: 0.15) : const Color(0xFFF5F5F5),
+                                color: selected ? color.withValues(alpha: 0.15) : colorBackgroundLight,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 cat.icon,
-                                size: 24,
-                                color: selected ? color : const Color(0xFF333333),
+                                size: iconSizeXLarge,
+                                color: selected ? color : colorTextPrimary,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: spacingXS),
                             Text(
                               cat.name,
                               style: TextStyle(
@@ -283,7 +285,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -294,11 +296,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     child: TextField(
                       controller: _remarkController,
                       maxLength: 20,
-                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      style: const TextStyle(fontSize: 14, color: colorTextPrimary),
                       cursorColor: color,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: '备注',
-                        hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF999999)),
+                        hintStyle: TextStyle(fontSize: 14, color: colorTextSecondary),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
                         counterText: '',
@@ -312,13 +314,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       : _amount.contains(RegExp(r'[+\-×÷]'))
                           ? '¥ $_amount = ${_evaluate(_amount)}'
                           : '¥ $_amount',
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.black),
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colorTextPrimary),
                 ),
               ],
             ),
           ),
           _buildOptionBar(),
-          const Divider(height: 1, thickness: 0.5, color: Color(0xFFE0E0E0)),
+          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           _buildKeyboard(),
         ],
       ),
@@ -331,8 +333,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   Widget _buildOptionBar() {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: heightOptionBar,
+      padding: const EdgeInsets.symmetric(horizontal: spacingL),
       child: Row(
         children: [
           _buildOptionItem(
@@ -348,7 +350,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               if (picked != null) setState(() => _selectedDate = picked);
             },
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: spacingXXL),
           // TODO: 接入账户选择功能（关联 asset_accounts）
           _buildOptionItem(
             icon: Icons.account_balance_wallet_outlined,
@@ -357,7 +359,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               const SnackBar(content: Text('账户选择功能开发中'), duration: Duration(seconds: 1)),
             ),
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: spacingXXL),
           // TODO: 接入标签功能（关联 tags 表）
           _buildOptionItem(
             icon: Icons.label_outline,
@@ -366,7 +368,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               const SnackBar(content: Text('标签功能开发中'), duration: Duration(seconds: 1)),
             ),
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: spacingXXL),
           // TODO: 接入图片附件功能
           _buildOptionItem(
             icon: Icons.camera_alt_outlined,
@@ -386,9 +388,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF999999)),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF999999))),
+          Icon(icon, size: iconSizeMedium, color: colorTextSecondary),
+          const SizedBox(width: spacingXS),
+          Text(label, style: const TextStyle(fontSize: 13, color: colorTextSecondary)),
         ],
       ),
     );
@@ -396,7 +398,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   Widget _buildKeyboard() {
     return Container(
-      color: Colors.white,
+      color: colorBackgroundCard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -415,7 +417,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   Widget _buildDivider() {
     return const SizedBox(
       height: 1,
-      child: Divider(height: 1, thickness: 0.5, color: Color(0xFFE0E0E0)),
+      child: Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
     );
   }
 
@@ -426,10 +428,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           child: GestureDetector(
             onTap: () => _onKeyPressed(key),
             child: Container(
-              height: 46,
-              decoration: BoxDecoration(
+              height: heightKeyboardRow,
+              decoration: const BoxDecoration(
                 border: Border(
-                  right: BorderSide(color: const Color(0xFFE0E0E0), width: 0.5),
+                  right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
                 ),
               ),
               alignment: Alignment.center,
@@ -445,7 +447,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (key == '再记') {
       return const Text(
         '再记',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black),
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorTextPrimary),
       );
     }
     if (key == '完成') {
@@ -456,7 +458,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           color: color,
           child: const Text(
             '完成',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextOnPrimary),
           ),
         ),
       );
@@ -466,7 +468,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w500,
-        color: key == 'C' ? const Color(0xFFE53935) : Colors.black,
+        color: key == 'C' ? colorDanger : colorTextPrimary,
       ),
     );
   }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const scaffoldBackground = Color(0xFFF3F3F3);
-
 final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF009688));
 
 Future<void> loadThemeColor() async {

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import 'book_list_page.dart';
 import 'backup_page.dart';
 import 'search_page.dart';
@@ -19,18 +22,18 @@ class HomeTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: heightHeaderBar,
+      padding: const EdgeInsets.symmetric(horizontal: spacingL),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookListPage())),
-            child: const Icon(Icons.book_outlined, size: 22, color: Colors.white),
+            child: const Icon(Icons.book_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupPage())),
-            child: const Icon(Icons.backup_outlined, size: 22, color: Colors.white),
+            child: const Icon(Icons.backup_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -42,15 +45,15 @@ class HomeTopBar extends StatelessWidget {
                   height: 40,
                   child: Align(
                     alignment: Alignment.center,
-                    child: Icon(Icons.keyboard_arrow_left, size: 16, color: Colors.white),
+                    child: Icon(Icons.keyboard_arrow_left, size: iconSizeSmall, color: colorTextOnPrimary),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(horizontal: spacingXXS),
                 child: Text(
                   monthLabel,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: textTitle,
                 ),
               ),
               GestureDetector(
@@ -60,7 +63,7 @@ class HomeTopBar extends StatelessWidget {
                   height: 40,
                   child: Align(
                     alignment: Alignment.center,
-                    child: Icon(Icons.keyboard_arrow_right, size: 16, color: Colors.white),
+                    child: Icon(Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextOnPrimary),
                   ),
                 ),
               ),
@@ -68,11 +71,11 @@ class HomeTopBar extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage())),
-            child: const Icon(Icons.search, size: 22, color: Colors.white),
+            child: const Icon(Icons.search, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserPage())),
-            child: const Icon(Icons.person_outline, size: 22, color: Colors.white),
+            child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
         ],
       ),

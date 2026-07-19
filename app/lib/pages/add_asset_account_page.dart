@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 
@@ -11,15 +13,15 @@ class AddAssetAccountPage extends StatefulWidget {
 }
 
 class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
-  final _categoryColors = const [
-    Color(0xFFE53935), // 现金
-    Color(0xFF1E88E5), // 网络支付
-    Color(0xFF43A047), // 储蓄卡
-    Color(0xFFFDD835), // 信用卡
-    Color(0xFFFB8C00), // 投资
-    Color(0xFF8E24AA), // 负债
-    Color(0xFF66BB6A), // 债券
-    Color(0xFF546E7A), // 自定义资产
+  static const _categoryColors = [
+    colorAssetCash,
+    colorAssetOnlinePay,
+    colorAssetSavingsCard,
+    colorAssetCreditCard,
+    colorAssetInvestment,
+    colorAssetDebt,
+    colorAssetBond,
+    colorAssetCustom,
   ];
 
   void _showAddDialog(int index) {
@@ -37,7 +39,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
               controller: nameController,
               decoration: const InputDecoration(hintText: '账户名称', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: spacingM),
             TextField(
               controller: balanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -78,7 +80,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
           valueListenable: themeColorNotifier,
           builder: (context, color, _) => AppBar(
             backgroundColor: color,
-            foregroundColor: Colors.white,
+            foregroundColor: colorTextOnPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -91,11 +93,11 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
         ),
       ),
       body: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: spacingS),
         itemCount: assetAccountCategories.length,
         separatorBuilder: (_, _2) => Container(
           height: 1,
-          color: const Color(0xFFF0F0F0),
+          color: colorDivider,
           margin: const EdgeInsets.only(left: 72),
         ),
         itemBuilder: (context, index) {
@@ -105,12 +107,12 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             behavior: HitTestBehavior.opaque,
             onTap: () => _showAddDialog(index),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
               child: Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: sizeIconContainer,
+                    height: sizeIconContainer,
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -118,17 +120,17 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                     child: cat.iconPath != null
                         ? SvgPicture.asset(
                             cat.iconPath!,
-                            width: 24,
-                            height: 24,
+                            width: iconSizeXLarge,
+                            height: iconSizeXLarge,
                             fit: BoxFit.contain,
                             colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                           )
-                        : Icon(cat.icon ?? Icons.account_balance_wallet, size: 24, color: color),
+                        : Icon(cat.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: color),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: spacingL),
                   Text(
                     cat.name,
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                    style: const TextStyle(fontSize: 16, color: colorTextPrimary),
                   ),
                 ],
               ),

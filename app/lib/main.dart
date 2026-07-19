@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'constants/app_colors.dart';
 import 'theme.dart';
 import 'models/record.dart';
 import 'pages/main_page.dart';
@@ -30,7 +31,7 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.light,
-            scaffoldBackgroundColor: Colors.white,
+            scaffoldBackgroundColor: colorBackgroundCard,
             colorScheme: ColorScheme.fromSeed(seedColor: color),
             pageTransitionsTheme: const PageTransitionsTheme(
               builders: {

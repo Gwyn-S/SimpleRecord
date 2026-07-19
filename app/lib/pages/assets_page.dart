@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 import '../widgets/summary_block.dart';
@@ -53,7 +56,7 @@ class _AssetsPageState extends State<AssetsPage> {
               controller: nameController,
               decoration: const InputDecoration(hintText: '账户名称', border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: spacingM),
             TextField(
               controller: balanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -91,7 +94,7 @@ class _AssetsPageState extends State<AssetsPage> {
               await saveAssetAccounts(_accounts);
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: const Text('删除', style: TextStyle(color: colorDelete)),
           ),
         ],
       ),
@@ -111,43 +114,43 @@ class _AssetsPageState extends State<AssetsPage> {
               child: Column(
                 children: [
                   Container(
-                    height: 56,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    height: heightHeaderBar,
+                    padding: const EdgeInsets.symmetric(horizontal: spacingL),
                     child: Row(
                       children: [
                         SizedBox(
-                          width: 22,
-                          height: 22,
+                          width: iconSizeLarge,
+                          height: iconSizeLarge,
                           child: CustomPaint(
                             painter: _ChartAxisPainter(),
-                            child: const Icon(Icons.show_chart, size: 16, color: Colors.white),
+                            child: const Icon(Icons.show_chart, size: iconSizeSmall, color: colorTextOnPrimary),
                           ),
                         ),
                         const Spacer(),
-                        const Text(
+                        Text(
                           '资产管理',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: textTitle,
                         ),
                         const Spacer(),
                         GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserPage())),
-                          child: const Icon(Icons.person_outline, size: 22, color: Colors.white),
+                          child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
                         ),
                       ],
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final halfW = constraints.maxWidth / 2;
                         return SizedBox(
-                          height: 90,
+                          height: heightSummaryArea,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: 60, child: SummaryBlock('净资产', _fmt(_totalBalance), large: true)),
-                              Positioned(left: 0, top: 60, width: halfW, child: SummaryBlock('资产', _fmt(_totalBalance))),
-                              Positioned(left: halfW, top: 60, width: halfW, child: SummaryBlock('负债', '0.00')),
+                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', _fmt(_totalBalance), large: true)),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', _fmt(_totalBalance))),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', '0.00')),
                             ],
                           ),
                         );
@@ -162,14 +165,14 @@ class _AssetsPageState extends State<AssetsPage> {
         Expanded(
           child: _accounts.isEmpty
               ? const Center(
-                  child: Text('点击 + 添加资产账户', style: TextStyle(fontSize: 14, color: Color(0xFF999999))),
+                  child: Text('点击 + 添加资产账户', style: TextStyle(fontSize: 14, color: colorTextSecondary)),
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: spacingS),
                   itemCount: _accounts.length,
                   separatorBuilder: (_, _2) => Container(
                     height: 1,
-                    color: const Color(0xFFEEEEEE),
+                    color: colorDivider,
                     margin: const EdgeInsets.only(left: 60),
                   ),
                   itemBuilder: (context, index) {
@@ -178,12 +181,12 @@ class _AssetsPageState extends State<AssetsPage> {
                       valueListenable: themeColorNotifier,
                       builder: (context, color, _) {
                         return Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                          padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
                           child: Row(
                             children: [
                               Container(
-                                width: 44,
-                                height: 44,
+                                width: sizeIconContainer,
+                                height: sizeIconContainer,
                                 decoration: BoxDecoration(
                                   color: color.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
@@ -191,37 +194,37 @@ class _AssetsPageState extends State<AssetsPage> {
                                 child: account.category?.iconPath != null
                                     ? SvgPicture.asset(
                                         account.category!.iconPath!,
-                                        width: 24,
-                                        height: 24,
+                                        width: iconSizeXLarge,
+                                        height: iconSizeXLarge,
                                         fit: BoxFit.contain,
                                         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                                       )
-                                    : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: 24, color: color),
+                                    : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: color),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: spacingM),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(account.name, style: const TextStyle(fontSize: 15, color: Colors.black)),
-                                    const SizedBox(height: 2),
-                                    Text(account.categoryName, style: const TextStyle(fontSize: 12, color: Color(0xFF999999))),
+                                    Text(account.name, style: const TextStyle(fontSize: 15, color: colorTextPrimary)),
+                                    const SizedBox(height: spacingXXS),
+                                    Text(account.categoryName, style: const TextStyle(fontSize: 12, color: colorTextSecondary)),
                                   ],
                                 ),
                               ),
                               Text(
                                 _fmt(account.balance),
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colorTextPrimary),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: spacingS),
                               GestureDetector(
                                 onTap: () => _showEditDialog(index),
-                                child: Icon(Icons.edit, size: 24, color: color),
+                                child: Icon(Icons.edit, size: iconSizeXLarge, color: color),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: spacingS),
                               GestureDetector(
                                 onTap: () => _showDeleteDialog(index),
-                                child: const Icon(Icons.delete_outline, size: 24, color: Color(0xFF999999)),
+                                child: const Icon(Icons.delete_outline, size: iconSizeXLarge, color: colorTextSecondary),
                               ),
                             ],
                           ),
@@ -241,7 +244,7 @@ class _ChartAxisPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white
+      ..color = colorTextOnPrimary
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
 

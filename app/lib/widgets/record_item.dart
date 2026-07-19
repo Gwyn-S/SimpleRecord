@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../icon/app_icons.dart';
 import '../models/record.dart';
@@ -25,31 +27,31 @@ class RecordItem extends StatelessWidget {
       }
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              color: Color(0xFFF5F5F5),
+              color: colorBackgroundLight,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 20, color: const Color(0xFF333333)),
+            child: Icon(icon, size: iconSizeDefault, color: colorTextPrimary),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: spacingM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   record.categoryName,
-                  style: const TextStyle(fontSize: 15, color: Colors.black),
+                  style: const TextStyle(fontSize: 15, color: colorTextPrimary),
                 ),
                 if (record.remark.isNotEmpty)
                   Text(
                     record.remark,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                    style: const TextStyle(fontSize: 12, color: colorTextSecondary),
                   ),
               ],
             ),
@@ -61,7 +63,7 @@ class RecordItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: record.isExpense ? const Color(0xFFC62828) : color,
+                color: record.isExpense ? colorExpense : color,
               ),
             ),
           ),

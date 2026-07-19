@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import 'bills_page.dart';
 import 'calendar_page.dart';
@@ -37,7 +39,7 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: scaffoldBackground,
+      backgroundColor: colorBackgroundPage,
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(0),
@@ -108,8 +110,8 @@ class _MainPageState extends State<MainPage> {
                 elevation: 0,
                 child: Icon(
                   _menuOpen ? Icons.close : Icons.add,
-                  color: Colors.white,
-                  size: 34,
+                  color: colorTextOnPrimary,
+                  size: iconSizeFab,
                 ),
               ),
             );
@@ -119,8 +121,8 @@ class _MainPageState extends State<MainPage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 1)),
+          color: colorBackgroundCard,
+          border: Border(top: BorderSide(color: colorDivider, width: borderWidthDefault)),
         ),
         child: _buildBottomBar(),
       ),
@@ -134,13 +136,13 @@ class _MainPageState extends State<MainPage> {
         valueListenable: themeColorNotifier,
         builder: (context, color, _) {
           return Container(
-            width: 44,
-            height: 44,
+            width: sizeIconContainer,
+            height: sizeIconContainer,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
+            child: Icon(icon, color: colorTextOnPrimary, size: iconSizeDefault),
           );
         },
       ),
@@ -149,7 +151,7 @@ class _MainPageState extends State<MainPage> {
 
   Widget _buildBottomBar() {
     return SizedBox(
-      height: 64,
+      height: heightBottomNav,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -186,7 +188,7 @@ class _MainPageState extends State<MainPage> {
                             Icon(
                               selected ? fillIcon : outlineIcon,
                               size: selected ? 25 : 22,
-                              color: selected ? color : const Color(0xFF333333),
+                              color: selected ? color : colorTextPrimary,
                             ),
                             Padding(
                               padding: const EdgeInsets.only(top: 5),
@@ -195,7 +197,7 @@ class _MainPageState extends State<MainPage> {
                                 style: TextStyle(
                                   fontSize: selected ? 9 : 8,
                                   fontWeight: FontWeight.w700,
-                                  color: selected ? color : const Color(0xFF333333),
+                                  color: selected ? color : colorTextPrimary,
                                   height: 1,
                                 ),
                               ),
@@ -206,15 +208,15 @@ class _MainPageState extends State<MainPage> {
                     : Icon(
                         selected ? fillIcon : outlineIcon,
                         size: selected ? 25 : 22,
-                        color: selected ? color : const Color(0xFF333333),
+                        color: selected ? color : colorTextPrimary,
                       ),
-                const SizedBox(height: 2),
+                const SizedBox(height: spacingXXS),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: selected ? 14 : 12,
                     fontWeight: FontWeight.w500,
-                    color: selected ? color : const Color(0xFF333333),
+                    color: selected ? color : colorTextPrimary,
                   ),
                 ),
               ],

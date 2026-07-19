@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 
 class SummaryBlock extends StatelessWidget {
   final String label;
@@ -16,7 +19,6 @@ class SummaryBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const white = TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white);
     if (large) {
       return FittedBox(
         fit: BoxFit.scaleDown,
@@ -24,16 +26,16 @@ class SummaryBlock extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: white),
-            const SizedBox(height: 4),
+            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            const SizedBox(height: spacingXS),
             Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                const Text('¥', style: white),
-                const SizedBox(width: 4),
-                Text(amount ?? '0.00', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
+                Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
+                const SizedBox(width: spacingXS),
+                Text(amount ?? '0.00', style: textAmountLarge),
               ],
             ),
           ],
@@ -49,9 +51,9 @@ class SummaryBlock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(label, style: white),
-            const SizedBox(width: 4),
-            Text(emptyText!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            const SizedBox(width: spacingXS),
+            Text(emptyText!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorTextOnPrimary)),
           ],
         ),
       );
@@ -64,11 +66,11 @@ class SummaryBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(label, style: white),
-          const SizedBox(width: 4),
-          const Text('¥', style: white),
-          const SizedBox(width: 2),
-          Text(amount ?? '0.00', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
+          Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+          const SizedBox(width: spacingXS),
+          Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
+          const SizedBox(width: spacingXXS),
+          Text(amount ?? '0.00', style: textAmountMedium),
         ],
       ),
     );

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import 'home_top_bar.dart';
@@ -123,13 +126,13 @@ class _CalendarPageState extends State<CalendarPage> {
     int startWeekday = firstDay.weekday;
     final totalCells = startWeekday - 1 + daysInMonth;
     final rowCount = (totalCells / 7).ceil();
-    return 360.0 / rowCount;
+    return heightCalendarGrid / rowCount;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: scaffoldBackground,
+      color: colorBackgroundPage,
       child: Column(
         children: [
           ValueListenableBuilder<Color>(
@@ -146,14 +149,14 @@ class _CalendarPageState extends State<CalendarPage> {
                       onNextMonth: () => _changeMonth(1),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _summaryItem('本月支出', _monthExpense),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: spacingXXL),
                           _summaryItem('本月收入', _monthIncome),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: spacingXXL),
                           _summaryItem('本月结余', _monthBalance),
                         ],
                       ),
@@ -164,12 +167,12 @@ class _CalendarPageState extends State<CalendarPage> {
             },
           ),
           Container(
-            color: Colors.white,
+            color: colorBackgroundCard,
             child: _buildWeekdayHeader(),
           ),
           Container(
-            color: Colors.white,
-            height: _weekMode ? _monthRowHeight : 360,
+            color: colorBackgroundCard,
+            height: _weekMode ? _monthRowHeight : heightCalendarGrid,
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
                 PointerDeviceKind.touch,
@@ -203,16 +206,16 @@ class _CalendarPageState extends State<CalendarPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white)),
-        const SizedBox(height: 4),
-        Text(_fmtAmt(value), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400, letterSpacing: -1, color: Colors.white)),
+        Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+        const SizedBox(height: spacingXS),
+        Text(_fmtAmt(value), style: textAmountMedium),
       ],
     );
   }
 
   Widget _buildWeekdayHeader() {
     return SizedBox(
-      height: 44,
+      height: heightHeaderBar,
       child: Row(
         children: [
           GestureDetector(
@@ -228,13 +231,13 @@ class _CalendarPageState extends State<CalendarPage> {
               }
             },
             child: Container(
-              width: 44,
-              height: 44,
+              width: sizeIconContainer,
+              height: heightHeaderBar,
               alignment: Alignment.center,
               child: Icon(
                 _weekMode ? Icons.calendar_view_month : Icons.view_week,
-                size: 20,
-                color: const Color(0xFF999999),
+                size: iconSizeDefault,
+                color: colorTextSecondary,
               ),
             ),
           ),
@@ -243,11 +246,7 @@ class _CalendarPageState extends State<CalendarPage> {
               child: Center(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF999999),
-                  ),
+                  style: textCaption,
                 ),
               ),
             );
@@ -276,7 +275,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final rowCount = cells.length ~/ 7;
 
     return Container(
-      color: Colors.white,
+      color: colorBackgroundCard,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final rowHeight = constraints.maxHeight / rowCount;
@@ -301,7 +300,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final rowHeight = _monthRowHeight;
 
     return Container(
-      color: Colors.white,
+      color: colorBackgroundCard,
       child: SizedBox(
         height: rowHeight,
         child: Row(
@@ -328,17 +327,13 @@ class _CalendarPageState extends State<CalendarPage> {
         decoration: BoxDecoration(
           border: Border.all(
             color: selected ? themeColorNotifier.value : Colors.transparent,
-            width: 1,
+            width: borderWidthDefault,
           ),
         ),
         alignment: const Alignment(0, -0.8),
         child: Text(
           '${day.day}'.padLeft(2, '0'),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF333333),
-          ),
+          style: textAmountBold,
         ),
       ),
     );

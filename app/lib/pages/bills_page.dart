@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import '../widgets/record_item.dart';
@@ -91,18 +93,18 @@ class _BillsPageState extends State<BillsPage> {
                     onNextMonth: () => _changeMonth(1),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final halfW = constraints.maxWidth / 2;
                         return SizedBox(
-                          height: 90,
+                          height: heightSummaryArea,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: 60, child: SummaryBlock('本月结余', _formatAmount(_monthBalance), large: true)),
-                              Positioned(left: halfW, top: 30, width: halfW, child: SummaryBlock('本月收入', _formatAmount(_monthIncome))),
-                              Positioned(left: 0, top: 60, width: halfW, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
-                              Positioned(left: halfW, top: 60, width: halfW, child: SummaryBlock('本月支出', _formatAmount(_monthExpense))),
+                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', _formatAmount(_monthBalance), large: true)),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月收入', _formatAmount(_monthIncome))),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月支出', _formatAmount(_monthExpense))),
                             ],
                           ),
                         );
@@ -133,7 +135,7 @@ class _BillsPageState extends State<BillsPage> {
       return const SizedBox(
         height: 200,
         child: Center(
-          child: Text('暂无记录', style: TextStyle(fontSize: 14, color: Color(0xFF999999))),
+          child: Text('暂无记录', style: TextStyle(fontSize: 14, color: colorTextSecondary)),
         ),
       );
     }
@@ -156,10 +158,10 @@ class _BillsPageState extends State<BillsPage> {
         final dayIncome = dayRecords.where((r) => !r.isExpense).fold(0.0, (s, r) => s + r.amount);
         final expanded = _expandedDays.contains(key);
         return Container(
-          margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+          margin: const EdgeInsets.fromLTRB(spacingM, spacingSM, spacingM, spacingSM),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            color: colorBackgroundCard,
+            borderRadius: BorderRadius.circular(radiusMedium),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,44 +176,44 @@ class _BillsPageState extends State<BillsPage> {
                   }
                 }),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
                   child: Row(
                     children: [
                       Text(
                         _formatDate(date),
-                        style: const TextStyle(fontSize: 14, color: Colors.black),
+                        style: const TextStyle(fontSize: 14, color: colorTextPrimary),
                       ),
                       const Spacer(),
                       Text.rich(
                         TextSpan(
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                          style: const TextStyle(fontSize: 12, color: colorTextSecondary),
                           children: [
                             const TextSpan(text: '收入 '),
-                            TextSpan(text: _formatAmount(dayIncome), style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                            TextSpan(text: _formatAmount(dayIncome), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
                             const TextSpan(text: '  支出 '),
-                            TextSpan(text: _formatAmount(dayExpense), style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                            TextSpan(text: _formatAmount(dayExpense), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 16, color: const Color(0xFF999999)),
+                      const SizedBox(width: spacingXS),
+                      Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextSecondary),
                     ],
                   ),
                 ),
               ),
               if (expanded) ...[
-                const Divider(height: 1, thickness: 0.5, color: Color(0xFFEEEEEE)),
+                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
                 ...dayRecords.map((r) => RecordItem(record: r)),
-                const Divider(height: 1, thickness: 0.5, color: Color(0xFFEEEEEE)),
+                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const Text('结余：', style: TextStyle(fontSize: 13, color: Color(0xFF999999))),
+                      const Text('结余：', style: TextStyle(fontSize: 13, color: colorTextSecondary)),
                       Text(
                         _formatAmount(dayIncome - dayExpense),
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorTextPrimary),
                       ),
                     ],
                   ),
