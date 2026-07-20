@@ -16,7 +16,7 @@ const double radiusLarge = 20;
 
 // ===================== 边框 =====================
 const double borderWidthThin = 0.5;
-const double borderWidthDefault = 1;
+const double borderWidthDefault = 0.75;
 
 // ===================== 容器尺寸 =====================
 const double sizeIconContainer = 44;
@@ -25,7 +25,7 @@ const double heightHeaderBar = 56;
 const double heightBottomNav = 64;
 const double heightSummaryArea = 90;
 const double heightSummaryLarge = 60;
-const double heightCalendarGrid = 360;
+const double heightCalendarGrid = 350;
 const double heightKeyboardRow = 46;
 const double heightOptionBar = 48;
 

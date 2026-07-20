@@ -8,6 +8,7 @@ import '../models/record.dart';
 import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
+import '../utils/lunar_utils.dart';
 import '../widgets/home_top_bar.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -285,6 +286,10 @@ class _CalendarPageState extends State<CalendarPage> {
         day.month == _selectedDay!.month &&
         day.day == _selectedDay!.day;
 
+    // 获取农历信息
+    final lunarText = LunarUtils.getDisplayText(day);
+    final isSpecial = LunarUtils.isFestivalOrJieQi(day);
+
     return GestureDetector(
       onTap: () => setState(() => _selectedDay = day),
       behavior: HitTestBehavior.opaque,
@@ -297,10 +302,42 @@ class _CalendarPageState extends State<CalendarPage> {
             width: borderWidthDefault,
           ),
         ),
-        alignment: const Alignment(0, -0.8),
-        child: Text(
-          '${day.day}'.padLeft(2, '0'),
-          style: textAmountBold,
+        child: Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  const Spacer(flex: 1),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Text(
+                        '${day.day}'.padLeft(2, '0'),
+                        style: textAmountBold,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: lunarText.split('').map((char) => Text(
+                        char,
+                        style: isSpecial ? textLunarFestival : textLunarDay,
+                      )).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: Column(
+              children: const [
+                Expanded(child: SizedBox()),
+                Expanded(child: SizedBox()),
+              ],
+            )),
+          ],
         ),
       ),
     );

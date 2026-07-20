@@ -1,0 +1,69 @@
+import 'lunar/chinese_date.dart';
+import 'lunar/lunar_festival.dart';
+import 'lunar/solar_festival.dart';
+import 'lunar/solar_terms.dart';
+
+/// 农历工具类
+class LunarUtils {
+  /// 获取农历显示文字（遵循 NCalendar 优先级）
+  /// 优先级：替换文字 > 农历节日 > 节气 > 公历节日 > 农历日期
+  static String getDisplayText(DateTime date) {
+    final chineseDate = ChineseDate(date);
+
+    // 1. 农历节日
+    final lunarFestival = LunarFestival.getFestivals(
+      chineseDate.chineseYear,
+      chineseDate.month,
+      chineseDate.day,
+    );
+    if (lunarFestival != null) return lunarFestival;
+
+    // 2. 节气
+    final solarTerm = SolarTerms.getTermFromDate(
+      date.year,
+      date.month,
+      date.day,
+    );
+    if (solarTerm.isNotEmpty) return solarTerm;
+
+    // 3. 公历节日
+    final solarFestival = SolarFestival.getFestivals(date.month, date.day);
+    if (solarFestival != null) return solarFestival;
+
+    // 4. 农历日期
+    final day = chineseDate.day;
+    if (day == 1) {
+      // 初一显示月份名
+      return chineseDate.getChineseMonthName();
+    }
+    return chineseDate.getChineseDay();
+  }
+
+  /// 判断是否为节日或节气（用于特殊颜色显示）
+  static bool isFestivalOrJieQi(DateTime date) {
+    final chineseDate = ChineseDate(date);
+
+    // 农历节日
+    if (LunarFestival.getFestivals(
+          chineseDate.chineseYear,
+          chineseDate.month,
+          chineseDate.day,
+        ) !=
+        null) {
+      return true;
+    }
+
+    // 节气
+    final solarTerm = SolarTerms.getTermFromDate(
+      date.year,
+      date.month,
+      date.day,
+    );
+    if (solarTerm.isNotEmpty) return true;
+
+    // 公历节日
+    if (SolarFestival.getFestivals(date.month, date.day) != null) return true;
+
+    return false;
+  }
+}

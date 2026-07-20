@@ -53,7 +53,20 @@ const TextStyle textAmountDisplay = TextStyle(
 );
 
 const TextStyle textAmountBold = TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.w700,
+  fontSize: 18,
+  fontWeight: FontWeight.w400,
   color: colorTextPrimary,
+);
+
+// ===================== 农历文字 =====================
+const TextStyle textLunarDay = TextStyle(
+  fontSize: 8,
+  fontWeight: FontWeight.w400,
+  color: colorLunarText,
+);
+
+const TextStyle textLunarFestival = TextStyle(
+  fontSize: 8,
+  fontWeight: FontWeight.w500,
+  color: colorLunarFestival,
 );

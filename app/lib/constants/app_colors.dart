@@ -21,6 +21,10 @@ const Color colorExpense = Color(0xFFC62828);
 const Color colorDanger = Color(0xFFE53935);
 const Color colorDelete = Colors.red;
 
+// ===================== 农历颜色 =====================
+const Color colorLunarText = Color(0xFF666666);
+const Color colorLunarFestival = Color(0xFFE53935);
+
 // ===================== 资产分类色 =====================
 const Color colorAssetCash = Color(0xFFE53935);
 const Color colorAssetOnlinePay = Color(0xFF1E88E5);
