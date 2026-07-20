@@ -22,8 +22,7 @@ class _CalendarPageState extends State<CalendarPage> {
   late PageController _pageController;
   late DateTime _currentMonth;
   DateTime? _selectedDay;
-  DateTime? _currentWeekStart;
-  bool _weekMode = false;
+
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
   @override
@@ -31,7 +30,6 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     final now = DateTime.now();
     _currentMonth = DateTime(now.year, now.month);
-    _currentWeekStart = weekStart(now);
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
     allRecords.addListener(_setState);
   }
@@ -47,19 +45,9 @@ class _CalendarPageState extends State<CalendarPage> {
     if (mounted) setState(() {});
   }
 
-  String get _monthLabel {
-    if (_weekMode) {
-      final start = _currentWeekStart ?? weekStart(_selectedOrToday());
-      return formatMonthLabel(start);
-    }
-    return formatMonthLabel(_currentMonth);
-  }
+  String get _monthLabel => formatMonthLabel(_currentMonth);
 
   void _changeMonth(int delta) {
-    if (_weekMode) {
-      _changeWeek(delta);
-      return;
-    }
     final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
     _pageController.animateToPage(
       pageFromMonth(next),
@@ -75,27 +63,6 @@ class _CalendarPageState extends State<CalendarPage> {
   double get _monthIncome => monthIncome(_monthRecords);
 
   double get _monthBalance => _monthIncome - _monthExpense;
-
-  DateTime _selectedOrToday() => _selectedDay ?? DateTime.now();
-
-  void _changeWeek(int delta) {
-    final currentStart = weekStart(_selectedOrToday());
-    final next = currentStart.add(Duration(days: delta * 7));
-    _pageController.animateToPage(
-      weekPageFromDay(next),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  double get _monthRowHeight {
-    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    int startWeekday = firstDay.weekday;
-    final totalCells = startWeekday - 1 + daysInMonth;
-    final rowCount = (totalCells / 7).ceil();
-    return heightCalendarGrid / rowCount;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,30 +105,19 @@ class _CalendarPageState extends State<CalendarPage> {
             color: colorBackgroundCard,
             child: _buildWeekdayHeader(),
           ),
-          Container(
-            color: colorBackgroundCard,
-            height: _weekMode ? _monthRowHeight : heightCalendarGrid,
+          SizedBox(
+            height: heightCalendarGrid,
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
                 PointerDeviceKind.touch,
                 PointerDeviceKind.mouse,
               }),
               child: PageView.builder(
-                key: ValueKey(_weekMode),
                 controller: _pageController,
                 onPageChanged: (page) => setState(() {
-                  if (_weekMode) {
-                    _currentWeekStart = dayFromWeekPage(page);
-                  } else {
-                    _currentMonth = monthFromPage(page);
-                  }
+                  _currentMonth = monthFromPage(page);
                 }),
-                itemBuilder: (context, page) {
-                  if (_weekMode) {
-                    return _buildWeekGrid(dayFromWeekPage(page));
-                  }
-                  return _buildMonthGrid(monthFromPage(page));
-                },
+                itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
               ),
             ),
           ),
@@ -186,29 +142,6 @@ class _CalendarPageState extends State<CalendarPage> {
       height: heightHeaderBar,
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () {
-              setState(() => _weekMode = !_weekMode);
-              _pageController.dispose();
-              if (_weekMode) {
-                final start = weekStart(_selectedOrToday());
-                _currentWeekStart = start;
-                _pageController = PageController(initialPage: weekPageFromDay(start));
-              } else {
-                _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
-              }
-            },
-            child: Container(
-              width: sizeIconContainer,
-              height: heightHeaderBar,
-              alignment: Alignment.center,
-              child: Icon(
-                _weekMode ? Icons.calendar_view_month : Icons.view_week,
-                size: iconSizeDefault,
-                color: colorTextSecondary,
-              ),
-            ),
-          ),
           ..._weekdayLabels.map((label) {
             return Expanded(
               child: Center(
@@ -241,39 +174,20 @@ class _CalendarPageState extends State<CalendarPage> {
     }
 
     final rowCount = cells.length ~/ 7;
+    final rowHeight = heightCalendarGrid / rowCount;
 
     return Container(
       color: colorBackgroundCard,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final rowHeight = constraints.maxHeight / rowCount;
-          final rows = <Widget>[];
-          for (int i = 0; i < cells.length; i += 7) {
-            final rowCells = cells.sublist(i, (i + 7).clamp(0, cells.length));
-            rows.add(SizedBox(
-              height: rowHeight,
-              child: Row(
-                children: rowCells.map((day) => Expanded(child: _buildDayCell(day))).toList(),
-              ),
-            ));
-          }
-          return Column(children: rows);
-        },
-      ),
-    );
-  }
-
-  Widget _buildWeekGrid(DateTime ws) {
-    final days = List.generate(7, (i) => ws.add(Duration(days: i)));
-    final rowHeight = _monthRowHeight;
-
-    return Container(
-      color: colorBackgroundCard,
-      child: SizedBox(
-        height: rowHeight,
-        child: Row(
-          children: days.map((day) => Expanded(child: _buildDayCell(day))).toList(),
-        ),
+      child: Column(
+        children: List.generate(rowCount, (i) {
+          final rowCells = cells.sublist(i * 7, (i + 1) * 7);
+          return SizedBox(
+            height: rowHeight,
+            child: Row(
+              children: rowCells.map((day) => Expanded(child: _buildDayCell(day))).toList(),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -286,7 +200,6 @@ class _CalendarPageState extends State<CalendarPage> {
         day.month == _selectedDay!.month &&
         day.day == _selectedDay!.day;
 
-    // 获取农历信息
     final lunarText = LunarUtils.getDisplayText(day);
     final isSpecial = LunarUtils.isFestivalOrJieQi(day);
 
