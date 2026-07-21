@@ -18,10 +18,11 @@ class CalendarPage extends StatefulWidget {
   State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends State<CalendarPage> {
+class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
   late PageController _pageController;
   late DateTime _currentMonth;
   DateTime? _selectedDay;
+  late AnimationController _foldController;
 
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -31,12 +32,14 @@ class _CalendarPageState extends State<CalendarPage> {
     final now = DateTime.now();
     _currentMonth = DateTime(now.year, now.month);
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
+    _foldController = AnimationController(vsync: this, duration: Duration.zero);
     allRecords.addListener(_setState);
   }
 
   @override
   void dispose() {
     allRecords.removeListener(_setState);
+    _foldController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -63,6 +66,46 @@ class _CalendarPageState extends State<CalendarPage> {
   double get _monthIncome => monthIncome(_monthRecords);
 
   double get _monthBalance => _monthIncome - _monthExpense;
+
+  DateTime get _effectiveSelectedDay => _selectedDay ?? DateTime.now();
+
+  int get _currentRowCount {
+    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final totalCells = (firstDay.weekday - 1) + daysInMonth;
+    return (totalCells + 6) ~/ 7;
+  }
+
+  int get _selectedRowIndex {
+    final day = _effectiveSelectedDay;
+    if (day.year != _currentMonth.year || day.month != _currentMonth.month) return 0;
+    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    return (firstDay.weekday - 1 + day.day - 1) ~/ 7;
+  }
+
+  double get _rowHeight => heightCalendarGrid / _currentRowCount;
+
+  double get _maxOffset => heightCalendarGrid - _rowHeight;
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    _foldController.stop();
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (_maxOffset <= 0) return;
+    final deltaProgress = -details.delta.dy / _maxOffset;
+    _foldController.value = (_foldController.value + deltaProgress).clamp(0.0, 1.0);
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (_maxOffset <= 0) return;
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity < -200 || _foldController.value > 0.5) {
+      _foldController.animateTo(1.0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    } else {
+      _foldController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,21 +148,52 @@ class _CalendarPageState extends State<CalendarPage> {
             color: colorBackgroundCard,
             child: _buildWeekdayHeader(),
           ),
-          SizedBox(
-            height: heightCalendarGrid,
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-              }),
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (page) => setState(() {
-                  _currentMonth = monthFromPage(page);
-                }),
-                itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
-              ),
-            ),
+          AnimatedBuilder(
+            animation: _foldController,
+            builder: (context, _) {
+              final t = _foldController.value;
+              final currentHeight = heightCalendarGrid - t * _maxOffset;
+              final gridScrollOffset = t * _selectedRowIndex * _rowHeight;
+              return SizedBox(
+                height: currentHeight,
+                child: ClipRect(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragStart: _onVerticalDragStart,
+                    onVerticalDragUpdate: _onVerticalDragUpdate,
+                    onVerticalDragEnd: _onVerticalDragEnd,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Container(color: colorBackgroundCard),
+                        Positioned(
+                          top: -gridScrollOffset,
+                          left: 0,
+                          right: 0,
+                          height: heightCalendarGrid,
+                          child: Container(
+                            color: colorBackgroundCard,
+                            child: ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.mouse,
+                              }),
+                              child: PageView.builder(
+                                controller: _pageController,
+                                onPageChanged: (page) => setState(() {
+                                  _currentMonth = monthFromPage(page);
+                                }),
+                                itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
