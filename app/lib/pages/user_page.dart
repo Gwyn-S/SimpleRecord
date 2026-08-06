@@ -23,7 +23,7 @@ class UserPage extends StatelessWidget {
             title: '主题颜色',
             trailing: ValueListenableBuilder<Color>(
               valueListenable: themeColorNotifier,
-              builder: (_, color, _2) => Container(
+              builder: (_, color, _) => Container(
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
@@ -50,7 +50,7 @@ class UserPage extends StatelessWidget {
           children: [
             Text(title, style: const TextStyle(fontSize: 15, color: colorTextPrimary)),
             const Spacer(),
-            if (trailing != null) trailing,
+            trailing ?? const SizedBox.shrink(),
             const SizedBox(width: spacingS),
             Icon(Icons.chevron_right, size: iconSizeMedium, color: Colors.grey.shade300),
           ],

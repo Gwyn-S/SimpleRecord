@@ -96,7 +96,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: spacingS),
         itemCount: assetAccountCategories.length,
-        separatorBuilder: (_, _2) => Container(
+        separatorBuilder: (_, _) => Container(
           height: 1,
           color: colorDivider,
           margin: const EdgeInsets.only(left: 72),

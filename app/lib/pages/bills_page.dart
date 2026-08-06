@@ -85,7 +85,7 @@ class _BillsPageState extends State<BillsPage> {
                           child: Stack(
                             children: [
                               Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true)),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
+                              Positioned(left: halfW, top: heightSummaryArea / 3, width: halfW, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
                               Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
                               Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
                             ],

@@ -38,3 +38,13 @@ double monthExpense(List<Record> records) => records
 double monthIncome(List<Record> records) => records
     .where((r) => !r.isExpense)
     .fold(0.0, (sum, r) => sum + r.amount);
+
+List<Record> weekRecords(DateTime weekStart) {
+  final weekEnd = weekStart.add(const Duration(days: 6));
+  return allRecords.value.where((r) {
+    final d = r.date;
+    return d.isAfter(weekStart.subtract(const Duration(days: 1))) &&
+        d.isBefore(weekEnd.add(const Duration(days: 1))) &&
+        r.bookId == currentBookId.value;
+  }).toList();
+}

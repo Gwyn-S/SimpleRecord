@@ -204,7 +204,7 @@ class _BookListPageState extends State<BookListPage> {
           : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: _books.length,
-              separatorBuilder: (_, _2) => Container(
+              separatorBuilder: (_, _) => Container(
                 height: 1,
                 color: colorDivider,
               ),

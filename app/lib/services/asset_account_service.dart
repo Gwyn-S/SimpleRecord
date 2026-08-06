@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/asset_account.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 final ValueNotifier<int> assetAccountsVersion = ValueNotifier(0);
 

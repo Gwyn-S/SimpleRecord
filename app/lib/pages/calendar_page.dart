@@ -32,7 +32,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     final now = DateTime.now();
     _currentMonth = DateTime(now.year, now.month);
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
-    _foldController = AnimationController(vsync: this, duration: Duration.zero);
+    _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     allRecords.addListener(_setState);
   }
 
@@ -62,9 +62,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   List<Record> get _monthRecords => monthRecords(_currentMonth);
 
   double get _monthExpense => monthExpense(_monthRecords);
-
   double get _monthIncome => monthIncome(_monthRecords);
-
   double get _monthBalance => _monthIncome - _monthExpense;
 
   DateTime get _effectiveSelectedDay => _selectedDay ?? DateTime.now();
@@ -84,7 +82,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   }
 
   double get _rowHeight => heightCalendarGrid / _currentRowCount;
-
   double get _maxOffset => heightCalendarGrid - _rowHeight;
 
   void _onVerticalDragStart(DragStartDetails details) {
@@ -92,7 +89,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (_maxOffset <= 0) return;
     final deltaProgress = -details.delta.dy / _maxOffset;
     _foldController.value = (_foldController.value + deltaProgress).clamp(0.0, 1.0);
   }
@@ -101,101 +97,148 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     if (_maxOffset <= 0) return;
     final velocity = details.primaryVelocity ?? 0;
     if (velocity < -200 || _foldController.value > 0.5) {
-      _foldController.animateTo(1.0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _foldController.forward();
     } else {
-      _foldController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _foldController.reverse();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: colorBackgroundPage,
-      child: Column(
-        children: [
-          ValueListenableBuilder<Color>(
-            valueListenable: themeColorNotifier,
-            builder: (context, color, _) {
-              return Container(
-                color: color,
-                child: Column(
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top),
-                    HomeTopBar(
-                      monthLabel: _monthLabel,
-                      onPrevMonth: () => _changeMonth(-1),
-                      onNextMonth: () => _changeMonth(1),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _summaryItem('本月支出', _monthExpense),
-                          const SizedBox(width: spacingXXL),
-                          _summaryItem('本月收入', _monthIncome),
-                          const SizedBox(width: spacingXXL),
-                          _summaryItem('本月结余', _monthBalance),
-                        ],
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragStart: _onVerticalDragStart,
+      onVerticalDragUpdate: _onVerticalDragUpdate,
+      onVerticalDragEnd: _onVerticalDragEnd,
+      child: Container(
+        color: colorBackgroundPage,
+        child: Column(
+          children: [
+            ValueListenableBuilder<Color>(
+              valueListenable: themeColorNotifier,
+              builder: (context, color, _) {
+                return Container(
+                  color: color,
+                  child: Column(
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).padding.top),
+                      HomeTopBar(
+                        monthLabel: _monthLabel,
+                        onPrevMonth: () => _changeMonth(-1),
+                        onNextMonth: () => _changeMonth(1),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          Container(
-            color: colorBackgroundCard,
-            child: _buildWeekdayHeader(),
-          ),
-          AnimatedBuilder(
-            animation: _foldController,
-            builder: (context, _) {
-              final t = _foldController.value;
-              final currentHeight = heightCalendarGrid - t * _maxOffset;
-              final gridScrollOffset = t * _selectedRowIndex * _rowHeight;
-              return SizedBox(
-                height: currentHeight,
-                child: ClipRect(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onVerticalDragStart: _onVerticalDragStart,
-                    onVerticalDragUpdate: _onVerticalDragUpdate,
-                    onVerticalDragEnd: _onVerticalDragEnd,
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        Container(color: colorBackgroundCard),
-                        Positioned(
-                          top: -gridScrollOffset,
-                          left: 0,
-                          right: 0,
-                          height: heightCalendarGrid,
-                          child: Container(
-                            color: colorBackgroundCard,
-                            child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-                                PointerDeviceKind.touch,
-                                PointerDeviceKind.mouse,
-                              }),
-                              child: PageView.builder(
-                                controller: _pageController,
-                                onPageChanged: (page) => setState(() {
-                                  _currentMonth = monthFromPage(page);
-                                }),
-                                itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
-                              ),
-                            ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _summaryItem('本月支出', _monthExpense),
+                            const SizedBox(width: spacingXXL),
+                            _summaryItem('本月收入', _monthIncome),
+                            const SizedBox(width: spacingXXL),
+                            _summaryItem('本月结余', _monthBalance),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Container(
+              color: colorBackgroundCard,
+              child: SizedBox(
+                height: heightHeaderBar,
+                child: Row(
+                  children: [
+                    ..._weekdayLabels.map((label) {
+                      return Expanded(
+                        child: Center(
+                          child: Text(
+                            label,
+                            style: textCaption,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      );
+                    }),
+                  ],
                 ),
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+            SizedBox(
+              height: heightCalendarGrid,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _foldController,
+                builder: (context, t, _) {
+                  final calendarHeight = heightCalendarGrid - t * _maxOffset;
+                  final panelHeight = t * _maxOffset;
+                  return Stack(
+                    children: [
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: calendarHeight,
+                        child: ClipRect(
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            children: [
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: calendarHeight,
+                                child: Container(color: colorBackgroundCard),
+                              ),
+                              Positioned(
+                                top: -t * _selectedRowIndex * _rowHeight,
+                                left: 0,
+                                right: 0,
+                                height: heightCalendarGrid,
+                                child: Container(
+                                  color: colorBackgroundCard,
+                                  child: ScrollConfiguration(
+                                    behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+                                      PointerDeviceKind.touch,
+                                      PointerDeviceKind.mouse,
+                                    }),
+                                    child: PageView.builder(
+                                      controller: _pageController,
+                                      onPageChanged: (page) => setState(() {
+                                        _currentMonth = monthFromPage(page);
+                                      }),
+                                      itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: calendarHeight,
+                        left: 0,
+                        right: 0,
+                        height: panelHeight,
+                        child: _buildPanel(),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanel() {
+    return Container(
+      color: colorBackgroundPage,
+      child: const Center(
+        child: Text('面板内容', style: TextStyle(color: colorTextPlaceholder)),
       ),
     );
   }
@@ -208,26 +251,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         const SizedBox(height: spacingXS),
         Text(formatAmount(value), style: textAmountMedium),
       ],
-    );
-  }
-
-  Widget _buildWeekdayHeader() {
-    return SizedBox(
-      height: heightHeaderBar,
-      child: Row(
-        children: [
-          ..._weekdayLabels.map((label) {
-            return Expanded(
-              child: Center(
-                child: Text(
-                  label,
-                  style: textCaption,
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
     );
   }
 

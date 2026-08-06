@@ -170,7 +170,7 @@ class _AssetsPageState extends State<AssetsPage> {
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: spacingS),
                   itemCount: _accounts.length,
-                  separatorBuilder: (_, _2) => Container(
+                  separatorBuilder: (_, _) => Container(
                     height: 1,
                     color: colorDivider,
                     margin: const EdgeInsets.only(left: 60),
@@ -181,7 +181,7 @@ class _AssetsPageState extends State<AssetsPage> {
                       valueListenable: themeColorNotifier,
                       builder: (context, color, _) {
                         return Padding(
-                          padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
+                          padding: const EdgeInsets.fromLTRB(spacingL, spacingSM, spacingL, spacingSM),
                           child: Row(
                             children: [
                               Container(
