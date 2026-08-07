@@ -18,7 +18,6 @@ class BillsPage extends StatefulWidget {
 }
 
 class _BillsPageState extends State<BillsPage> {
-  DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
   bool _loading = true;
   final Set<String> _expandedDays = {};
   bool _initialized = false;
@@ -26,12 +25,14 @@ class _BillsPageState extends State<BillsPage> {
   void initState() {
     super.initState();
     allRecords.addListener(_onRecordsChanged);
+    currentMonth.addListener(_onRecordsChanged);
     _onRecordsChanged();
   }
 
   @override
   void dispose() {
     allRecords.removeListener(_onRecordsChanged);
+    currentMonth.removeListener(_onRecordsChanged);
     super.dispose();
   }
 
@@ -41,16 +42,17 @@ class _BillsPageState extends State<BillsPage> {
   }
 
   void _changeMonth(int delta) {
+    currentMonth.value =
+        DateTime(currentMonth.value.year, currentMonth.value.month + delta);
     setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
       _expandedDays.clear();
       _initialized = false;
     });
   }
 
-  String get _monthLabel => formatMonthLabel(_currentMonth);
+  String get _monthLabel => formatMonthLabel(currentMonth.value);
 
-  List<Record> get _monthRecords => monthRecords(_currentMonth);
+  List<Record> get _monthRecords => monthRecords(currentMonth.value);
 
   int get _monthIncome => monthIncome(_monthRecords);
 
@@ -100,10 +102,7 @@ class _BillsPageState extends State<BillsPage> {
           },
         ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async { allRecords.value = await loadRecords(); },
-            child: _buildRecordList(),
-          ),
+          child: _buildRecordList(),
         ),
       ],
     );
@@ -133,7 +132,7 @@ class _BillsPageState extends State<BillsPage> {
       _initialized = true;
     }
 
-    return Column(
+    return ListView(
       children: sortedKeys.map((key) {
         final dayRecords = grouped[key]!;
         final date = dayRecords.first.date;

@@ -1,7 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../models/book.dart';
+import '../utils/id.dart';
 import 'database.dart';
+import 'record_service.dart';
 
 Future<List<Book>> loadBooks() async {
   final db = await DatabaseHelper.instance.database;
@@ -23,5 +25,25 @@ Future<void> updateBook(Book book) async {
 
 Future<void> deleteBook(String id) async {
   final db = await DatabaseHelper.instance.database;
-  await db.delete('books', where: 'id = ?', whereArgs: [id]);
+  await db.transaction((txn) async {
+    await txn.delete('records', where: 'book_id = ?', whereArgs: [id]);
+    await txn.delete('books', where: 'id = ?', whereArgs: [id]);
+  });
+  recordsVersion.value++;
+}
+
+/// 确保存在一个有效的当前账本：无账本时创建默认账本，
+/// currentBookId 为空或已失效时选中第一个账本。
+Future<String> ensureCurrentBookId() async {
+  final books = await loadBooks();
+  if (books.isEmpty) {
+    final book = Book(id: genId(), name: '日常');
+    await insertBook(book);
+    await saveCurrentBookId(book.id);
+    return book.id;
+  }
+  if (currentBookId.value == null || !books.any((b) => b.id == currentBookId.value)) {
+    await saveCurrentBookId(books.first.id);
+  }
+  return currentBookId.value!;
 }

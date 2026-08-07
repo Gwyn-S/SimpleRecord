@@ -23,11 +23,12 @@ class DatabaseHelper {
       databaseFactory = databaseFactoryFfi;
     }
     final dir = await getApplicationSupportDirectory();
-    final dbPath = join(dir.path, 'keepbook.db');
+    final dbPath = join(dir.path, 'simplerecord.db');
     return openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -58,5 +59,16 @@ class DatabaseHelper {
         balance_cents INTEGER NOT NULL DEFAULT 0
       )
     ''');
+    await _upgradeToV2(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _upgradeToV2(db);
+    }
+  }
+
+  Future<void> _upgradeToV2(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_records_book_date ON records(book_id, date)');
   }
 }

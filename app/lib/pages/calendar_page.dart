@@ -29,16 +29,17 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _currentMonth = DateTime(now.year, now.month);
+    _currentMonth = currentMonth.value;
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
     _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     allRecords.addListener(_setState);
+    currentMonth.addListener(_onMonthChanged);
   }
 
   @override
   void dispose() {
     allRecords.removeListener(_setState);
+    currentMonth.removeListener(_onMonthChanged);
     _foldController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -46,6 +47,16 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
 
   void _setState() {
     if (mounted) setState(() {});
+  }
+
+  void _onMonthChanged() {
+    if (!mounted) return;
+    final m = currentMonth.value;
+    if (m != _currentMonth) {
+      _currentMonth = m;
+      _pageController.jumpToPage(pageFromMonth(m));
+    }
+    setState(() {});
   }
 
   String get _monthLabel => formatMonthLabel(_currentMonth);
@@ -204,9 +215,12 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                                     }),
                                     child: PageView.builder(
                                       controller: _pageController,
-                                      onPageChanged: (page) => setState(() {
-                                        _currentMonth = monthFromPage(page);
-                                      }),
+                                      onPageChanged: (page) {
+                                        final m = monthFromPage(page);
+                                        _currentMonth = m;
+                                        currentMonth.value = m;
+                                        setState(() {});
+                                      },
                                       itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
                                     ),
                                   ),

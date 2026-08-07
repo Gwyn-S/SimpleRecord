@@ -42,18 +42,9 @@ class _BookListPageState extends State<BookListPage> {
 
   Future<void> _loadBooks() async {
     try {
+      await ensureCurrentBookId();
       final loaded = await loadBooks();
       setState(() => _books.addAll(loaded));
-      if (_books.isEmpty) {
-        final defaultBook = Book(id: genId(), name: '日常');
-        setState(() => _books.add(defaultBook));
-        await insertBook(defaultBook);
-        await saveCurrentBookId(defaultBook.id);
-      } else if (_books.length == 1) {
-        if (currentBookId.value == null || !_books.any((b) => b.id == currentBookId.value)) {
-          await saveCurrentBookId(_books.first.id);
-        }
-      }
       _loadRecords();
     } catch (e) {
       debugPrint('加载账本失败: $e');

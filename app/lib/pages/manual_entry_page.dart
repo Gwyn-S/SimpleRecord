@@ -35,11 +35,18 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     return cats[_selectedCategory!].name;
   }
 
-  Future<void> _saveRecord() async {
+  Future<bool> _saveRecord() async {
     final result = evaluate(_amount);
-    if (double.tryParse(result) == null) return;
+    final parsed = double.tryParse(result);
+    if (parsed == null) {
+      _showMessage('金额无效');
+      return false;
+    }
     final amountCents = yuanToCents(result);
-    if (amountCents == 0) return;
+    if (amountCents <= 0) {
+      _showMessage(amountCents < 0 ? '金额不能为负' : '金额需大于 0');
+      return false;
+    }
     final record = Record(
       id: genId(),
       bookId: currentBookId.value,
@@ -51,11 +58,20 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       createdAt: DateTime.now(),
     );
     await insertRecord(record);
+    return true;
+  }
+
+  void _showMessage(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), duration: const Duration(seconds: 1)),
+    );
   }
 
   void _onKeyPressed(String key) {
     if (key == '再记') {
-      _saveRecord().then((_) {
+      _saveRecord().then((ok) {
+        if (!ok || !mounted) return;
         setState(() {
           _amount = '0';
           _remarkController.clear();
@@ -65,8 +81,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       return;
     }
     if (key == '完成') {
-      _saveRecord().then((_) {
-        if (mounted) Navigator.pop(context);
+      _saveRecord().then((ok) {
+        if (ok && mounted) Navigator.pop(context);
       });
       return;
     }

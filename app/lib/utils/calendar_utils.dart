@@ -17,9 +17,9 @@ DateTime dayFromWeekPage(int page) {
 }
 
 DateTime monthFromPage(int page) {
-  final year = (page + 1) ~/ 12;
-  final month = (page + 1) % 12;
-  return DateTime(year, month == 0 ? 12 : month);
+  final year = page ~/ 12;
+  final month = page % 12 + 1;
+  return DateTime(year, month);
 }
 
 int pageFromMonth(DateTime m) => m.year * 12 + m.month - 1;

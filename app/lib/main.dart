@@ -4,6 +4,7 @@ import 'constants/app_colors.dart';
 import 'theme.dart';
 import 'services/database.dart';
 import 'services/record_service.dart';
+import 'services/book_service.dart';
 import 'pages/main_page.dart';
 
 void main() async {
@@ -11,6 +12,7 @@ void main() async {
   await DatabaseHelper.instance.database;
   await loadThemeColor();
   await loadCurrentBookId();
+  await ensureCurrentBookId();
   initRecordsListener();
   runApp(const MyApp());
 }
@@ -29,7 +31,7 @@ class _MyAppState extends State<MyApp> {
       valueListenable: themeColorNotifier,
       builder: (context, color, _) {
         return MaterialApp(
-          title: 'KeepBook',
+          title: 'SimpleRecord',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.light,

@@ -9,15 +9,29 @@ const _currentBookKey = 'currentBookId';
 
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
 final ValueNotifier<String?> currentBookId = ValueNotifier(null);
+final ValueNotifier<DateTime> currentMonth = ValueNotifier(DateTime(DateTime.now().year, DateTime.now().month));
 final ValueNotifier<List<Record>> allRecords = ValueNotifier([]);
 
+int _epochDayOf(DateTime d) =>
+    DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
+
+int _loadSeq = 0;
+
 void _syncRecords() async {
-  allRecords.value = await loadRecords();
+  final seq = ++_loadSeq;
+  final loaded = await loadRecords(
+    bookId: currentBookId.value,
+    month: currentMonth.value,
+  );
+  if (seq == _loadSeq) {
+    allRecords.value = loaded;
+  }
 }
 
 void initRecordsListener() {
   recordsVersion.addListener(_syncRecords);
   currentBookId.addListener(_syncRecords);
+  currentMonth.addListener(_syncRecords);
   _syncRecords();
 }
 
@@ -38,9 +52,27 @@ Future<void> saveCurrentBookId(String? id) async {
   currentBookId.value = id;
 }
 
-Future<List<Record>> loadRecords() async {
+Future<List<Record>> loadRecords({String? bookId, DateTime? month}) async {
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query('records', orderBy: 'date DESC, created_at DESC');
+  final where = <String>[];
+  final args = <Object>[];
+  if (bookId != null) {
+    where.add('book_id = ?');
+    args.add(bookId);
+  }
+  if (month != null) {
+    final start = _epochDayOf(month);
+    final end = _epochDayOf(DateTime(month.year, month.month + 1));
+    where.add('date >= ? AND date < ?');
+    args.add(start);
+    args.add(end);
+  }
+  final rows = await db.query(
+    'records',
+    where: where.isEmpty ? null : where.join(' AND '),
+    whereArgs: args.isEmpty ? null : args,
+    orderBy: 'date DESC, created_at DESC',
+  );
   return rows.map(Record.fromDbMap).toList();
 }
 
