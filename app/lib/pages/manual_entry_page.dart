@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
@@ -298,11 +299,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     child: TextField(
                       controller: _remarkController,
                       maxLength: 20,
-                      style: const TextStyle(fontSize: 14, color: colorTextPrimary),
+                      style: textBody,
                       cursorColor: color,
                       decoration: const InputDecoration(
                         hintText: '备注',
-                        hintStyle: TextStyle(fontSize: 14, color: colorTextSecondary),
+                        hintStyle: textHint,
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
                         counterText: '',
@@ -316,7 +317,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       : _amount.contains(RegExp(r'[+\-×÷]'))
                           ? '¥ $_amount = ${evaluate(_amount)}'
                           : '¥ $_amount',
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colorTextPrimary),
+                  style: textAmountInput,
                 ),
               ],
             ),
@@ -386,7 +387,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         children: [
           Icon(icon, size: iconSizeMedium, color: colorTextSecondary),
           const SizedBox(width: spacingXS),
-          Text(label, style: const TextStyle(fontSize: 13, color: colorTextSecondary)),
+          Text(label, style: textSecondary),
         ],
       ),
     );
@@ -443,7 +444,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (key == '再记') {
       return const Text(
         '再记',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorTextPrimary),
+        style: textDialogTitle,
       );
     }
     if (key == '完成') {
@@ -454,7 +455,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           color: color,
           child: const Text(
             '完成',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextOnPrimary),
+            style: textButtonPrimary,
           ),
         ),
       );

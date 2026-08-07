@@ -53,7 +53,7 @@ class SummaryBlock extends StatelessWidget {
           children: [
             Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
             const SizedBox(width: spacingXS),
-            Text(emptyText!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorTextOnPrimary)),
+            Text(emptyText!, style: textSummaryEmpty),
           ],
         ),
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
@@ -133,7 +134,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                   const SizedBox(width: spacingL),
                   Text(
                     cat.name,
-                    style: const TextStyle(fontSize: 16, color: colorTextPrimary),
+                    style: textPickerItem,
                   ),
                 ],
               ),

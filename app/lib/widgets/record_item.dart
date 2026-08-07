@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
 import '../pages/manual_entry_page.dart';
 import '../services/record_service.dart';
 import '../utils/formatters.dart';
-import '../utils/toast.dart';
+import 'bill_detail_sheet.dart';
 
 class RecordItem extends StatelessWidget {
   final Record record;
@@ -53,12 +54,12 @@ class RecordItem extends StatelessWidget {
                 children: [
                   Text(
                     record.categoryName,
-                    style: const TextStyle(fontSize: 15, color: colorTextPrimary),
+                    style: textListItem,
                   ),
                   if (record.remark.isNotEmpty)
                     Text(
                       record.remark,
-                      style: const TextStyle(fontSize: 12, color: colorTextSecondary),
+                      style: textItemSub,
                     ),
                 ],
               ),
@@ -84,94 +85,23 @@ class RecordItem extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: colorBackgroundCard,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingS),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    '账单详情',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: colorTextPrimary),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ManualEntryPage(initialRecord: record),
-                        ),
-                      );
-                    },
-                    child: const Text('修改', style: TextStyle(color: colorTextPrimary)),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      _confirmDelete(context);
-                    },
-                    child: const Text('删除', style: TextStyle(color: Color(0xFFC62828))),
-                  ),
-                ],
-              ),
-              const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-              const SizedBox(height: spacingM),
-              _detailRow('分类', record.categoryName),
-              if (record.remark.isNotEmpty) _detailRow('备注', record.remark),
-              _detailRow('金额', '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}'),
-              _detailRow('账户', '未选择'),
-              _detailRow('日期', formatDate(record.date)),
-              _detailRow('录入时间', _formatDateTime(record.createdAt)),
-            ],
-          ),
-        ),
+      builder: (sheetContext) => BillDetailSheet(
+        record: record,
+        fmt: fmt,
+        onEdit: () {
+          Navigator.pop(sheetContext);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ManualEntryPage(initialRecord: record),
+            ),
+          );
+        },
+        onDelete: () async {
+          Navigator.pop(sheetContext);
+          await deleteRecord(record.id);
+        },
       ),
     );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: spacingS),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 14, color: colorTextSecondary)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 14, color: colorTextPrimary)),
-        ],
-      ),
-    );
-  }
-
-  String _formatDateTime(DateTime d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-  }
-
-  Future<void> _confirmDelete(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('删除记录'),
-        content: Text('确定删除「${record.categoryName} ${formatAmount(record.amountCents)}」这笔记录吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('删除', style: TextStyle(color: colorDelete)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await deleteRecord(record.id);
-    if (context.mounted) showToast(context, '已删除');
   }
 }

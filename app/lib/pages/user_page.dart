@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 
 class UserPage extends StatelessWidget {
@@ -48,7 +49,7 @@ class UserPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Text(title, style: const TextStyle(fontSize: 15, color: colorTextPrimary)),
+            Text(title, style: textListItem),
             const Spacer(),
             trailing ?? const SizedBox.shrink(),
             const SizedBox(width: spacingS),
@@ -186,7 +187,7 @@ class UserPage extends StatelessWidget {
   Widget _sliderRow(String label, Widget slider) {
     return Row(
       children: [
-        SizedBox(width: 50, child: Text(label, style: const TextStyle(fontSize: 12, color: colorTextSecondary))),
+        SizedBox(width: 50, child: Text(label, style: textItemSub)),
         Expanded(child: slider),
       ],
     );

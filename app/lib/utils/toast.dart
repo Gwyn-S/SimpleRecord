@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 
 void showToast(BuildContext context, String text,
     {Duration duration = const Duration(seconds: 2)}) {
@@ -30,7 +31,7 @@ class _Toast extends StatelessWidget {
               color: colorBackgroundToast,
               borderRadius: BorderRadius.circular(radiusLarge),
             ),
-            child: Text(text, style: const TextStyle(color: colorTextPrimary, fontSize: 13)),
+            child: Text(text, style: textToast),
           ),
         ),
       ),

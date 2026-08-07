@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../services/asset_account_service.dart';
 import '../services/database.dart';
 import '../services/record_service.dart';
@@ -265,7 +266,7 @@ class _BackupPageState extends State<BackupPage> {
             child: _files.isEmpty
                 ? const Center(
                     child: Text('暂无备份，点击上方立即备份',
-                        style: TextStyle(fontSize: 14, color: colorTextPlaceholder)),
+                        style: textPlaceholder),
                   )
                 : ListView.separated(
                     itemCount: _files.length,
@@ -277,11 +278,9 @@ class _BackupPageState extends State<BackupPage> {
                           file.path.split(Platform.pathSeparator).last;
                       return ListTile(
                         title: Text(name,
-                            style: const TextStyle(
-                                fontSize: 14, color: colorTextPrimary)),
+                            style: textBody),
                         subtitle: Text(_fileSize(file.lengthSync()),
-                            style: const TextStyle(
-                                fontSize: 12, color: colorTextSecondary)),
+                            style: textItemSub),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

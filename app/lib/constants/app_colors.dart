@@ -20,6 +20,7 @@ const Color colorBorderKeyboard = Color(0xFFE0E0E0);
 const Color colorExpense = Color(0xFFC62828);
 const Color colorDanger = Color(0xFFE53935);
 const Color colorDelete = Colors.red;
+const Color colorDeleteDark = Color(0xFFC62828);
 
 // ===================== 农历颜色 =====================
 const Color colorLunarText = Color(0xFF666666);

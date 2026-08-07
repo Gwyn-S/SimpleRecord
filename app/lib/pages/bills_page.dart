@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
@@ -141,7 +142,7 @@ class _BillsPageState extends State<BillsPage> {
       return const SizedBox(
         height: 200,
         child: Center(
-          child: Text('暂无记录', style: TextStyle(fontSize: 14, color: colorTextSecondary)),
+          child: Text('暂无记录', style: textHint),
         ),
       );
     }
@@ -181,12 +182,12 @@ class _BillsPageState extends State<BillsPage> {
                     children: [
                       Text(
                         formatDate(date),
-                        style: const TextStyle(fontSize: 14, color: colorTextPrimary),
+                        style: textBody,
                       ),
                       const Spacer(),
                       Text.rich(
                         TextSpan(
-                          style: const TextStyle(fontSize: 12, color: colorTextSecondary),
+                          style: textItemSub,
                           children: [
                             const TextSpan(text: '收入 '),
                             TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
@@ -210,10 +211,10 @@ class _BillsPageState extends State<BillsPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const Text('结余：', style: TextStyle(fontSize: 13, color: colorTextSecondary)),
+                      const Text('结余：', style: textSecondary),
                       Text(
                         formatAmount(dayInc - dayExp),
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorTextPrimary),
+                        style: textBalance,
                       ),
                     ],
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/record.dart';
 import '../models/book.dart';
@@ -228,7 +229,7 @@ class _BookListPageState extends State<BookListPage> {
                                       child: Center(
                                         child: Text(
                                           book.name,
-                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorTextOnPrimary),
+                                          style: textCardTitle,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -249,13 +250,13 @@ class _BookListPageState extends State<BookListPage> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('记录数：${_recordCount(book.id)}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('记录数：${_recordCount(book.id)}', style: textCardMeta),
                                   const SizedBox(height: spacingXS),
-                                  Text('总收入：${formatAmount(_totalIncome(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总收入：${formatAmount(_totalIncome(book.id))}', style: textCardMeta),
                                   const SizedBox(height: spacingXS),
-                                  Text('总支出：${formatAmount(_totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总支出：${formatAmount(_totalExpense(book.id))}', style: textCardMeta),
                                   const SizedBox(height: spacingXS),
-                                  Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: const TextStyle(fontSize: 13, color: colorTextPrimary)),
+                                  Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: textCardMeta),
                                 ],
                               ),
                             ),

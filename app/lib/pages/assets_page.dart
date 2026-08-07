@@ -168,7 +168,7 @@ class _AssetsPageState extends State<AssetsPage> {
         Expanded(
           child: _accounts.isEmpty
               ? const Center(
-                  child: Text('点击 + 添加资产账户', style: TextStyle(fontSize: 14, color: colorTextSecondary)),
+                  child: Text('点击 + 添加资产账户', style: textHint),
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: spacingS),
@@ -209,15 +209,15 @@ class _AssetsPageState extends State<AssetsPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(account.name, style: const TextStyle(fontSize: 15, color: colorTextPrimary)),
+                                    Text(account.name, style: textListItem),
                                     const SizedBox(height: spacingXXS),
-                                    Text(account.categoryName, style: const TextStyle(fontSize: 12, color: colorTextSecondary)),
+                                    Text(account.categoryName, style: textItemSub),
                                   ],
                                 ),
                               ),
                               Text(
                                 formatAmount(account.balanceCents),
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colorTextPrimary),
+                                style: textAccountAmount,
                               ),
                               const SizedBox(width: spacingS),
                               GestureDetector(

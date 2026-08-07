@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'constants/app_colors.dart';
@@ -34,6 +35,8 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.light,
+            fontFamily:
+                defaultTargetPlatform == TargetPlatform.android ? 'sans-serif' : null,
             scaffoldBackgroundColor: colorBackgroundCard,
             colorScheme: ColorScheme.fromSeed(seedColor: color),
             pageTransitionsTheme: const PageTransitionsTheme(
