@@ -10,11 +10,24 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   Database? _db;
+  String? _dbPath;
+
+  String get dbPath {
+    final p = _dbPath;
+    if (p == null) throw StateError('数据库尚未打开');
+    return p;
+  }
 
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await _open();
     return _db!;
+  }
+
+  Future<void> close() async {
+    final db = _db;
+    _db = null;
+    if (db != null) await db.close();
   }
 
   Future<Database> _open() async {
@@ -24,6 +37,7 @@ class DatabaseHelper {
     }
     final dir = await getApplicationSupportDirectory();
     final dbPath = join(dir.path, 'simplerecord.db');
+    _dbPath = dbPath;
     return openDatabase(
       dbPath,
       version: 2,

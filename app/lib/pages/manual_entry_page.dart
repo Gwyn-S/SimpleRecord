@@ -8,6 +8,7 @@ import '../services/record_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../utils/toast.dart';
 
 class ManualEntryPage extends StatefulWidget {
   const ManualEntryPage({super.key});
@@ -63,9 +64,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   void _showMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text), duration: const Duration(seconds: 1)),
-    );
+    showToast(context, text);
   }
 
   void _onKeyPressed(String key) {
@@ -337,27 +336,21 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           _buildOptionItem(
             icon: Icons.account_balance_wallet_outlined,
             label: '账户',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('账户选择功能开发中'), duration: Duration(seconds: 1)),
-            ),
+            onTap: () => showToast(context, '账户选择功能开发中'),
           ),
           const SizedBox(width: spacingXXL),
           // TODO: 接入标签功能（关联 tags 表）
           _buildOptionItem(
             icon: Icons.label_outline,
             label: '标签',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('标签功能开发中'), duration: Duration(seconds: 1)),
-            ),
+            onTap: () => showToast(context, '标签功能开发中'),
           ),
           const SizedBox(width: spacingXXL),
           // TODO: 接入图片附件功能
           _buildOptionItem(
             icon: Icons.camera_alt_outlined,
             label: '图片',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('图片附件功能开发中'), duration: Duration(seconds: 1)),
-            ),
+            onTap: () => showToast(context, '图片附件功能开发中'),
           ),
         ],
       ),

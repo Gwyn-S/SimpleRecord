@@ -8,6 +8,7 @@ import '../services/record_service.dart';
 import '../services/book_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../utils/toast.dart';
 
 class BookListPage extends StatefulWidget {
   const BookListPage({super.key});
@@ -133,10 +134,7 @@ class _BookListPageState extends State<BookListPage> {
 
   void _showDeleteDialog(int index) {
     if (_books.length <= 1) {
-      final overlay = Overlay.of(context);
-      final entry = OverlayEntry(builder: (_) => _Toast(text: '至少保留一个账本'));
-      overlay.insert(entry);
-      Future.delayed(const Duration(seconds: 2), () => entry.remove());
+      showToast(context, '至少保留一个账本');
       return;
     }
     showDialog(
@@ -293,29 +291,3 @@ class _BookListPageState extends State<BookListPage> {
   }
 }
 
-class _Toast extends StatelessWidget {
-  final String text;
-  const _Toast({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      bottom: 120,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: spacingXXL, vertical: 10),
-            decoration: BoxDecoration(
-              color: colorBackgroundToast,
-              borderRadius: BorderRadius.circular(radiusLarge),
-            ),
-            child: Text(text, style: const TextStyle(color: colorTextPrimary, fontSize: 13)),
-          ),
-        ),
-      ),
-    );
-  }
-}
