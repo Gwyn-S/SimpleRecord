@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = keepbook
+PRODUCT_NAME = simple_record
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.keepbook.keepbook
+PRODUCT_BUNDLE_IDENTIFIER = com.simplerecord.jizhang
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.keepbook. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.simplerecord. All rights reserved.

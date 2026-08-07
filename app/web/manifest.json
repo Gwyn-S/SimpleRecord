@@ -1,6 +1,6 @@
 {
-    "name": "keepbook",
-    "short_name": "keepbook",
+    "name": "SimpleRecord",
+    "short_name": "SimpleRecord",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
