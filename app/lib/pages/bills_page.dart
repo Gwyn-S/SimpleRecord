@@ -123,7 +123,9 @@ class _BillsPageState extends State<BillsPage> {
     }
     final grouped = <String, List<Record>>{};
     for (final r in records) {
-      final key = '${r.date.year}-${r.date.month}-${r.date.day}';
+      final key = '${r.date.year}-'
+          '${r.date.month.toString().padLeft(2, '0')}-'
+          '${r.date.day.toString().padLeft(2, '0')}';
       grouped.putIfAbsent(key, () => []).add(r);
     }
     final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
