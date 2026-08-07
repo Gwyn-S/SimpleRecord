@@ -138,6 +138,11 @@ class _BookListPageState extends State<BookListPage> {
       showToast(context, '至少保留一个账本');
       return;
     }
+    final isCurrent = currentBookId.value == _books[index].id;
+    if (isCurrent) {
+      showToast(context, '正在使用的账本无法删除');
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

@@ -67,6 +67,10 @@ class _BillsPageState extends State<BillsPage> {
       _sortedKeys = _grouped.keys.toList()..sort((a, b) => b.compareTo(a));
       _monthIncome = monthIncome(records);
       _monthExpense = monthExpense(records);
+      _expandedDays.clear();
+      if (_sortedKeys.isNotEmpty) {
+        _expandedDays.add(_sortedKeys.first);
+      }
       _loading = false;
     });
   }

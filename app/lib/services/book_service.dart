@@ -7,13 +7,17 @@ import 'record_service.dart';
 
 Future<List<Book>> loadBooks() async {
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query('books', orderBy: 'name');
+  final rows = await db.query('books', orderBy: 'created_at');
   return rows.map(Book.fromDbMap).toList();
 }
 
 Future<void> insertBook(Book book) async {
   final db = await DatabaseHelper.instance.database;
-  await db.insert('books', book.toDbMap(),
+  final now = DateTime.now().millisecondsSinceEpoch;
+  await db.insert('books', {
+    ...book.toDbMap(),
+    'created_at': book.createdAt != 0 ? book.createdAt : now,
+  },
       conflictAlgorithm: ConflictAlgorithm.replace);
 }
 

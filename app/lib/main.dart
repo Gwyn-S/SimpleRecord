@@ -7,6 +7,7 @@ import 'services/database.dart';
 import 'services/book_service.dart';
 import 'services/record_service.dart';
 import 'pages/main_page.dart';
+import 'utils/test_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,7 @@ void main() async {
   await loadThemeColor();
   await loadCurrentBookId();
   await ensureCurrentBookId();
+  await seedTestDataIfNeeded();
   runApp(const MyApp());
 }
 

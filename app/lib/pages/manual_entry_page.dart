@@ -62,7 +62,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     }
     final amountCents = yuanToCents(result);
     if (amountCents <= 0) {
-      _showMessage(amountCents < 0 ? '金额不能为负' : '金额需大于 0');
+      _showMessage('请输入金额');
       return false;
     }
     final origin = widget.initialRecord;
@@ -444,7 +444,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (key == '再记') {
       return const Text(
         '再记',
-        style: textDialogTitle,
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
       );
     }
     if (key == '完成') {
