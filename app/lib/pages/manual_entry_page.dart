@@ -11,7 +11,8 @@ import '../utils/id.dart';
 import '../utils/toast.dart';
 
 class ManualEntryPage extends StatefulWidget {
-  const ManualEntryPage({super.key});
+  final Record? initialRecord;
+  const ManualEntryPage({super.key, this.initialRecord});
 
   @override
   State<ManualEntryPage> createState() => _ManualEntryPageState();
@@ -23,6 +24,21 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   String _amount = '0';
   DateTime _selectedDate = DateTime.now();
   final _remarkController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.initialRecord;
+    if (r != null) {
+      _isExpense = r.isExpense;
+      final cats = r.isExpense ? expenseCategories : incomeCategories;
+      final idx = cats.indexWhere((c) => c.name == r.categoryName);
+      _selectedCategory = idx >= 0 ? idx : null;
+      _amount = (r.amountCents / 100).toStringAsFixed(2);
+      _selectedDate = r.date;
+      _remarkController.text = r.remark;
+    }
+  }
 
   @override
   void dispose() {
@@ -48,17 +64,22 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _showMessage(amountCents < 0 ? '金额不能为负' : '金额需大于 0');
       return false;
     }
+    final origin = widget.initialRecord;
     final record = Record(
-      id: genId(),
-      bookId: currentBookId.value,
+      id: origin?.id ?? genId(),
+      bookId: origin?.bookId ?? currentBookId.value,
       isExpense: _isExpense,
       categoryName: _getCategoryName(),
       amountCents: amountCents,
       remark: _remarkController.text,
       date: _selectedDate,
-      createdAt: DateTime.now(),
+      createdAt: origin?.createdAt ?? DateTime.now(),
     );
-    await insertRecord(record);
+    if (origin != null) {
+      await updateRecord(record);
+    } else {
+      await insertRecord(record);
+    }
     return true;
   }
 

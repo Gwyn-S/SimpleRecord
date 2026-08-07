@@ -8,7 +8,7 @@
 8	P1	widgets 反向依赖 pages	home_top_bar.dart	⬜
 9	P1	业务逻辑散落页面内	book_list_page.dart:42-60	⬜
 10	P1	账单日期字符串排序错乱	bills_page.dart:129	✅ 已修复
-11	P1	记录无编辑/删除入口	widgets/record_item.dart	⬜
+11	P1	记录无编辑/删除入口（点击记录弹编辑/删除，编辑复用记账页）	widgets/record_item.dart	✅ 已修复
 12	P2	未选账本直接记账 → book_id=null	manual_entry_page.dart:45	⬜
 13	P2	loadBooks 按名称排序	book_service.dart:8	⬜
 14	P2	DB 打开失败无降级	main.dart:11	⬜
