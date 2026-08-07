@@ -1,0 +1,41 @@
+---
+name: buildwinapk
+description: Use when the user asks to build/package SimpleRecord for release ("构建", "打包", "打apk", "打APK", "windows", "build", "出包", "版本"). Builds the Windows release exe and the Android arm64-v8a APK, reports artifact paths and sizes. Run after code changes by default.
+---
+
+# Build Win + APK
+
+构建 SimpleRecord 的 Windows 版和 Android APK。工作目录固定为 `E:\KeepBook\app`。
+
+## 前置步骤
+
+1. **关闭正在运行的 Windows 程序**（否则链接阶段报 `LNK1104 无法打开 simple_record.exe`）：
+   ```powershell
+   Get-Process -Name simple_record -ErrorAction SilentlyContinue | Stop-Process -Force
+   ```
+2. 先运行 `flutter analyze`（工作目录 `E:\KeepBook\app`），有错误先修复再构建。
+
+## 构建命令（均在 `E:\KeepBook\app` 下执行）
+
+1. **Windows release**：
+   ```powershell
+   flutter build windows --release
+   ```
+   产物：`build\windows\x64\runner\Release\simple_record.exe`
+
+2. **Android arm64-v8a APK**：
+   ```powershell
+   flutter build apk --release --split-per-abi --target-platform android-arm64
+   ```
+   产物：`build\app\outputs\flutter-apk\app-arm64-v8a-release.apk`（约 19MB）
+
+## 收尾
+
+- 用 `Get-Item` 确认两个产物存在，报告实际大小。
+- 若构建失败：阅读报错定位修复（常见：exe 被占用 → 前置杀进程；依赖下载慢 → 重试；Gradle 缓存 → 重试）。
+
+## 约定
+
+- 回答使用中文。
+- 默认两个平台都要构建；若用户只要其中一个，按用户要求执行。
+- 构建是副产品，**不提交构建产物到 git**（构建会改动 generated_plugin_*.cc/.cmake 与 pubspec.lock 的镜像源，不要 add 这些）。

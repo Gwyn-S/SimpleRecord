@@ -10,30 +10,9 @@ const _currentBookKey = 'currentBookId';
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
 final ValueNotifier<String?> currentBookId = ValueNotifier(null);
 final ValueNotifier<DateTime> currentMonth = ValueNotifier(DateTime(DateTime.now().year, DateTime.now().month));
-final ValueNotifier<List<Record>> allRecords = ValueNotifier([]);
 
 int _epochDayOf(DateTime d) =>
     DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
-
-int _loadSeq = 0;
-
-void _syncRecords() async {
-  final seq = ++_loadSeq;
-  final loaded = await loadRecords(
-    bookId: currentBookId.value,
-    month: currentMonth.value,
-  );
-  if (seq == _loadSeq) {
-    allRecords.value = loaded;
-  }
-}
-
-void initRecordsListener() {
-  recordsVersion.addListener(_syncRecords);
-  currentBookId.addListener(_syncRecords);
-  currentMonth.addListener(_syncRecords);
-  _syncRecords();
-}
 
 Future<void> loadCurrentBookId() async {
   final prefs = await SharedPreferences.getInstance();

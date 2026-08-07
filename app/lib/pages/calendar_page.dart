@@ -4,7 +4,6 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../theme.dart';
-import '../models/record.dart';
 import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
@@ -24,6 +23,13 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   DateTime? _selectedDay;
   late AnimationController _foldController;
 
+  int _monthExpense = 0;
+  int _monthIncome = 0;
+  int _loadSeq = 0;
+
+  final Map<int, Widget> _monthGridCache = {};
+  int _selCacheKey = 0;
+
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
   @override
@@ -32,21 +38,54 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     _currentMonth = currentMonth.value;
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
     _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    allRecords.addListener(_setState);
+    _load();
+    recordsVersion.addListener(_load);
+    currentBookId.addListener(_load);
     currentMonth.addListener(_onMonthChanged);
+    themeColorNotifier.addListener(_onThemeChanged);
   }
 
   @override
   void dispose() {
-    allRecords.removeListener(_setState);
+    recordsVersion.removeListener(_load);
+    currentBookId.removeListener(_load);
     currentMonth.removeListener(_onMonthChanged);
+    themeColorNotifier.removeListener(_onThemeChanged);
     _foldController.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
-  void _setState() {
-    if (mounted) setState(() {});
+  void _onThemeChanged() {
+    if (!mounted) return;
+    _monthGridCache.clear();
+    setState(() {});
+  }
+
+  Widget _monthGrid(DateTime month) {
+    final page = pageFromMonth(month);
+    final selected = _selectedDay;
+    final selKey = selected == null
+        ? 0
+        : selected.year * 10000 + selected.month * 100 + selected.day;
+    if (selKey != _selCacheKey) {
+      _selCacheKey = selKey;
+      _monthGridCache.clear();
+    }
+    return _monthGridCache.putIfAbsent(page, () => _buildMonthGrid(month));
+  }
+
+  Future<void> _load() async {
+    final seq = ++_loadSeq;
+    final records = await loadRecords(
+      bookId: currentBookId.value,
+      month: _currentMonth,
+    );
+    if (seq != _loadSeq || !mounted) return;
+    setState(() {
+      _monthIncome = monthIncome(records);
+      _monthExpense = monthExpense(records);
+    });
   }
 
   void _onMonthChanged() {
@@ -56,6 +95,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       _currentMonth = m;
       _pageController.jumpToPage(pageFromMonth(m));
     }
+    _load();
     setState(() {});
   }
 
@@ -70,10 +110,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     );
   }
 
-  List<Record> get _monthRecords => monthRecords(_currentMonth);
-
-  int get _monthExpense => monthExpense(_monthRecords);
-  int get _monthIncome => monthIncome(_monthRecords);
   int get _monthBalance => _monthIncome - _monthExpense;
 
   DateTime get _effectiveSelectedDay => _selectedDay ?? DateTime.now();
@@ -206,22 +242,25 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                                 left: 0,
                                 right: 0,
                                 height: heightCalendarGrid,
-                                child: Container(
-                                  color: colorBackgroundCard,
-                                  child: ScrollConfiguration(
-                                    behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-                                      PointerDeviceKind.touch,
-                                      PointerDeviceKind.mouse,
-                                    }),
-                                    child: PageView.builder(
-                                      controller: _pageController,
-                                      onPageChanged: (page) {
-                                        final m = monthFromPage(page);
-                                        _currentMonth = m;
-                                        currentMonth.value = m;
-                                        setState(() {});
-                                      },
-                                      itemBuilder: (context, page) => _buildMonthGrid(monthFromPage(page)),
+                                child: RepaintBoundary(
+                                  child: Container(
+                                    color: colorBackgroundCard,
+                                    child: ScrollConfiguration(
+                                      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+                                        PointerDeviceKind.touch,
+                                        PointerDeviceKind.mouse,
+                                      }),
+                                      child: PageView.builder(
+                                        controller: _pageController,
+                                        onPageChanged: (page) {
+                                          final m = monthFromPage(page);
+                                          _currentMonth = m;
+                                          currentMonth.value = m;
+                                          _load();
+                                          setState(() {});
+                                        },
+                                        itemBuilder: (context, page) => _monthGrid(monthFromPage(page)),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -235,7 +274,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                         left: 0,
                         right: 0,
                         height: panelHeight,
-                        child: _buildPanel(),
+                        child: RepaintBoundary(child: _buildPanel()),
                       ),
                     ],
                   );

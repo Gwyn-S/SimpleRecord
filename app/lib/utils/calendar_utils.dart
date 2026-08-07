@@ -1,5 +1,4 @@
 import '../models/record.dart';
-import '../services/record_service.dart';
 
 DateTime weekStart(DateTime day) {
   return day.subtract(Duration(days: day.weekday - 1));
@@ -24,13 +23,6 @@ DateTime monthFromPage(int page) {
 
 int pageFromMonth(DateTime m) => m.year * 12 + m.month - 1;
 
-List<Record> monthRecords(DateTime month) {
-  return allRecords.value.where((r) =>
-      r.date.year == month.year &&
-      r.date.month == month.month &&
-      r.bookId == currentBookId.value).toList();
-}
-
 int monthExpense(List<Record> records) => records
     .where((r) => r.isExpense)
     .fold(0, (sum, r) => sum + r.amountCents);
@@ -38,13 +30,3 @@ int monthExpense(List<Record> records) => records
 int monthIncome(List<Record> records) => records
     .where((r) => !r.isExpense)
     .fold(0, (sum, r) => sum + r.amountCents);
-
-List<Record> weekRecords(DateTime weekStart) {
-  final weekEnd = weekStart.add(const Duration(days: 6));
-  return allRecords.value.where((r) {
-    final d = r.date;
-    return d.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-        d.isBefore(weekEnd.add(const Duration(days: 1))) &&
-        r.bookId == currentBookId.value;
-  }).toList();
-}

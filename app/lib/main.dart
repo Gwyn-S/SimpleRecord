@@ -3,8 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'constants/app_colors.dart';
 import 'theme.dart';
 import 'services/database.dart';
-import 'services/record_service.dart';
 import 'services/book_service.dart';
+import 'services/record_service.dart';
 import 'pages/main_page.dart';
 
 void main() async {
@@ -13,7 +13,6 @@ void main() async {
   await loadThemeColor();
   await loadCurrentBookId();
   await ensureCurrentBookId();
-  initRecordsListener();
   runApp(const MyApp());
 }
 

@@ -21,29 +21,59 @@ class _BillsPageState extends State<BillsPage> {
   bool _loading = true;
   final Set<String> _expandedDays = {};
   bool _initialized = false;
+
+  List<Record> _records = [];
+  final Map<String, List<Record>> _grouped = {};
+  List<String> _sortedKeys = [];
+  int _monthIncome = 0;
+  int _monthExpense = 0;
+
+  int _loadSeq = 0;
+
   @override
   void initState() {
     super.initState();
-    allRecords.addListener(_onRecordsChanged);
-    currentMonth.addListener(_onRecordsChanged);
     _onRecordsChanged();
+    recordsVersion.addListener(_onRecordsChanged);
+    currentBookId.addListener(_onRecordsChanged);
+    currentMonth.addListener(_onRecordsChanged);
   }
 
   @override
   void dispose() {
-    allRecords.removeListener(_onRecordsChanged);
+    recordsVersion.removeListener(_onRecordsChanged);
+    currentBookId.removeListener(_onRecordsChanged);
     currentMonth.removeListener(_onRecordsChanged);
     super.dispose();
   }
 
-  void _onRecordsChanged() {
-    if (!mounted) return;
-    setState(() => _loading = false);
+  Future<void> _onRecordsChanged() async {
+    final seq = ++_loadSeq;
+    final records = await loadRecords(
+      bookId: currentBookId.value,
+      month: currentMonth.value,
+    );
+    if (seq != _loadSeq || !mounted) return;
+    setState(() {
+      _records = records;
+      _grouped.clear();
+      for (final r in records) {
+        final key = '${r.date.year}-'
+            '${r.date.month.toString().padLeft(2, '0')}-'
+            '${r.date.day.toString().padLeft(2, '0')}';
+        _grouped.putIfAbsent(key, () => []).add(r);
+      }
+      _sortedKeys = _grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+      _monthIncome = monthIncome(records);
+      _monthExpense = monthExpense(records);
+      _loading = false;
+    });
   }
 
   void _changeMonth(int delta) {
-    currentMonth.value =
-        DateTime(currentMonth.value.year, currentMonth.value.month + delta);
+    final next = DateTime(currentMonth.value.year, currentMonth.value.month + delta);
+    if (next.year == currentMonth.value.year && next.month == currentMonth.value.month) return;
+    currentMonth.value = next;
     setState(() {
       _expandedDays.clear();
       _initialized = false;
@@ -51,12 +81,6 @@ class _BillsPageState extends State<BillsPage> {
   }
 
   String get _monthLabel => formatMonthLabel(currentMonth.value);
-
-  List<Record> get _monthRecords => monthRecords(currentMonth.value);
-
-  int get _monthIncome => monthIncome(_monthRecords);
-
-  int get _monthExpense => monthExpense(_monthRecords);
 
   int get _monthBalance => _monthIncome - _monthExpense;
 
@@ -112,7 +136,7 @@ class _BillsPageState extends State<BillsPage> {
     if (_loading) {
       return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
     }
-    final records = _monthRecords;
+    final records = _records;
     if (records.isEmpty) {
       return const SizedBox(
         height: 200,
@@ -121,22 +145,14 @@ class _BillsPageState extends State<BillsPage> {
         ),
       );
     }
-    final grouped = <String, List<Record>>{};
-    for (final r in records) {
-      final key = '${r.date.year}-'
-          '${r.date.month.toString().padLeft(2, '0')}-'
-          '${r.date.day.toString().padLeft(2, '0')}';
-      grouped.putIfAbsent(key, () => []).add(r);
-    }
-    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-    if (sortedKeys.isNotEmpty && !_initialized) {
-      _expandedDays.add(sortedKeys.first);
+    if (_sortedKeys.isNotEmpty && !_initialized) {
+      _expandedDays.add(_sortedKeys.first);
       _initialized = true;
     }
 
     return ListView(
-      children: sortedKeys.map((key) {
-        final dayRecords = grouped[key]!;
+      children: _sortedKeys.map((key) {
+        final dayRecords = _grouped[key]!;
         final date = dayRecords.first.date;
         final dayExp = monthExpense(dayRecords);
         final dayInc = monthIncome(dayRecords);

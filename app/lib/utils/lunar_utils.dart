@@ -5,9 +5,18 @@ import 'lunar/solar_terms.dart';
 
 /// 农历工具类
 class LunarUtils {
+  static final Map<int, String> _displayCache = {};
+  static final Map<int, bool> _festivalCache = {};
+
+  static int _dayKey(DateTime date) => date.year * 10000 + date.month * 100 + date.day;
+
   /// 获取农历显示文字（遵循 NCalendar 优先级）
   /// 优先级：替换文字 > 农历节日 > 节气 > 公历节日 > 农历日期
   static String getDisplayText(DateTime date) {
+    return _displayCache.putIfAbsent(_dayKey(date), () => _computeDisplayText(date));
+  }
+
+  static String _computeDisplayText(DateTime date) {
     final chineseDate = ChineseDate(date);
 
     // 1. 农历节日
@@ -41,6 +50,10 @@ class LunarUtils {
 
   /// 判断是否为节日或节气（用于特殊颜色显示）
   static bool isFestivalOrJieQi(DateTime date) {
+    return _festivalCache.putIfAbsent(_dayKey(date), () => _computeFestivalOrJieQi(date));
+  }
+
+  static bool _computeFestivalOrJieQi(DateTime date) {
     final chineseDate = ChineseDate(date);
 
     // 农历节日
