@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+
 /// 农历信息工具类
 /// 此表来自：https://github.com/jjonline/calendar.js/blob/master/calendar.js
 /// 农历表示：

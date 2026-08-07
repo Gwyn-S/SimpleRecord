@@ -61,9 +61,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
 
   List<Record> get _monthRecords => monthRecords(_currentMonth);
 
-  double get _monthExpense => monthExpense(_monthRecords);
-  double get _monthIncome => monthIncome(_monthRecords);
-  double get _monthBalance => _monthIncome - _monthExpense;
+  int get _monthExpense => monthExpense(_monthRecords);
+  int get _monthIncome => monthIncome(_monthRecords);
+  int get _monthBalance => _monthIncome - _monthExpense;
 
   DateTime get _effectiveSelectedDay => _selectedDay ?? DateTime.now();
 
@@ -243,7 +243,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _summaryItem(String label, double value) {
+  Widget _summaryItem(String label, int value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

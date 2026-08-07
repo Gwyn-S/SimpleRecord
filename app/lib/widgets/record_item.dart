@@ -4,10 +4,11 @@ import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
+import '../utils/formatters.dart';
 
 class RecordItem extends StatelessWidget {
   final Record record;
-  final String Function(double) fmt;
+  final String Function(int) fmt;
 
   const RecordItem({
     super.key,
@@ -15,7 +16,7 @@ class RecordItem extends StatelessWidget {
     this.fmt = _defaultFmt,
   });
 
-  static String _defaultFmt(double v) => v.toStringAsFixed(2);
+  static String _defaultFmt(int cents) => formatAmount(cents);
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +60,7 @@ class RecordItem extends StatelessWidget {
           ValueListenableBuilder<Color>(
             valueListenable: themeColorNotifier,
             builder: (context, color, _) => Text(
-              '${record.isExpense ? '-' : '+'}${fmt(record.amount)}',
+              '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,

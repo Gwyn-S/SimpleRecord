@@ -39,12 +39,12 @@ class _AssetsPageState extends State<AssetsPage> {
     setState(() => _accounts = accounts);
   }
 
-  double get _totalBalance => _accounts.fold(0.0, (s, a) => s + a.balance);
+  int get _totalBalance => _accounts.fold(0, (s, a) => s + a.balanceCents);
 
   void _showEditDialog(int index) {
     final account = _accounts[index];
     final nameController = TextEditingController(text: account.name);
-    final balanceController = TextEditingController(text: account.balance.toStringAsFixed(2));
+    final balanceController = TextEditingController(text: formatAmount(account.balanceCents));
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -69,8 +69,10 @@ class _AssetsPageState extends State<AssetsPage> {
           TextButton(
             onPressed: () async {
               account.name = nameController.text.trim().isNotEmpty ? nameController.text.trim() : account.name;
-              account.balance = double.tryParse(balanceController.text) ?? account.balance;
-              await saveAssetAccounts(_accounts);
+              account.balanceCents = double.tryParse(balanceController.text) == null
+                  ? account.balanceCents
+                  : yuanToCents(balanceController.text);
+              await updateAssetAccount(account);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('确定'),
@@ -90,8 +92,9 @@ class _AssetsPageState extends State<AssetsPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
           TextButton(
             onPressed: () async {
+              final deletedId = _accounts[index].id;
               setState(() => _accounts.removeAt(index));
-              await saveAssetAccounts(_accounts);
+              await deleteAssetAccount(deletedId);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('删除', style: TextStyle(color: colorDelete)),
@@ -213,7 +216,7 @@ class _AssetsPageState extends State<AssetsPage> {
                                 ),
                               ),
                               Text(
-                                formatAmount(account.balance),
+                                formatAmount(account.balanceCents),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colorTextPrimary),
                               ),
                               const SizedBox(width: spacingS),

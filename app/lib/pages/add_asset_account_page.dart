@@ -5,6 +5,8 @@ import '../constants/app_dimensions.dart';
 import '../theme.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
+import '../utils/formatters.dart';
+import '../utils/id.dart';
 
 class AddAssetAccountPage extends StatefulWidget {
   const AddAssetAccountPage({super.key});
@@ -53,16 +55,16 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
           TextButton(
             onPressed: () async {
               final name = nameController.text.trim().isNotEmpty ? nameController.text.trim() : cat.name;
-              final balance = double.tryParse(balanceController.text) ?? 0;
+              final balanceCents = double.tryParse(balanceController.text) == null
+                  ? 0
+                  : yuanToCents(balanceController.text);
               final account = AssetAccount(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                id: genId(),
                 categoryName: cat.name,
                 name: name,
-                balance: balance,
+                balanceCents: balanceCents,
               );
-              final accounts = await loadAssetAccounts();
-              accounts.add(account);
-              await saveAssetAccounts(accounts);
+              await insertAssetAccount(account);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('保存'),

@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'lunar_info.dart';
 
 /// 农历节日封装

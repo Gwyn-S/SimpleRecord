@@ -21,13 +21,13 @@ class AssetAccount {
   final String id;
   String categoryName;
   String name;
-  double balance;
+  int balanceCents;
 
   AssetAccount({
     required this.id,
     required this.categoryName,
     required this.name,
-    this.balance = 0,
+    this.balanceCents = 0,
   });
 
   AssetAccountCategory? get category {
@@ -37,17 +37,17 @@ class AssetAccount {
     return null;
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'categoryName': categoryName,
-    'name': name,
-    'balance': balance,
-  };
+  Map<String, dynamic> toDbMap() => {
+        'id': id,
+        'category_name': categoryName,
+        'name': name,
+        'balance_cents': balanceCents,
+      };
 
-  factory AssetAccount.fromJson(Map<String, dynamic> json) => AssetAccount(
-    id: json['id'] as String,
-    categoryName: json['categoryName'] as String,
-    name: json['name'] as String,
-    balance: (json['balance'] as num?)?.toDouble() ?? 0,
-  );
+  factory AssetAccount.fromDbMap(Map<String, dynamic> map) => AssetAccount(
+        id: map['id'] as String,
+        categoryName: map['category_name'] as String,
+        name: map['name'] as String,
+        balanceCents: map['balance_cents'] as int,
+      );
 }

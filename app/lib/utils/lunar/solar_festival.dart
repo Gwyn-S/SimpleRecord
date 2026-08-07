@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 /// 公历节日封装
 class SolarFestival {
   /// 公历节日表

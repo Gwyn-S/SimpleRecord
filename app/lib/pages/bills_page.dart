@@ -52,11 +52,11 @@ class _BillsPageState extends State<BillsPage> {
 
   List<Record> get _monthRecords => monthRecords(_currentMonth);
 
-  double get _monthIncome => monthIncome(_monthRecords);
+  int get _monthIncome => monthIncome(_monthRecords);
 
-  double get _monthExpense => monthExpense(_monthRecords);
+  int get _monthExpense => monthExpense(_monthRecords);
 
-  double get _monthBalance => _monthIncome - _monthExpense;
+  int get _monthBalance => _monthIncome - _monthExpense;
 
   @override
   Widget build(BuildContext context) {

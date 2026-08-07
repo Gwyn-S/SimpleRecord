@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names, prefer_interpolation_to_compose_strings
+
 import 'lunar_info.dart';
 import 'solar_terms.dart';
 import 'lunar_festival.dart';

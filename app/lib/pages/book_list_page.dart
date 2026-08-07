@@ -7,6 +7,7 @@ import '../models/book.dart';
 import '../services/record_service.dart';
 import '../services/book_service.dart';
 import '../utils/formatters.dart';
+import '../utils/id.dart';
 
 class BookListPage extends StatefulWidget {
   const BookListPage({super.key});
@@ -44,9 +45,9 @@ class _BookListPageState extends State<BookListPage> {
       final loaded = await loadBooks();
       setState(() => _books.addAll(loaded));
       if (_books.isEmpty) {
-        final defaultBook = Book(id: DateTime.now().millisecondsSinceEpoch.toString(), name: '日常');
+        final defaultBook = Book(id: genId(), name: '日常');
         setState(() => _books.add(defaultBook));
-        await saveBooks(_books);
+        await insertBook(defaultBook);
         await saveCurrentBookId(defaultBook.id);
       } else if (_books.length == 1) {
         if (currentBookId.value == null || !_books.any((b) => b.id == currentBookId.value)) {
@@ -65,8 +66,8 @@ class _BookListPageState extends State<BookListPage> {
   }
 
   int _recordCount(String bookId) => _records.where((r) => r.bookId == bookId).length;
-  double _totalIncome(String bookId) => _records.where((r) => r.bookId == bookId && !r.isExpense).fold(0.0, (s, r) => s + r.amount);
-  double _totalExpense(String bookId) => _records.where((r) => r.bookId == bookId && r.isExpense).fold(0.0, (s, r) => s + r.amount);
+  int _totalIncome(String bookId) => _records.where((r) => r.bookId == bookId && !r.isExpense).fold(0, (s, r) => s + r.amountCents);
+  int _totalExpense(String bookId) => _records.where((r) => r.bookId == bookId && r.isExpense).fold(0, (s, r) => s + r.amountCents);
 
   void _showAddDialog() {
     final controller = TextEditingController();
@@ -91,8 +92,9 @@ class _BookListPageState extends State<BookListPage> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                setState(() => _books.add(Book(id: DateTime.now().millisecondsSinceEpoch.toString(), name: name)));
-                await saveBooks(_books);
+                final book = Book(id: genId(), name: name);
+                setState(() => _books.add(book));
+                await insertBook(book);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -127,7 +129,7 @@ class _BookListPageState extends State<BookListPage> {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 setState(() => _books[index].name = name);
-                await saveBooks(_books);
+                await updateBook(_books[index]);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -160,7 +162,7 @@ class _BookListPageState extends State<BookListPage> {
             onPressed: () async {
               final deletedId = _books[index].id;
               setState(() => _books.removeAt(index));
-              await saveBooks(_books);
+              await deleteBook(deletedId);
               if (deletedId == currentBookId.value) {
                 await saveCurrentBookId(_books.isNotEmpty ? _books.first.id : null);
               }

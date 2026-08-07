@@ -3,7 +3,7 @@ class Record {
   final String? bookId;
   final bool isExpense;
   final String categoryName;
-  final double amount;
+  final int amountCents;
   final String remark;
   final DateTime date;
   final DateTime createdAt;
@@ -13,31 +13,36 @@ class Record {
     this.bookId,
     required this.isExpense,
     required this.categoryName,
-    required this.amount,
+    required this.amountCents,
     this.remark = '',
     required this.date,
     required this.createdAt,
   });
 
-  Map<String, dynamic> toJson() => {
+  static final DateTime _epoch = DateTime.utc(1970);
+
+  int get _epochDay =>
+      DateTime.utc(date.year, date.month, date.day).difference(_epoch).inDays;
+
+  Map<String, dynamic> toDbMap() => {
         'id': id,
-        'bookId': bookId,
-        'isExpense': isExpense,
-        'categoryName': categoryName,
-        'amount': amount,
+        'book_id': bookId,
+        'is_expense': isExpense ? 1 : 0,
+        'category_name': categoryName,
+        'amount_cents': amountCents,
         'remark': remark,
-        'date': date.toIso8601String(),
-        'createdAt': createdAt.toIso8601String(),
+        'date': _epochDay,
+        'created_at': createdAt.millisecondsSinceEpoch,
       };
 
-  factory Record.fromJson(Map<String, dynamic> json) => Record(
-        id: json['id'] as String,
-        bookId: json['bookId'] as String?,
-        isExpense: json['isExpense'] as bool,
-        categoryName: json['categoryName'] as String,
-        amount: (json['amount'] as num).toDouble(),
-        remark: json['remark'] as String? ?? '',
-        date: DateTime.parse(json['date'] as String),
-        createdAt: DateTime.parse(json['createdAt'] as String),
+  factory Record.fromDbMap(Map<String, dynamic> map) => Record(
+        id: map['id'] as String,
+        bookId: map['book_id'] as String?,
+        isExpense: map['is_expense'] == 1,
+        categoryName: map['category_name'] as String,
+        amountCents: map['amount_cents'] as int,
+        remark: map['remark'] as String? ?? '',
+        date: _epoch.add(Duration(days: map['date'] as int)),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       );
 }

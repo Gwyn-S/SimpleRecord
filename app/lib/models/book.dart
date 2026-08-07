@@ -4,13 +4,13 @@ class Book {
 
   Book({required this.id, required this.name});
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-  };
+  Map<String, dynamic> toDbMap() => {
+        'id': id,
+        'name': name,
+      };
 
-  factory Book.fromJson(Map<String, dynamic> json) => Book(
-    id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
-    name: json['name'] as String,
-  );
+  factory Book.fromDbMap(Map<String, dynamic> map) => Book(
+        id: map['id'] as String,
+        name: map['name'] as String,
+      );
 }

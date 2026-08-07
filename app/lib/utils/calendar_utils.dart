@@ -31,13 +31,13 @@ List<Record> monthRecords(DateTime month) {
       r.bookId == currentBookId.value).toList();
 }
 
-double monthExpense(List<Record> records) => records
+int monthExpense(List<Record> records) => records
     .where((r) => r.isExpense)
-    .fold(0.0, (sum, r) => sum + r.amount);
+    .fold(0, (sum, r) => sum + r.amountCents);
 
-double monthIncome(List<Record> records) => records
+int monthIncome(List<Record> records) => records
     .where((r) => !r.isExpense)
-    .fold(0.0, (sum, r) => sum + r.amount);
+    .fold(0, (sum, r) => sum + r.amountCents);
 
 List<Record> weekRecords(DateTime weekStart) {
   final weekEnd = weekStart.add(const Duration(days: 6));

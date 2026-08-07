@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 /// 24节气相关信息
 /// 此表来自：https://github.com/jjonline/calendar.js/blob/master/calendar.js
 class SolarTerms {

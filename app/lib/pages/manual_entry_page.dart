@@ -6,6 +6,8 @@ import '../models/category.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
 import '../utils/calculator.dart';
+import '../utils/formatters.dart';
+import '../utils/id.dart';
 
 class ManualEntryPage extends StatefulWidget {
   const ManualEntryPage({super.key});
@@ -35,21 +37,20 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   Future<void> _saveRecord() async {
     final result = evaluate(_amount);
-    final amount = double.tryParse(result) ?? 0;
-    if (amount == 0) return;
+    if (double.tryParse(result) == null) return;
+    final amountCents = yuanToCents(result);
+    if (amountCents == 0) return;
     final record = Record(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: genId(),
       bookId: currentBookId.value,
       isExpense: _isExpense,
       categoryName: _getCategoryName(),
-      amount: amount,
+      amountCents: amountCents,
       remark: _remarkController.text,
       date: _selectedDate,
       createdAt: DateTime.now(),
     );
-    final records = await loadRecords();
-    records.insert(0, record);
-    await saveRecords(records);
+    await insertRecord(record);
   }
 
   void _onKeyPressed(String key) {
