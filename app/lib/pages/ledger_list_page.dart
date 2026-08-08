@@ -4,49 +4,49 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/record.dart';
-import '../models/book.dart';
+import '../models/ledger.dart';
 import '../services/record_service.dart';
-import '../services/book_service.dart';
+import '../services/ledger_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 
-class BookListPage extends StatefulWidget {
-  const BookListPage({super.key});
+class LedgerListPage extends StatefulWidget {
+  const LedgerListPage({super.key});
 
   @override
-  State<BookListPage> createState() => _BookListPageState();
+  State<LedgerListPage> createState() => _LedgerListPageState();
 }
 
-class _BookListPageState extends State<BookListPage> {
-  final List<Book> _books = [];
+class _LedgerListPageState extends State<LedgerListPage> {
+  final List<Ledger> _ledgers = [];
   List<Record> _records = [];
 
   @override
   void initState() {
     super.initState();
-    _loadBooks();
-    currentBookId.addListener(_onBookChanged);
-    recordsVersion.addListener(_onBookChanged);
+    _loadLedgers();
+    currentLedgerId.addListener(_onLedgerChanged);
+    recordsVersion.addListener(_onLedgerChanged);
   }
 
   @override
   void dispose() {
-    currentBookId.removeListener(_onBookChanged);
-    recordsVersion.removeListener(_onBookChanged);
+    currentLedgerId.removeListener(_onLedgerChanged);
+    recordsVersion.removeListener(_onLedgerChanged);
     super.dispose();
   }
 
-  void _onBookChanged() {
+  void _onLedgerChanged() {
     _loadRecords();
     setState(() {});
   }
 
-  Future<void> _loadBooks() async {
+  Future<void> _loadLedgers() async {
     try {
-      await ensureCurrentBookId();
-      final loaded = await loadBooks();
-      setState(() => _books.addAll(loaded));
+      await ensureCurrentLedgerId();
+      final loaded = await loadLedgers();
+      setState(() => _ledgers.addAll(loaded));
       _loadRecords();
     } catch (e) {
       debugPrint('加载账本失败: $e');
@@ -58,9 +58,9 @@ class _BookListPageState extends State<BookListPage> {
     setState(() => _records = all);
   }
 
-  int _recordCount(String bookId) => bookRecordCount(_records, bookId);
-  int _totalIncome(String bookId) => bookIncome(_records, bookId);
-  int _totalExpense(String bookId) => bookExpense(_records, bookId);
+  int _recordCount(String ledgerId) => ledgerRecordCount(_records, ledgerId);
+  int _totalIncome(String ledgerId) => ledgerIncome(_records, ledgerId);
+  int _totalExpense(String ledgerId) => ledgerExpense(_records, ledgerId);
 
   void _showAddDialog() {
     final controller = TextEditingController();
@@ -85,9 +85,9 @@ class _BookListPageState extends State<BookListPage> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                final book = Book(id: genId(), name: name);
-                setState(() => _books.add(book));
-                await insertBook(book);
+                final ledger = Ledger(id: genId(), name: name);
+                setState(() => _ledgers.add(ledger));
+                await insertLedger(ledger);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -99,7 +99,7 @@ class _BookListPageState extends State<BookListPage> {
   }
 
   void _showEditDialog(int index) {
-    final controller = TextEditingController(text: _books[index].name);
+    final controller = TextEditingController(text: _ledgers[index].name);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -121,8 +121,8 @@ class _BookListPageState extends State<BookListPage> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                setState(() => _books[index].name = name);
-                await updateBook(_books[index]);
+                setState(() => _ledgers[index].name = name);
+                await updateLedger(_ledgers[index]);
                 if (context.mounted) Navigator.pop(context);
               }
             },
@@ -134,11 +134,11 @@ class _BookListPageState extends State<BookListPage> {
   }
 
   void _showDeleteDialog(int index) {
-    if (_books.length <= 1) {
+    if (_ledgers.length <= 1) {
       showToast(context, '至少保留一个账本');
       return;
     }
-    final isCurrent = currentBookId.value == _books[index].id;
+    final isCurrent = currentLedgerId.value == _ledgers[index].id;
     if (isCurrent) {
       showToast(context, '正在使用的账本无法删除');
       return;
@@ -147,7 +147,7 @@ class _BookListPageState extends State<BookListPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除账本'),
-        content: Text('确定删除「${_books[index].name}」吗？'),
+        content: Text('确定删除「${_ledgers[index].name}」吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -155,11 +155,11 @@ class _BookListPageState extends State<BookListPage> {
           ),
           TextButton(
             onPressed: () async {
-              final deletedId = _books[index].id;
-              setState(() => _books.removeAt(index));
-              await deleteBook(deletedId);
-              if (deletedId == currentBookId.value) {
-                await saveCurrentBookId(_books.isNotEmpty ? _books.first.id : null);
+              final deletedId = _ledgers[index].id;
+              setState(() => _ledgers.removeAt(index));
+              await deleteLedger(deletedId);
+              if (deletedId == currentLedgerId.value) {
+                await saveCurrentLedgerId(_ledgers.isNotEmpty ? _ledgers.first.id : null);
               }
               if (context.mounted) Navigator.pop(context);
             },
@@ -194,20 +194,20 @@ class _BookListPageState extends State<BookListPage> {
           ],
         ),
       ),
-      body: _books.isEmpty
+      body: _ledgers.isEmpty
           ? const Center(child: Text('暂无账本，点击右上角 + 新建', style: TextStyle(color: colorTextPlaceholder)))
           : ListView.separated(
               padding: EdgeInsets.zero,
-              itemCount: _books.length,
+              itemCount: _ledgers.length,
               separatorBuilder: (_, _) => Container(
                 height: 1,
                 color: colorDivider,
               ),
               itemBuilder: (context, index) {
-                final book = _books[index];
-                final isCurrent = currentBookId.value == book.id;
+                final ledger = _ledgers[index];
+                final isCurrent = currentLedgerId.value == ledger.id;
                 return GestureDetector(
-                  onTap: () => saveCurrentBookId(book.id),
+                  onTap: () => saveCurrentLedgerId(ledger.id),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
                     child: SizedBox(
@@ -228,7 +228,7 @@ class _BookListPageState extends State<BookListPage> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      book.name,
+                                      ledger.name,
                                       style: textCardTitle,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -250,13 +250,13 @@ class _BookListPageState extends State<BookListPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('记录数：${_recordCount(book.id)}', style: textCardMeta),
+                              Text('记录数：${_recordCount(ledger.id)}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总收入：${formatAmount(_totalIncome(book.id))}', style: textCardMeta),
+                              Text('总收入：${formatAmount(_totalIncome(ledger.id))}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总支出：${formatAmount(_totalExpense(book.id))}', style: textCardMeta),
+                              Text('总支出：${formatAmount(_totalExpense(ledger.id))}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: textCardMeta),
+                              Text('总结余：${formatAmount(_totalIncome(ledger.id) - _totalExpense(ledger.id))}', style: textCardMeta),
                             ],
                           ),
                         ),
@@ -289,4 +289,3 @@ class _BookListPageState extends State<BookListPage> {
     );
   }
 }
-

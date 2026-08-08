@@ -41,7 +41,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _load();
     recordsVersion.addListener(_load);
-    currentBookId.addListener(_load);
+    currentLedgerId.addListener(_load);
     currentMonth.addListener(_onMonthChanged);
     themeColorNotifier.addListener(_onThemeChanged);
   }
@@ -49,7 +49,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   @override
   void dispose() {
     recordsVersion.removeListener(_load);
-    currentBookId.removeListener(_load);
+    currentLedgerId.removeListener(_load);
     currentMonth.removeListener(_onMonthChanged);
     themeColorNotifier.removeListener(_onThemeChanged);
     _foldController.dispose();
@@ -79,7 +79,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Future<void> _load() async {
     final seq = ++_loadSeq;
     final records = await loadRecords(
-      bookId: currentBookId.value,
+      ledgerId: currentLedgerId.value,
       month: _currentMonth,
     );
     if (seq != _loadSeq || !mounted) return;
@@ -173,7 +173,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                     monthLabel: _monthLabel,
                     onPrevMonth: () => _changeMonth(-1),
                     onNextMonth: () => _changeMonth(1),
-                    onBookTap: () => openBookList(context),
+                    onLedgerTap: () => openLedgerList(context),
                     onBackupTap: () => openBackup(context),
                     onSearchTap: () => openSearch(context),
                     onUserTap: () => openUser(context),

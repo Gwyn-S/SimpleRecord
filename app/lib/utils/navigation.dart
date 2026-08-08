@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../pages/backup_page.dart';
-import '../pages/book_list_page.dart';
+import '../pages/ledger_list_page.dart';
 import '../pages/manual_entry_page.dart';
 import '../pages/search_page.dart';
 import '../pages/user_page.dart';
 import '../models/record.dart';
 
-void openBookList(BuildContext context) =>
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const BookListPage()));
+void openLedgerList(BuildContext context) =>
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const LedgerListPage()));
 
 void openBackup(BuildContext context) =>
     Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupPage()));

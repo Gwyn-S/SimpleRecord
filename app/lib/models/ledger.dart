@@ -1,9 +1,9 @@
-class Book {
+class Ledger {
   final String id;
   String name;
   final int createdAt;
 
-  Book({required this.id, required this.name, this.createdAt = 0});
+  Ledger({required this.id, required this.name, this.createdAt = 0});
 
   Map<String, dynamic> toDbMap() => {
         'id': id,
@@ -11,7 +11,7 @@ class Book {
         'created_at': createdAt,
       };
 
-  factory Book.fromDbMap(Map<String, dynamic> map) => Book(
+  factory Ledger.fromDbMap(Map<String, dynamic> map) => Ledger(
         id: map['id'] as String,
         name: map['name'] as String,
         createdAt: map['created_at'] as int? ?? 0,

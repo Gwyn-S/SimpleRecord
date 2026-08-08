@@ -7,7 +7,7 @@ class HomeTopBar extends StatelessWidget {
   final String monthLabel;
   final VoidCallback onPrevMonth;
   final VoidCallback onNextMonth;
-  final VoidCallback? onBookTap;
+  final VoidCallback? onLedgerTap;
   final VoidCallback? onBackupTap;
   final VoidCallback? onSearchTap;
   final VoidCallback? onUserTap;
@@ -17,7 +17,7 @@ class HomeTopBar extends StatelessWidget {
     required this.monthLabel,
     required this.onPrevMonth,
     required this.onNextMonth,
-    this.onBookTap,
+    this.onLedgerTap,
     this.onBackupTap,
     this.onSearchTap,
     this.onUserTap,
@@ -32,7 +32,7 @@ class HomeTopBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-            onTap: onBookTap,
+            onTap: onLedgerTap,
             child: const Icon(Icons.book_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           GestureDetector(

@@ -37,14 +37,14 @@ class _BillsPageState extends State<BillsPage> {
     super.initState();
     _onRecordsChanged();
     recordsVersion.addListener(_onRecordsChanged);
-    currentBookId.addListener(_onRecordsChanged);
+    currentLedgerId.addListener(_onRecordsChanged);
     currentMonth.addListener(_onRecordsChanged);
   }
 
   @override
   void dispose() {
     recordsVersion.removeListener(_onRecordsChanged);
-    currentBookId.removeListener(_onRecordsChanged);
+    currentLedgerId.removeListener(_onRecordsChanged);
     currentMonth.removeListener(_onRecordsChanged);
     super.dispose();
   }
@@ -52,7 +52,7 @@ class _BillsPageState extends State<BillsPage> {
   Future<void> _onRecordsChanged() async {
     final seq = ++_loadSeq;
     final records = await loadRecords(
-      bookId: currentBookId.value,
+      ledgerId: currentLedgerId.value,
       month: currentMonth.value,
     );
     if (seq != _loadSeq || !mounted) return;
@@ -104,7 +104,7 @@ class _BillsPageState extends State<BillsPage> {
                     monthLabel: _monthLabel,
                     onPrevMonth: () => _changeMonth(-1),
                     onNextMonth: () => _changeMonth(1),
-                    onBookTap: () => openBookList(context),
+                    onLedgerTap: () => openLedgerList(context),
                     onBackupTap: () => openBackup(context),
                     onSearchTap: () => openSearch(context),
                     onUserTap: () => openUser(context),

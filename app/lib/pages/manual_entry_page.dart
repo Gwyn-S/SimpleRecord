@@ -68,7 +68,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     final origin = widget.initialRecord;
     final record = Record(
       id: origin?.id ?? genId(),
-      bookId: origin?.bookId ?? currentBookId.value,
+      ledgerId: origin?.ledgerId ?? currentLedgerId.value,
       isExpense: _isExpense,
       categoryName: _getCategoryName(),
       amountCents: amountCents,

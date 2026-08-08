@@ -5,39 +5,39 @@ import 'package:sqflite/sqflite.dart';
 import '../models/record.dart';
 import 'database.dart';
 
-const _currentBookKey = 'currentBookId';
+const _currentLedgerKey = 'currentBookId';
 
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
-final ValueNotifier<String?> currentBookId = ValueNotifier(null);
+final ValueNotifier<String?> currentLedgerId = ValueNotifier(null);
 final ValueNotifier<DateTime> currentMonth = ValueNotifier(DateTime(DateTime.now().year, DateTime.now().month));
 
 int _epochDayOf(DateTime d) =>
     DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
 
-Future<void> loadCurrentBookId() async {
+Future<void> loadCurrentLedgerId() async {
   final prefs = await SharedPreferences.getInstance();
-  currentBookId.value = prefs.getString(_currentBookKey);
+  currentLedgerId.value = prefs.getString(_currentLedgerKey);
 }
 
-Future<void> saveCurrentBookId(String? id) async {
+Future<void> saveCurrentLedgerId(String? id) async {
   final prefs = await SharedPreferences.getInstance();
   if (id == null) {
-    await prefs.remove(_currentBookKey);
+    await prefs.remove(_currentLedgerKey);
   } else {
-    await prefs.setString(_currentBookKey, id);
+    await prefs.setString(_currentLedgerKey, id);
   }
-  // 只置 currentBookId：ValueNotifier 值变化本身就会触发一次 reload，
+  // 只置 currentLedgerId：ValueNotifier 值变化本身就会触发一次 reload，
   // 不再额外 ++recordsVersion，避免切账本时双触发两次全量加载。
-  currentBookId.value = id;
+  currentLedgerId.value = id;
 }
 
-Future<List<Record>> loadRecords({String? bookId, DateTime? month}) async {
+Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
   final db = await DatabaseHelper.instance.database;
   final where = <String>[];
   final args = <Object>[];
-  if (bookId != null) {
+  if (ledgerId != null) {
     where.add('book_id = ?');
-    args.add(bookId);
+    args.add(ledgerId);
   }
   if (month != null) {
     final start = _epochDayOf(month);

@@ -1,6 +1,6 @@
 class Record {
   final String id;
-  final String? bookId;
+  final String? ledgerId;
   final bool isExpense;
   final String categoryName;
   final int amountCents;
@@ -10,7 +10,7 @@ class Record {
 
   Record({
     required this.id,
-    this.bookId,
+    this.ledgerId,
     required this.isExpense,
     required this.categoryName,
     required this.amountCents,
@@ -26,7 +26,7 @@ class Record {
 
   Map<String, dynamic> toDbMap() => {
         'id': id,
-        'book_id': bookId,
+        'book_id': ledgerId,
         'is_expense': isExpense ? 1 : 0,
         'category_name': categoryName,
         'amount_cents': amountCents,
@@ -37,7 +37,7 @@ class Record {
 
   factory Record.fromDbMap(Map<String, dynamic> map) => Record(
         id: map['id'] as String,
-        bookId: map['book_id'] as String?,
+        ledgerId: map['book_id'] as String?,
         isExpense: map['is_expense'] == 1,
         categoryName: map['category_name'] as String,
         amountCents: map['amount_cents'] as int,

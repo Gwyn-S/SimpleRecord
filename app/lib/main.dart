@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'services/database.dart';
-import 'services/book_service.dart';
+import 'services/ledger_service.dart';
 import 'services/record_service.dart';
 import 'pages/main_page.dart';
 import 'utils/test_data.dart';
@@ -10,8 +10,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DatabaseHelper.instance.database;
   await loadThemeColor();
-  await loadCurrentBookId();
-  await ensureCurrentBookId();
+  await loadCurrentLedgerId();
+  await ensureCurrentLedgerId();
   await seedTestDataIfNeeded();
   runApp(const MyApp());
 }

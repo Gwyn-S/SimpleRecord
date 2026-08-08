@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/category.dart';
-import '../services/book_service.dart';
+import '../services/ledger_service.dart';
 import '../services/database.dart';
 
 /// 开发期一次性填充测试数据。调用一次后下次启动就失效。
@@ -12,7 +12,7 @@ import '../services/database.dart';
 Future<void> seedTestDataIfNeeded() async {
   final existing = await _countExisting();
   if (existing >= 60) return;
-  await _seedBooks();
+  await _seedLedgers();
   await _seedRecords();
 }
 
@@ -24,11 +24,11 @@ Future<int> _countExisting() async {
   return (rows.first['c'] as int?) ?? 0;
 }
 
-Future<void> _seedBooks() async {
-  final books = await loadBooks();
-  if (books.length >= 2) return;
+Future<void> _seedLedgers() async {
+  final ledgers = await loadLedgers();
+  if (ledgers.length >= 2) return;
   final db = await DatabaseHelper.instance.database;
-  if (books.isEmpty) {
+  if (ledgers.isEmpty) {
     await db.insert('books', <String, Object?>{
       'id': _id(),
       'name': '日常',
@@ -45,12 +45,12 @@ Future<void> _seedBooks() async {
 }
 
 Future<void> _seedRecords() async {
-  final books = await loadBooks();
-  if (books.isEmpty) return;
+  final ledgers = await loadLedgers();
+  if (ledgers.isEmpty) return;
   final db = await DatabaseHelper.instance.database;
   final r = _Rand();
   final now = DateTime.now();
-  for (final book in books) {
+  for (final ledger in ledgers) {
     for (int dy = 0; dy < 90; dy++) {
       if (r.nextInt(3) == 0) continue;
       final day = now.subtract(Duration(days: dy));
@@ -60,7 +60,7 @@ Future<void> _seedRecords() async {
       final cents = [5, 10, 15, 20, 30, 50, 100, 200, 500][r.nextInt(9)] * 100;
       await db.insert('records', <String, Object?>{
         'id': _id(),
-        'book_id': book.id,
+        'book_id': ledger.id,
         'is_expense': isExp ? 1 : 0,
         'category_name': cat.name,
         'amount_cents': cents,

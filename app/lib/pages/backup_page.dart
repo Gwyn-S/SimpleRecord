@@ -74,7 +74,7 @@ class _BackupPageState extends State<BackupPage> {
       final dir = await _backupDir();
       final metaBytes = utf8.encode(jsonEncode({
         'exportedAt': now.toIso8601String(),
-        'currentBookId': currentBookId.value,
+        'currentBookId': currentLedgerId.value,
       }));
       final header = BytesBuilder()
         ..add(utf8.encode(_magic))
@@ -100,9 +100,9 @@ class _BackupPageState extends State<BackupPage> {
     setState(() => _busy = true);
     try {
       final db = await DatabaseHelper.instance.database;
-      final books = await db.query('books');
+      final ledgers = await db.query('books');
       final nameById = {
-        for (final b in books) b['id'] as String?: b['name'] as String,
+        for (final l in ledgers) l['id'] as String?: l['name'] as String,
       };
       final rows = await db.query('records', orderBy: 'date DESC, created_at DESC');
       final buffer = StringBuffer();
@@ -189,7 +189,7 @@ class _BackupPageState extends State<BackupPage> {
       }
       await tmp.copy(dbPath);
       if (tmp.existsSync()) await tmp.delete();
-      await saveCurrentBookId(meta['currentBookId'] as String?);
+      await saveCurrentLedgerId(meta['currentBookId'] as String?);
       await helper.database;
       recordsVersion.value++;
       assetAccountsVersion.value++;
