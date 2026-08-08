@@ -22,12 +22,12 @@ class UserPage extends StatelessWidget {
           const SizedBox(height: spacingXL),
           _settingsItem(
             title: '主题颜色',
-            trailing: ValueListenableBuilder<Color>(
-              valueListenable: themeColorNotifier,
-              builder: (_, color, _) => Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            trailing: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+                shape: BoxShape.circle,
               ),
             ),
             onTap: () => _showColorPicker(context),
@@ -67,57 +67,55 @@ class UserPage extends StatelessWidget {
         contentPadding: const EdgeInsets.all(spacingXXL),
         content: SizedBox(
           width: 224,
-          child: ValueListenableBuilder<Color>(
-            valueListenable: themeColorNotifier,
-            builder: (context, currentColor, _) {
-              return Wrap(
-                spacing: spacingL,
-                runSpacing: spacingL,
-                children: [
-                  ...themeColorPalette.map((c) {
-                    final selected = c == currentColor;
-                    return GestureDetector(
-                      onTap: () => _applyColor(context, c),
-                      child: Container(
-                        width: sizeIconContainer,
-                        height: sizeIconContainer,
-                        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-                        child: selected
-                            ? const Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeLarge)
-                            : null,
-                      ),
-                    );
-                  }),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showCustomColorPicker(context);
-                    },
+          child: Builder(builder: (context) {
+            final currentColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+            return Wrap(
+              spacing: spacingL,
+              runSpacing: spacingL,
+              children: [
+                ...themeColorPalette.map((c) {
+                  final selected = c == currentColor;
+                  return GestureDetector(
+                    onTap: () => _applyColor(context, c),
                     child: Container(
                       width: sizeIconContainer,
                       height: sizeIconContainer,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFFF44336),
-                            Color(0xFFFF9800),
-                            Color(0xFFFFEB3B),
-                            Color(0xFF4CAF50),
-                            Color(0xFF2196F3),
-                            Color(0xFF9C27B0),
-                          ],
-                        ),
-                      ),
-                      child: currentColor != themeColorPalette.first && !themeColorPalette.contains(currentColor)
+                      decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                      child: selected
                           ? const Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeLarge)
                           : null,
                     ),
+                  );
+                }),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showCustomColorPicker(context);
+                  },
+                  child: Container(
+                    width: sizeIconContainer,
+                    height: sizeIconContainer,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFF44336),
+                          Color(0xFFFF9800),
+                          Color(0xFFFFEB3B),
+                          Color(0xFF4CAF50),
+                          Color(0xFF2196F3),
+                          Color(0xFF9C27B0),
+                        ],
+                      ),
+                    ),
+                    child: currentColor != themeColorPalette.first && !themeColorPalette.contains(currentColor)
+                        ? const Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeLarge)
+                        : null,
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          }),
         ),
       ),
     );

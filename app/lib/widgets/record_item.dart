@@ -5,7 +5,6 @@ import '../constants/app_text_styles.dart';
 import '../theme.dart';
 import '../models/category.dart';
 import '../models/record.dart';
-import '../pages/manual_entry_page.dart';
 import '../services/record_service.dart';
 import '../utils/formatters.dart';
 import 'bill_detail_sheet.dart';
@@ -13,11 +12,13 @@ import 'bill_detail_sheet.dart';
 class RecordItem extends StatelessWidget {
   final Record record;
   final String Function(int) fmt;
+  final VoidCallback? onEdit;
 
   const RecordItem({
     super.key,
     required this.record,
     this.fmt = _defaultFmt,
+    this.onEdit,
   });
 
   static String _defaultFmt(int cents) => formatAmount(cents);
@@ -64,15 +65,14 @@ class RecordItem extends StatelessWidget {
                 ],
               ),
             ),
-            ValueListenableBuilder<Color>(
-              valueListenable: themeColorNotifier,
-              builder: (context, color, _) => Text(
-                '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: record.isExpense ? colorExpense : color,
-                ),
+            Text(
+              '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: record.isExpense
+                    ? colorExpense
+                    : Theme.of(context).extension<AppThemeColors>()!.primary,
               ),
             ),
           ],
@@ -90,12 +90,7 @@ class RecordItem extends StatelessWidget {
         fmt: fmt,
         onEdit: () {
           Navigator.pop(sheetContext);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ManualEntryPage(initialRecord: record),
-            ),
-          );
+          onEdit?.call();
         },
         onDelete: () async {
           Navigator.pop(sheetContext);

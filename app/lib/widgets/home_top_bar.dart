@@ -2,21 +2,25 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
-import '../pages/book_list_page.dart';
-import '../pages/backup_page.dart';
-import '../pages/search_page.dart';
-import '../pages/user_page.dart';
 
 class HomeTopBar extends StatelessWidget {
   final String monthLabel;
   final VoidCallback onPrevMonth;
   final VoidCallback onNextMonth;
+  final VoidCallback? onBookTap;
+  final VoidCallback? onBackupTap;
+  final VoidCallback? onSearchTap;
+  final VoidCallback? onUserTap;
 
   const HomeTopBar({
     super.key,
     required this.monthLabel,
     required this.onPrevMonth,
     required this.onNextMonth,
+    this.onBookTap,
+    this.onBackupTap,
+    this.onSearchTap,
+    this.onUserTap,
   });
 
   @override
@@ -28,11 +32,11 @@ class HomeTopBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookListPage())),
+            onTap: onBookTap,
             child: const Icon(Icons.book_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupPage())),
+            onTap: onBackupTap,
             child: const Icon(Icons.backup_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           Row(
@@ -70,11 +74,11 @@ class HomeTopBar extends StatelessWidget {
             ],
           ),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage())),
+            onTap: onSearchTap,
             child: const Icon(Icons.search, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserPage())),
+            onTap: onUserTap,
             child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
           ),
         ],

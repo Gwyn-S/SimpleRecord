@@ -151,20 +151,20 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+    final categories = _isExpense ? expenseCategories : incomeCategories;
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) => AppBar(
-            backgroundColor: color,
-            foregroundColor: colorTextOnPrimary,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '',
-              onPressed: () => Navigator.pop(context),
-            ),
+        child: AppBar(
+          backgroundColor: themeColor,
+          foregroundColor: colorTextOnPrimary,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '',
+            onPressed: () => Navigator.pop(context),
+          ),
             centerTitle: true,
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(4),
@@ -231,43 +231,38 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             ),
           ),
         ),
-      ),
       body: Column(
         children: [
           Expanded(
-            child: ValueListenableBuilder<Color>(
-              valueListenable: themeColorNotifier,
-              builder: (context, color, _) {
-                final categories = _isExpense ? expenseCategories : incomeCategories;
-                return Padding(
-                  padding: const EdgeInsets.all(spacingL),
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: spacingM,
-                      crossAxisSpacing: spacingM,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: categories.length,
-                    itemBuilder: (context, index) {
-                      final cat = categories[index];
-                      final selected = _selectedCategory == index;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedCategory = index),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: sizeCategoryCircle,
-                              height: sizeCategoryCircle,
-                              decoration: BoxDecoration(
-                                color: selected ? color.withValues(alpha: 0.15) : colorBackgroundLight,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                cat.icon,
-                                size: iconSizeXLarge,
-                                color: selected ? color : colorTextPrimary,
+            child: Padding(
+              padding: const EdgeInsets.all(spacingL),
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: spacingM,
+                  crossAxisSpacing: spacingM,
+                  childAspectRatio: 1,
+                ),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final cat = categories[index];
+                  final selected = _selectedCategory == index;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedCategory = index),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: sizeCategoryCircle,
+                          height: sizeCategoryCircle,
+                          decoration: BoxDecoration(
+                            color: selected ? themeColor.withValues(alpha: 0.15) : colorBackgroundLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            cat.icon,
+                            size: iconSizeXLarge,
+                            color: selected ? themeColor : colorTextPrimary,
                               ),
                             ),
                             const SizedBox(height: spacingXS),
@@ -275,7 +270,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                               cat.name,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: selected ? color : Colors.black,
+                                color: selected ? themeColor : Colors.black,
                               ),
                             ),
                           ],
@@ -283,31 +278,26 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       );
                     },
                   ),
-                );
-              },
-            ),
+                ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ValueListenableBuilder<Color>(
-                  valueListenable: themeColorNotifier,
-                  builder: (context, color, _) => SizedBox(
-                    width: 120,
-                    child: TextField(
-                      controller: _remarkController,
-                      maxLength: 20,
-                      style: textBody,
-                      cursorColor: color,
-                      decoration: const InputDecoration(
-                        hintText: '备注',
-                        hintStyle: textHint,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        counterText: '',
-                      ),
+                SizedBox(
+                  width: 120,
+                  child: TextField(
+                    controller: _remarkController,
+                    maxLength: 20,
+                    style: textBody,
+                    cursorColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    decoration: const InputDecoration(
+                      hintText: '备注',
+                      hintStyle: textHint,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      counterText: '',
                     ),
                   ),
                 ),
@@ -448,15 +438,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       );
     }
     if (key == '完成') {
-      return ValueListenableBuilder<Color>(
-        valueListenable: themeColorNotifier,
-        builder: (context, color, _) => Container(
-          alignment: Alignment.center,
-          color: color,
-          child: const Text(
-            '完成',
-            style: textButtonPrimary,
-          ),
+      return Container(
+        alignment: Alignment.center,
+        color: Theme.of(context).extension<AppThemeColors>()!.primary,
+        child: const Text(
+          '完成',
+          style: textButtonPrimary,
         ),
       );
     }

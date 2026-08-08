@@ -1,21 +1,10 @@
-﻿1	P1	逐行 ValueListenableBuilder<Color>	record_item.dart:67	⬜
-2	P1	换色全树重建（低频可接受）	main.dart:30	⬜
-3	P1	widgets 反向依赖 pages	home_top_bar.dart:5-8, record_item.dart:8	⬜
-4	P1	业务逻辑散落页面内	book_list_page.dart:42-60	⬜
-5	P2	未选账本直接记账 → book_id=null	manual_entry_page.dart:45	⬜
-6	P2	loadBooks 按名称排序	book_service.dart:8	⬜
-7	P2	DB 打开失败无降级	main.dart:11	⬜
-8	P2	theme.dart re-export 兼容层	lib/theme.dart	⬜
-9	P2	周视图遗留死代码（weekStart/weekPageFromDay/dayFromWeekPage）	calendar_utils.dart:3-17	⬜
-10	P2	service 无 try/catch	全部 service	⬜
-11	P2	IndexedStack 5 页常驻	main_page.dart:31-37	⬜
-12	P2	无 RepaintBoundary	全局	⬜
-13	P2	build 内 DateTime.now()	main_page.dart:196	⬜
-14	P2	计算器不支持括号/负数/除零静默返 0	utils/calculator.dart:16	◐
-15	P2	切账本后展开状态残留	bills_page.dart	⬜
-16	P2	yuanToCents 非法输入（调用处已防护）	formatters.dart:9	🚫 不修
-17	P3	负债硬编码 0.00、负债账户计入净资产	assets_page.dart:156	⬜
-18	P3	stats/search 占位页（backup 已完成）	stats_page、search_page	◐
-19	P3	模板计数器测试	test/widget_test.dart	⬜
-20	P3	删除账本级联删记录无确认（你决定不做）	book_service.dart:28-31	🚫
-21	—	多币种 currency 列	records/asset_accounts	🚫 暂缓
+﻿1	P2	DB 打开失败无降级	main.dart:11	⬜
+2	P2	theme.dart re-export 兼容层	lib/theme.dart	⬜
+3	P2	周视图遗留死代码（weekStart/weekPageFromDay/dayFromWeekPage）	calendar_utils.dart:3-17	⬜
+4	P2	service 无 try/catch	全部 service	⬜
+5	P2	IndexedStack 5 页常驻	main_page.dart:31-37	⬜
+6	P2	无 RepaintBoundary	全局（日历页已有）	◐
+7	P2	build 内 DateTime.now()	main_page.dart:196	⬜
+8	P2	计算器不支持括号/负数/除零静默返 0	utils/calculator.dart:16	◐
+9	P3	负债硬编码 0.00、负债账户计入净资产	assets_page.dart:156	⬜
+10	P3	stats/search 占位页（backup 已完成）	stats_page、search_page	◐

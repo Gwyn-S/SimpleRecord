@@ -80,20 +80,17 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) => AppBar(
-            backgroundColor: color,
-            foregroundColor: colorTextOnPrimary,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '',
-              onPressed: () => Navigator.pop(context),
-            ),
-            centerTitle: true,
-            title: const Text('添加账户'),
+        child: AppBar(
+          backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+          foregroundColor: colorTextOnPrimary,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '',
+            onPressed: () => Navigator.pop(context),
           ),
+          centerTitle: true,
+          title: const Text('添加账户'),
         ),
       ),
       body: ListView.separated(

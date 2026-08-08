@@ -8,6 +8,7 @@ import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
 import '../utils/lunar_utils.dart';
+import '../utils/navigation.dart';
 import '../widgets/home_top_bar.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -159,40 +160,42 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       onVerticalDragEnd: _onVerticalDragEnd,
       child: Container(
         color: colorBackgroundPage,
-        child: Column(
-          children: [
-            ValueListenableBuilder<Color>(
-              valueListenable: themeColorNotifier,
-              builder: (context, color, _) {
-                return Container(
-                  color: color,
-                  child: Column(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).padding.top),
-                      HomeTopBar(
-                        monthLabel: _monthLabel,
-                        onPrevMonth: () => _changeMonth(-1),
-                        onNextMonth: () => _changeMonth(1),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _summaryItem('本月支出', _monthExpense),
-                            const SizedBox(width: spacingXXL),
-                            _summaryItem('本月收入', _monthIncome),
-                            const SizedBox(width: spacingXXL),
-                            _summaryItem('本月结余', _monthBalance),
-                          ],
-                        ),
-                      ),
-                    ],
+      child: Column(
+        children: [
+          Builder(builder: (context) {
+            final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+            return Container(
+              color: themeColor,
+              child: Column(
+                children: [
+                  SizedBox(height: MediaQuery.of(context).padding.top),
+                  HomeTopBar(
+                    monthLabel: _monthLabel,
+                    onPrevMonth: () => _changeMonth(-1),
+                    onNextMonth: () => _changeMonth(1),
+                    onBookTap: () => openBookList(context),
+                    onBackupTap: () => openBackup(context),
+                    onSearchTap: () => openSearch(context),
+                    onUserTap: () => openUser(context),
                   ),
-                );
-              },
-            ),
-            Container(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _summaryItem('本月支出', _monthExpense),
+                        const SizedBox(width: spacingXXL),
+                        _summaryItem('本月收入', _monthIncome),
+                        const SizedBox(width: spacingXXL),
+                        _summaryItem('本月结余', _monthBalance),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          Container(
               color: colorBackgroundCard,
               child: SizedBox(
                 height: heightHeaderBar,
@@ -361,7 +364,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         height: double.infinity,
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? themeColorNotifier.value : Colors.transparent,
+            color: selected
+                ? Theme.of(context).extension<AppThemeColors>()!.primary
+                : Colors.transparent,
             width: borderWidthDefault,
           ),
         ),

@@ -1,7 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
-import 'constants/app_colors.dart';
 import 'theme.dart';
 import 'services/database.dart';
 import 'services/book_service.dart';
@@ -35,20 +32,7 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           title: 'SimpleRecord',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            brightness: Brightness.light,
-            fontFamily:
-                defaultTargetPlatform == TargetPlatform.android ? 'sans-serif' : null,
-            scaffoldBackgroundColor: colorBackgroundCard,
-            colorScheme: ColorScheme.fromSeed(seedColor: color),
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: {
-                TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
-                TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-              },
-            ),
-          ),
+          theme: buildAppTheme(color),
           home: const MainPage(),
         );
       },

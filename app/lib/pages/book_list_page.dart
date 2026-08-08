@@ -58,9 +58,9 @@ class _BookListPageState extends State<BookListPage> {
     setState(() => _records = all);
   }
 
-  int _recordCount(String bookId) => _records.where((r) => r.bookId == bookId).length;
-  int _totalIncome(String bookId) => _records.where((r) => r.bookId == bookId && !r.isExpense).fold(0, (s, r) => s + r.amountCents);
-  int _totalExpense(String bookId) => _records.where((r) => r.bookId == bookId && r.isExpense).fold(0, (s, r) => s + r.amountCents);
+  int _recordCount(String bookId) => bookRecordCount(_records, bookId);
+  int _totalIncome(String bookId) => bookIncome(_records, bookId);
+  int _totalExpense(String bookId) => bookExpense(_records, bookId);
 
   void _showAddDialog() {
     final controller = TextEditingController();
@@ -172,28 +172,26 @@ class _BookListPageState extends State<BookListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) => AppBar(
-            title: const Text('账本'),
-            backgroundColor: color,
-            foregroundColor: colorTextOnPrimary,
-            elevation: 0,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
-            ),
-            leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context)),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.add, size: 28),
-                onPressed: _showAddDialog,
-              ),
-            ],
+        child: AppBar(
+          title: const Text('账本'),
+          backgroundColor: themeColor,
+          foregroundColor: colorTextOnPrimary,
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
           ),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add, size: 28),
+              onPressed: _showAddDialog,
+            ),
+          ],
         ),
       ),
       body: _books.isEmpty
@@ -210,85 +208,80 @@ class _BookListPageState extends State<BookListPage> {
                 final isCurrent = currentBookId.value == book.id;
                 return GestureDetector(
                   onTap: () => saveCurrentBookId(book.id),
-                  child: ValueListenableBuilder<Color>(
-                    valueListenable: themeColorNotifier,
-                    builder: (context, color, _) {
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
-                        child: SizedBox(
-                          height: 100,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                            Column(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
+                    child: SizedBox(
+                      height: 100,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                        Column(
+                          children: [
+                            Stack(
                               children: [
-                                Stack(
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                        color: isCurrent ? color : color.withValues(alpha: 0.5),
-                                        borderRadius: BorderRadius.circular(radiusSmall),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          book.name,
-                                          style: textCardTitle,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
+                                Container(
+                                  width: 80,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: isCurrent ? themeColor : themeColor.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(radiusSmall),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      book.name,
+                                      style: textCardTitle,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    if (isCurrent)
-                                      const Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeSmall),
-                                      ),
-                                  ],
+                                  ),
                                 ),
+                                if (isCurrent)
+                                  const Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeSmall),
+                                  ),
                               ],
                             ),
-                            const SizedBox(width: spacingL),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('记录数：${_recordCount(book.id)}', style: textCardMeta),
-                                  const SizedBox(height: spacingXS),
-                                  Text('总收入：${formatAmount(_totalIncome(book.id))}', style: textCardMeta),
-                                  const SizedBox(height: spacingXS),
-                                  Text('总支出：${formatAmount(_totalExpense(book.id))}', style: textCardMeta),
-                                  const SizedBox(height: spacingXS),
-                                  Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: textCardMeta),
-                                ],
-                              ),
-                            ),
-                            SizedBox(
-                              height: 100,
-                              child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _showEditDialog(index),
-                                      child: Icon(Icons.edit, size: 30, color: color),
-                                    ),
-                                    const SizedBox(width: spacingL),
-                                    GestureDetector(
-                                      onTap: () => _showDeleteDialog(index),
-                                      child: Icon(Icons.delete_outline, size: 30, color: color),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                          ],
+                        ),
+                        const SizedBox(width: spacingL),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('记录数：${_recordCount(book.id)}', style: textCardMeta),
+                              const SizedBox(height: spacingXS),
+                              Text('总收入：${formatAmount(_totalIncome(book.id))}', style: textCardMeta),
+                              const SizedBox(height: spacingXS),
+                              Text('总支出：${formatAmount(_totalExpense(book.id))}', style: textCardMeta),
+                              const SizedBox(height: spacingXS),
+                              Text('总结余：${formatAmount(_totalIncome(book.id) - _totalExpense(book.id))}', style: textCardMeta),
                             ],
                           ),
                         ),
-                      );
-                    },
+                        SizedBox(
+                          height: 100,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _showEditDialog(index),
+                                  child: Icon(Icons.edit, size: 30, color: themeColor),
+                                ),
+                                const SizedBox(width: spacingL),
+                                GestureDetector(
+                                  onTap: () => _showDeleteDialog(index),
+                                  child: Icon(Icons.delete_outline, size: 30, color: themeColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },

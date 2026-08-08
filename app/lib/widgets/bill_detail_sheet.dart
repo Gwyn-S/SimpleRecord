@@ -8,14 +8,14 @@ import '../utils/formatters.dart';
 class BillDetailSheet extends StatelessWidget {
   final Record record;
   final String Function(int) fmt;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback onDelete;
 
   const BillDetailSheet({
     super.key,
     required this.record,
-    required this.onEdit,
     required this.onDelete,
+    this.onEdit,
     this.fmt = _defaultFmt,
   });
 
@@ -34,10 +34,11 @@ class BillDetailSheet extends StatelessWidget {
               children: [
                 const Text('账单详情', style: textTitleBold),
                 const Spacer(),
-                TextButton(
-                  onPressed: onEdit,
-                  child: const Text('修改', style: TextStyle(color: colorTextPrimary)),
-                ),
+                if (onEdit != null)
+                  TextButton(
+                    onPressed: onEdit,
+                    child: const Text('修改', style: TextStyle(color: colorTextPrimary)),
+                  ),
                 TextButton(
                   onPressed: onDelete,
                   child: const Text('删除', style: TextStyle(color: colorDeleteDark)),

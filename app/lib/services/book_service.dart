@@ -1,9 +1,19 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../models/book.dart';
+import '../models/record.dart';
 import '../utils/id.dart';
 import 'database.dart';
 import 'record_service.dart';
+
+int bookRecordCount(List<Record> records, String bookId) =>
+    records.where((r) => r.bookId == bookId).length;
+
+int bookIncome(List<Record> records, String bookId) =>
+    records.where((r) => r.bookId == bookId && !r.isExpense).fold(0, (s, r) => s + r.amountCents);
+
+int bookExpense(List<Record> records, String bookId) =>
+    records.where((r) => r.bookId == bookId && r.isExpense).fold(0, (s, r) => s + r.amountCents);
 
 Future<List<Book>> loadBooks() async {
   final db = await DatabaseHelper.instance.database;

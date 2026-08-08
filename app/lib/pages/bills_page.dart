@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
 import '../widgets/home_top_bar.dart';
+import '../utils/navigation.dart';
 
 class BillsPage extends StatefulWidget {
   const BillsPage({super.key});
@@ -91,20 +92,22 @@ class _BillsPageState extends State<BillsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
-        ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) {
-            return Container(
-              color: color,
-              child: Column(
+        Container(
+          color: themeColor,
+          child: Column(
                 children: [
                   SizedBox(height: MediaQuery.of(context).padding.top),
                   HomeTopBar(
                     monthLabel: _monthLabel,
                     onPrevMonth: () => _changeMonth(-1),
                     onNextMonth: () => _changeMonth(1),
+                    onBookTap: () => openBookList(context),
+                    onBackupTap: () => openBackup(context),
+                    onSearchTap: () => openSearch(context),
+                    onUserTap: () => openUser(context),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
@@ -127,8 +130,6 @@ class _BillsPageState extends State<BillsPage> {
                   ),
                 ],
               ),
-            );
-          },
         ),
         Expanded(
           child: _buildRecordList(),
@@ -208,7 +209,10 @@ class _BillsPageState extends State<BillsPage> {
               ),
               if (expanded) ...[
                 const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                ...dayRecords.map((r) => RecordItem(record: r)),
+                ...dayRecords.map((r) => RecordItem(
+                      record: r,
+                      onEdit: () => openEditRecord(context, r),
+                    )),
                 const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),

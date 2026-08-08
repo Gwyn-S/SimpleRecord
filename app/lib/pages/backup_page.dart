@@ -232,34 +232,33 @@ class _BackupPageState extends State<BackupPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
-            child: ValueListenableBuilder<Color>(
-              valueListenable: themeColorNotifier,
-              builder: (context, color, _) => Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 44,
-                      child: FilledButton.icon(
-                        onPressed: _busy ? null : _doBackup,
-                        icon: const Icon(Icons.backup_outlined),
-                        label: const Text('立即备份'),
-                        style: FilledButton.styleFrom(backgroundColor: color),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _doBackup,
+                      icon: const Icon(Icons.backup_outlined),
+                      label: const Text('立即备份'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
                       ),
                     ),
                   ),
-                  const SizedBox(width: spacingM),
-                  Expanded(
-                    child: SizedBox(
-                      height: 44,
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _exportCsv,
-                        icon: const Icon(Icons.table_chart_outlined),
-                        label: const Text('导出 CSV'),
-                      ),
+                ),
+                const SizedBox(width: spacingM),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _exportCsv,
+                      icon: const Icon(Icons.table_chart_outlined),
+                      label: const Text('导出 CSV'),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           Expanded(

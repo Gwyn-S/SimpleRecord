@@ -1,6 +1,6 @@
 ---
 name: buildwinapk
-description: Use when the user asks to build/package SimpleRecord for release ("构建", "打包", "打apk", "打APK", "windows", "build", "出包", "版本"). Builds the Windows release exe and the Android arm64-v8a APK, reports artifact paths and sizes. Run after code changes by default.
+description: Use when the user asks to build/package SimpleRecord for release ("构建", "打包", "打apk", "打APK", "windows", "build", "出包", "版本"). Builds the Windows release exe and the Android arm64-v8a APK, reports artifact paths and sizes. Only build when explicitly requested by the user.
 ---
 
 # Build Win + APK
@@ -37,5 +37,6 @@ description: Use when the user asks to build/package SimpleRecord for release ("
 ## 约定
 
 - 回答使用中文。
-- 默认两个平台都要构建；若用户只要其中一个，按用户要求执行。
+- **默认不构建**：改完代码后不自动出包，由用户自行构建。只有用户明确要求构建时才执行。
+- 若用户要求构建：默认两个平台都要构建；若用户只要其中一个，按用户要求执行。
 - 构建是副产品，**不提交构建产物到 git**（构建会改动 generated_plugin_*.cc/.cmake 与 pubspec.lock 的镜像源，不要 add 这些）。

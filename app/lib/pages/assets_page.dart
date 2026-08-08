@@ -106,15 +106,13 @@ class _AssetsPageState extends State<AssetsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
         SizedBox(height: MediaQuery.of(context).padding.top),
-        ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) {
-            return Container(
-              color: color,
-              child: Column(
+        Container(
+          color: themeColor,
+          child: Column(
                 children: [
                   Container(
                     height: heightHeaderBar,
@@ -162,8 +160,6 @@ class _AssetsPageState extends State<AssetsPage> {
                   ),
                 ],
               ),
-            );
-          },
         ),
         Expanded(
           child: _accounts.isEmpty
@@ -180,59 +176,54 @@ class _AssetsPageState extends State<AssetsPage> {
                   ),
                   itemBuilder: (context, index) {
                     final account = _accounts[index];
-                    return ValueListenableBuilder<Color>(
-                      valueListenable: themeColorNotifier,
-                      builder: (context, color, _) {
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(spacingL, spacingSM, spacingL, spacingSM),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: sizeIconContainer,
-                                height: sizeIconContainer,
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: account.category?.iconPath != null
-                                    ? SvgPicture.asset(
-                                        account.category!.iconPath!,
-                                        width: iconSizeXLarge,
-                                        height: iconSizeXLarge,
-                                        fit: BoxFit.contain,
-                                        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                                      )
-                                    : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: color),
-                              ),
-                              const SizedBox(width: spacingM),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(account.name, style: textListItem),
-                                    const SizedBox(height: spacingXXS),
-                                    Text(account.categoryName, style: textItemSub),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                formatAmount(account.balanceCents),
-                                style: textAccountAmount,
-                              ),
-                              const SizedBox(width: spacingS),
-                              GestureDetector(
-                                onTap: () => _showEditDialog(index),
-                                child: Icon(Icons.edit, size: iconSizeXLarge, color: color),
-                              ),
-                              const SizedBox(width: spacingS),
-                              GestureDetector(
-                                onTap: () => _showDeleteDialog(index),
-                                child: const Icon(Icons.delete_outline, size: iconSizeXLarge, color: colorTextSecondary),
-                              ),
-                            ],
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(spacingL, spacingSM, spacingL, spacingSM),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: sizeIconContainer,
+                            height: sizeIconContainer,
+                            decoration: BoxDecoration(
+                              color: themeColor.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: account.category?.iconPath != null
+                                ? SvgPicture.asset(
+                                    account.category!.iconPath!,
+                                    width: iconSizeXLarge,
+                                    height: iconSizeXLarge,
+                                    fit: BoxFit.contain,
+                                    colorFilter: ColorFilter.mode(themeColor, BlendMode.srcIn),
+                                  )
+                                : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: themeColor),
                           ),
-                        );
-                      },
+                          const SizedBox(width: spacingM),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(account.name, style: textListItem),
+                                const SizedBox(height: spacingXXS),
+                                Text(account.categoryName, style: textItemSub),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            formatAmount(account.balanceCents),
+                            style: textAccountAmount,
+                          ),
+                          const SizedBox(width: spacingS),
+                          GestureDetector(
+                            onTap: () => _showEditDialog(index),
+                            child: Icon(Icons.edit, size: iconSizeXLarge, color: themeColor),
+                          ),
+                          const SizedBox(width: spacingS),
+                          GestureDetector(
+                            onTap: () => _showDeleteDialog(index),
+                            child: const Icon(Icons.delete_outline, size: iconSizeXLarge, color: colorTextSecondary),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),

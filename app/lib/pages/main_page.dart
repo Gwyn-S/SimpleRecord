@@ -91,31 +91,26 @@ class _MainPageState extends State<MainPage> {
       ),
       floatingActionButton: GestureDetector(
         onLongPress: _tab == 4 ? null : _toggleMenu,
-        child: ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) {
-            return SizedBox(
-              width: 60,
-              height: 60,
-              child: FloatingActionButton(
-                onPressed: _menuOpen ? _closeMenu : () {
-                  if (_tab == 4) {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetAccountPage()));
-                  } else {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualEntryPage()));
-                  }
-                },
-                backgroundColor: color,
-                shape: const CircleBorder(),
-                elevation: 0,
-                child: Icon(
-                  _menuOpen ? Icons.close : Icons.add,
-                  color: colorTextOnPrimary,
-                  size: iconSizeFab,
-                ),
-              ),
-            );
-          },
+        child: SizedBox(
+          width: 60,
+          height: 60,
+          child: FloatingActionButton(
+            onPressed: _menuOpen ? _closeMenu : () {
+              if (_tab == 4) {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetAccountPage()));
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualEntryPage()));
+              }
+            },
+            backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+            shape: const CircleBorder(),
+            elevation: 0,
+            child: Icon(
+              _menuOpen ? Icons.close : Icons.add,
+              color: colorTextOnPrimary,
+              size: iconSizeFab,
+            ),
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -132,19 +127,14 @@ class _MainPageState extends State<MainPage> {
   Widget _miniFab(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: ValueListenableBuilder<Color>(
-        valueListenable: themeColorNotifier,
-        builder: (context, color, _) {
-          return Container(
-            width: sizeIconContainer,
-            height: sizeIconContainer,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: colorTextOnPrimary, size: iconSizeDefault),
-          );
-        },
+      child: Container(
+        width: sizeIconContainer,
+        height: sizeIconContainer,
+        decoration: BoxDecoration(
+          color: Theme.of(context).extension<AppThemeColors>()!.primary,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: colorTextOnPrimary, size: iconSizeDefault),
       ),
     );
   }
@@ -167,61 +157,57 @@ class _MainPageState extends State<MainPage> {
 
   Widget _tabItem(int index, IconData outlineIcon, IconData fillIcon, String label) {
     final selected = _tab == index;
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return GestureDetector(
       onTap: () => setState(() => _tab = index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 64,
-        child: ValueListenableBuilder<Color>(
-          valueListenable: themeColorNotifier,
-          builder: (context, color, _) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                index == 1
-                    ? SizedBox(
-                        width: selected ? 25 : 22,
-                        height: selected ? 25 : 22,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(
-                              selected ? fillIcon : outlineIcon,
-                              size: selected ? 25 : 22,
-                              color: selected ? color : colorTextPrimary,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 5),
-                              child: Text(
-                                '${DateTime.now().day}',
-                                style: TextStyle(
-                                  fontSize: selected ? 9 : 8,
-                                  fontWeight: FontWeight.w700,
-                                  color: selected ? color : colorTextPrimary,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                          ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            index == 1
+                ? SizedBox(
+                    width: selected ? 25 : 22,
+                    height: selected ? 25 : 22,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          selected ? fillIcon : outlineIcon,
+                          size: selected ? 25 : 22,
+                          color: selected ? themeColor : colorTextPrimary,
                         ),
-                      )
-                    : Icon(
-                        selected ? fillIcon : outlineIcon,
-                        size: selected ? 25 : 22,
-                        color: selected ? color : colorTextPrimary,
-                      ),
-                const SizedBox(height: spacingXXS),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: selected ? 14 : 12,
-                    fontWeight: FontWeight.w500,
-                    color: selected ? color : colorTextPrimary,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Text(
+                            '${DateTime.now().day}',
+                            style: TextStyle(
+                              fontSize: selected ? 9 : 8,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? themeColor : colorTextPrimary,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Icon(
+                    selected ? fillIcon : outlineIcon,
+                    size: selected ? 25 : 22,
+                    color: selected ? themeColor : colorTextPrimary,
                   ),
-                ),
-              ],
-            );
-          },
+            const SizedBox(height: spacingXXS),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: selected ? 14 : 12,
+                fontWeight: FontWeight.w500,
+                color: selected ? themeColor : colorTextPrimary,
+              ),
+            ),
+          ],
         ),
       ),
     );
