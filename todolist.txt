@@ -1,10 +1,11 @@
 ﻿1	P2	DB 打开失败无降级	main.dart:11	⬜
-2	P2	theme.dart re-export 兼容层	lib/theme.dart	⬜
 3	P2	周视图遗留死代码（weekStart/weekPageFromDay/dayFromWeekPage）	calendar_utils.dart:3-17	⬜
 4	P2	service 无 try/catch	全部 service	⬜
 5	P2	IndexedStack 5 页常驻	main_page.dart:31-37	⬜
 6	P2	无 RepaintBoundary	全局（日历页已有）	◐
-7	P2	build 内 DateTime.now()	main_page.dart:196	⬜
-8	P2	计算器不支持括号/负数/除零静默返 0	utils/calculator.dart:16	◐
-9	P3	负债硬编码 0.00、负债账户计入净资产	assets_page.dart:156	⬜
-10	P3	stats/search 占位页（backup 已完成）	stats_page、search_page	◐
+7	P2	build 内 DateTime.now()	main_page.dart:184	⬜
+8	P3	负债硬编码 0.00、负债账户计入净资产	assets_page.dart:154	⬜
+9	P3	stats/search 占位页（backup 已完成）	stats_page、search_page	◐
+10	P1	测试种子数据生产启动注入假数据（records<60 或 ledgers<2 时写入）	main.dart:15、utils/test_data.dart	⬜
+11	P2	无全局异常捕获（runZonedGuarded/FlutterError.onError）	main.dart	⬜
+12	P3	记账保存无兜底（insertRecord/updateRecord 抛错 UI 无提示）	manual_entry_page.dart:56-85	⬜

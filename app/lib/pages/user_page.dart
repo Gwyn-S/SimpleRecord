@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
-import '../theme.dart';
+import '../services/theme_service.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});

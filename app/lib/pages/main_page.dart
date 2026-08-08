@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../theme.dart';
+import '../services/theme_service.dart';
 import 'bills_page.dart';
 import 'calendar_page.dart';
 import 'stats_page.dart';
