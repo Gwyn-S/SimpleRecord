@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/asset_account.dart';
 import 'database.dart';
+import 'record_service.dart';
 
 final ValueNotifier<int> assetAccountsVersion = ValueNotifier(0);
 
@@ -28,6 +29,11 @@ Future<void> updateAssetAccount(AssetAccount account) async {
 
 Future<void> deleteAssetAccount(String id) async {
   final db = await DatabaseHelper.instance.database;
-  await db.delete('asset_accounts', where: 'id = ?', whereArgs: [id]);
+  await db.transaction((txn) async {
+    await txn.delete('asset_accounts', where: 'id = ?', whereArgs: [id]);
+    await txn.rawUpdate(
+        'UPDATE records SET account_id = NULL WHERE account_id = ?', [id]);
+  });
   assetAccountsVersion.value++;
+  recordsVersion.value++;
 }

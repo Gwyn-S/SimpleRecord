@@ -65,15 +65,25 @@ class RecordItem extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: record.isExpense
-                    ? colorExpense
-                    : Theme.of(context).extension<AppThemeColors>()!.primary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: record.isExpense
+                        ? colorExpense
+                        : Theme.of(context).extension<AppThemeColors>()!.primary,
+                  ),
+                ),
+                if (record.accountName != null)
+                  Text(
+                    record.accountName!,
+                    style: textItemSub,
+                  ),
+              ],
             ),
           ],
         ),

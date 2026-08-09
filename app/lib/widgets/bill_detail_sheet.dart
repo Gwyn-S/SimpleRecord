@@ -50,7 +50,7 @@ class BillDetailSheet extends StatelessWidget {
             _detailRow('分类', record.categoryName),
             if (record.remark.isNotEmpty) _detailRow('备注', record.remark),
             _detailRow('金额', '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}'),
-            _detailRow('账户', '未选择'),
+            _detailRow('账户', record.accountName ?? '未选择'),
             _detailRow('日期', formatDate(record.date)),
             _detailRow('录入时间', _formatDateTime(record.createdAt)),
           ],

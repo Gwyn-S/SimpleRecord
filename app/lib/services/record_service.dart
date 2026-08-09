@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/record.dart';
+import 'asset_account_service.dart';
 import 'database.dart';
 
 const _currentLedgerKey = 'currentBookId';
@@ -46,31 +47,99 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
     args.add(start);
     args.add(end);
   }
-  final rows = await db.query(
-    'records',
-    where: where.isEmpty ? null : where.join(' AND '),
-    whereArgs: args.isEmpty ? null : args,
-    orderBy: 'date DESC, created_at DESC',
+  final sql = StringBuffer(
+    'SELECT records.*, asset_accounts.name AS account_name '
+    'FROM records LEFT JOIN asset_accounts '
+    'ON records.account_id = asset_accounts.id',
   );
+  if (where.isNotEmpty) {
+    sql.write(' WHERE ${where.join(' AND ')}');
+  }
+  sql.write(' ORDER BY date DESC, created_at DESC');
+  final rows = await db.rawQuery(sql.toString(), args);
   return rows.map(Record.fromDbMap).toList();
+}
+
+/// 同步账户余额：sign=1 应用记录影响，sign=-1 撤销。
+/// 支出减余额、收入加余额；未关联账户（accountId 为空）时跳过。
+Future<void> _applyBalance(
+  DatabaseExecutor db, {
+  required String? accountId,
+  required bool isExpense,
+  required int amountCents,
+  required int sign,
+}) async {
+  if (accountId == null) return;
+  final delta = sign * (isExpense ? -amountCents : amountCents);
+  await db.rawUpdate(
+    'UPDATE asset_accounts SET balance_cents = balance_cents + ? WHERE id = ?',
+    [delta, accountId],
+  );
 }
 
 Future<void> insertRecord(Record record) async {
   final db = await DatabaseHelper.instance.database;
-  await db.insert('records', record.toDbMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace);
+  await db.transaction((txn) async {
+    await txn.insert('records', record.toDbMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    await _applyBalance(
+      txn,
+      accountId: record.accountId,
+      isExpense: record.isExpense,
+      amountCents: record.amountCents,
+      sign: 1,
+    );
+  });
   recordsVersion.value++;
+  assetAccountsVersion.value++;
 }
 
 Future<void> updateRecord(Record record) async {
   final db = await DatabaseHelper.instance.database;
-  await db.update('records', record.toDbMap(),
-      where: 'id = ?', whereArgs: [record.id]);
+  await db.transaction((txn) async {
+    final rows = await txn.query('records',
+        where: 'id = ?', whereArgs: [record.id]);
+    if (rows.isNotEmpty) {
+      final old = Record.fromDbMap(rows.first);
+      await _applyBalance(
+        txn,
+        accountId: old.accountId,
+        isExpense: old.isExpense,
+        amountCents: old.amountCents,
+        sign: -1,
+      );
+    }
+    await txn.update('records', record.toDbMap(),
+        where: 'id = ?', whereArgs: [record.id]);
+    await _applyBalance(
+      txn,
+      accountId: record.accountId,
+      isExpense: record.isExpense,
+      amountCents: record.amountCents,
+      sign: 1,
+    );
+  });
   recordsVersion.value++;
+  assetAccountsVersion.value++;
 }
 
 Future<void> deleteRecord(String id) async {
   final db = await DatabaseHelper.instance.database;
-  await db.delete('records', where: 'id = ?', whereArgs: [id]);
+  await db.transaction((txn) async {
+    final rows = await txn.query('records',
+        where: 'id = ?', whereArgs: [id]);
+    await txn.delete('records', where: 'id = ?', whereArgs: [id]);
+    if (rows.isNotEmpty) {
+      final old = Record.fromDbMap(rows.first);
+      await _applyBalance(
+        txn,
+        accountId: old.accountId,
+        isExpense: old.isExpense,
+        amountCents: old.amountCents,
+        sign: -1,
+      );
+    }
+  });
   recordsVersion.value++;
+  assetAccountsVersion.value++;
 }

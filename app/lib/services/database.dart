@@ -40,7 +40,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -54,6 +54,10 @@ class DatabaseHelper {
     final cols = await db.rawQuery('PRAGMA table_info(books)');
     if (!cols.any((c) => c['name'] == 'created_at')) {
       await db.execute('ALTER TABLE books ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
+    }
+    final recordCols = await db.rawQuery('PRAGMA table_info(records)');
+    if (!recordCols.any((c) => c['name'] == 'account_id')) {
+      await db.execute('ALTER TABLE records ADD COLUMN account_id TEXT');
     }
   }
 
@@ -69,6 +73,7 @@ class DatabaseHelper {
       CREATE TABLE records (
         id TEXT PRIMARY KEY,
         book_id TEXT,
+        account_id TEXT,
         is_expense INTEGER NOT NULL,
         category_name TEXT NOT NULL,
         amount_cents INTEGER NOT NULL,
@@ -94,6 +99,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 3) {
       await db.execute('ALTER TABLE books ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE records ADD COLUMN account_id TEXT');
     }
   }
 

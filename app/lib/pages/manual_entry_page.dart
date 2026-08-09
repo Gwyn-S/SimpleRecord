@@ -5,11 +5,15 @@ import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/category.dart';
 import '../models/record.dart';
+import '../models/asset_account.dart';
 import '../services/record_service.dart';
+import '../services/asset_account_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
+import '../widgets/account_picker_sheet.dart';
+import '../widgets/date_picker_sheet.dart';
 
 class ManualEntryPage extends StatefulWidget {
   final Record? initialRecord;
@@ -24,6 +28,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   int? _selectedCategory;
   String _amount = '0';
   DateTime _selectedDate = DateTime.now();
+  AssetAccount? _selectedAccount;
   final _remarkController = TextEditingController();
 
   @override
@@ -38,6 +43,18 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _amount = (r.amountCents / 100).toStringAsFixed(2);
       _selectedDate = r.date;
       _remarkController.text = r.remark;
+      if (r.accountId != null) _loadSelectedAccount(r.accountId!);
+    }
+  }
+
+  Future<void> _loadSelectedAccount(String id) async {
+    final accounts = await loadAssetAccounts();
+    if (!mounted) return;
+    for (final a in accounts) {
+      if (a.id == id) {
+        setState(() => _selectedAccount = a);
+        return;
+      }
     }
   }
 
@@ -69,6 +86,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     final record = Record(
       id: origin?.id ?? genId(),
       ledgerId: origin?.ledgerId ?? currentLedgerId.value,
+      accountId: _selectedAccount?.id,
       isExpense: _isExpense,
       categoryName: _getCategoryName(),
       amountCents: amountCents,
@@ -97,6 +115,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           _amount = '0';
           _remarkController.clear();
           _selectedCategory = null;
+          _selectedAccount = null;
         });
       });
       return;
@@ -334,21 +353,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             icon: Icons.calendar_today_outlined,
             label: _formatSelectedDate(),
             onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-              );
+              final picked = await showDatePickerSheet(context, _selectedDate);
               if (picked != null) setState(() => _selectedDate = picked);
             },
           ),
           const SizedBox(width: spacingXXL),
-          // TODO: 接入账户选择功能（关联 asset_accounts）
           _buildOptionItem(
             icon: Icons.account_balance_wallet_outlined,
-            label: '账户',
-            onTap: () => showToast(context, '账户选择功能开发中'),
+            label: _selectedAccount?.name ?? '账户',
+            onTap: _pickAccount,
           ),
           const SizedBox(width: spacingXXL),
           // TODO: 接入标签功能（关联 tags 表）
@@ -369,8 +382,25 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     );
   }
 
-  Widget _buildOptionItem({required IconData icon, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
+  Future<void> _pickAccount() async {
+    final accounts = await loadAssetAccounts();
+    if (!mounted) return;
+    final result = await showAccountPicker(
+      context,
+      accounts: accounts,
+      selectedId: _selectedAccount?.id,
+    );
+    if (result == null || !mounted) return;
+    if (result == noAccountSelection) {
+      setState(() => _selectedAccount = null);
+      return;
+    }
+    if (result is AssetAccount) {
+      setState(() => _selectedAccount = result);
+    }
+  }
+
+  Widget _buildOptionItem({required IconData icon, required String label, required VoidCallback onTap}) {    return GestureDetector(
       onTap: onTap,
       child: Row(
         mainAxisSize: MainAxisSize.min,
