@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
+import '../models/record.dart';
 import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
@@ -11,6 +12,7 @@ import '../utils/lunar_utils.dart';
 import '../utils/navigation.dart';
 import '../widgets/home_top_bar.dart';
 import '../widgets/month_year_picker.dart';
+import '../widgets/record_item.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -28,6 +30,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   int _weekPage = 0;
   int? _viewedWeekPage; // 周视图当前浏览的页
   bool _wasFolded = false; // 是否处于折叠（周视图）状态
+  bool _folded = false; // 当前是否为折叠完成的周视图状态
   bool _pendingWeekJump = false; // 从月视图切到周视图时需重新定位到选中周
   bool _pendingMonthJump = false; // 从周视图切回月视图时需重新定位到当前月
 
@@ -36,6 +39,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   int _loadSeq = 0;
   final Map<String, int> _dayExpense = {};
   final Map<String, int> _dayIncome = {};
+  final Map<String, List<Record>> _dayRecords = {};
 
   final Map<int, Widget> _monthGridCache = {};
   int _selCacheKey = 0;
@@ -103,8 +107,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       _monthExpense = monthExpense(records);
       _dayExpense.clear();
       _dayIncome.clear();
+      _dayRecords.clear();
       for (final r in records) {
         final key = '${r.date.year}-${r.date.month}-${r.date.day}';
+        _dayRecords.putIfAbsent(key, () => []).add(r);
         if (r.isExpense) {
           _dayExpense[key] = (_dayExpense[key] ?? 0) + r.amountCents;
         } else {
@@ -270,59 +276,36 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                 ),
               ),
             ),
-            SizedBox(
-              height: heightCalendarGrid,
-              child: ValueListenableBuilder<double>(
-                valueListenable: _foldController,
-                builder: (context, t, _) {
-                  final calendarHeight = heightCalendarGrid - t * _maxOffset;
-                  final panelHeight = t * _maxOffset;
-                  return Stack(
-                    children: [
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: calendarHeight,
-                        child: ClipRect(
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                height: calendarHeight,
-                                child: Container(color: colorBackgroundCard),
-                              ),
-                              Positioned(
-                                top: t >= 0.999 ? 0 : -t * _selectedRowIndex * _rowHeight,
-                                left: 0,
-                                right: 0,
-                                height: t >= 0.999 ? calendarHeight : heightCalendarGrid,
-                                child: RepaintBoundary(
-                                  child: Container(
-                                    color: colorBackgroundCard,
-                                    child: t >= 0.999 ? _buildWeekView() : _buildMonthPageView(),
-                                  ),
-                                ),
-                              ),
-                            ],
+            ValueListenableBuilder<double>(
+              valueListenable: _foldController,
+              builder: (context, t, _) {
+                final calendarHeight = heightCalendarGrid - t * _maxOffset;
+                return SizedBox(
+                  height: calendarHeight,
+                  child: ClipRect(
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned.fill(child: Container(color: colorBackgroundCard)),
+                        Positioned(
+                          top: t >= 0.999 ? 0 : -t * _selectedRowIndex * _rowHeight,
+                          left: 0,
+                          right: 0,
+                          height: t >= 0.999 ? calendarHeight : heightCalendarGrid,
+                          child: RepaintBoundary(
+                            child: Container(
+                              color: colorBackgroundCard,
+                              child: t >= 0.999 ? _buildWeekView() : _buildMonthPageView(),
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: calendarHeight,
-                        left: 0,
-                        right: 0,
-                        height: panelHeight,
-                        child: RepaintBoundary(child: _buildPanel()),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
+            Expanded(child: _buildPanel()),
           ],
         ),
       ),
@@ -330,10 +313,71 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   }
 
   Widget _buildPanel() {
+    final day = _selectedDay;
+    if (day == null) {
+      return const SizedBox();
+    }
+    final key = '${day.year}-${day.month}-${day.day}';
+    final records = _dayRecords[key] ?? [];
+    final dayExp = _dayExpense[key] ?? 0;
+    final dayInc = _dayIncome[key] ?? 0;
+    if (records.isEmpty) {
+      return Container(color: colorBackgroundPage);
+    }
     return Container(
       color: colorBackgroundPage,
-      child: const Center(
-        child: Text('面板内容', style: TextStyle(color: colorTextPlaceholder)),
+      padding: const EdgeInsets.only(top: 12),
+      child: ListView(
+        physics: _folded
+            ? const AlwaysScrollableScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: spacingS),
+        children: [
+          Container(
+            color: colorBackgroundCard,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
+                  child: Row(
+                    children: [
+                      Text(formatDate(day), style: textBody),
+                      const Spacer(),
+                      Text.rich(
+                        TextSpan(
+                          style: textItemSub,
+                          children: [
+                            const TextSpan(text: '收入 '),
+                            TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                            const TextSpan(text: '  支出 '),
+                            TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+                ...records.map((r) => RecordItem(
+                      record: r,
+                      onEdit: () => openEditRecord(context, r),
+                    )),
+                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Text('结余：', style: textSecondary),
+                      Text(formatAmount(dayInc - dayExp), style: textBalance),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -418,7 +462,11 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
 
   void _onFoldTick() {
     final t = _foldController.value;
-    if (t >= 0.999) {
+    final nowFolded = t >= 0.999;
+    if (nowFolded != _folded) {
+      setState(() => _folded = nowFolded);
+    }
+    if (nowFolded) {
       _wasFolded = true;
     } else if (t < 0.999 && _wasFolded) {
       _wasFolded = false;
