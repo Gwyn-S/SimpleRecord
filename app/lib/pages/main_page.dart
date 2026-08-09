@@ -19,6 +19,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _tab = 0;
   bool _menuOpen = false;
+  final int _todayDay = DateTime.now().day;
 
   void _toggleMenu() {
     setState(() => _menuOpen = !_menuOpen);
@@ -181,7 +182,7 @@ class _MainPageState extends State<MainPage> {
                         Padding(
                           padding: const EdgeInsets.only(top: 5),
                           child: Text(
-                            '${DateTime.now().day}',
+                            '$_todayDay',
                             style: TextStyle(
                               fontSize: selected ? 9 : 8,
                               fontWeight: FontWeight.w700,

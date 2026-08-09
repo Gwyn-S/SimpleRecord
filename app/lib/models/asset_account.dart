@@ -6,6 +6,9 @@ class AssetAccountCategory {
   const AssetAccountCategory({this.icon, this.iconPath, required this.name});
 }
 
+/// 计入负债的分类：余额作为欠款额单独统计，净资产 = 资产 − 负债。
+const _debtCategoryNames = {'信用卡', '负债'};
+
 final assetAccountCategories = [
   const AssetAccountCategory(iconPath: 'assets/icons/cash.svg', name: '现金'),
   const AssetAccountCategory(iconPath: 'assets/icons/online_banking.svg', name: '网络支付'),
@@ -36,6 +39,8 @@ class AssetAccount {
     }
     return null;
   }
+
+  bool get isDebtAccount => _debtCategoryNames.contains(categoryName);
 
   Map<String, dynamic> toDbMap() => {
         'id': id,

@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
 import '../widgets/home_top_bar.dart';
+import '../widgets/month_year_picker.dart';
 import '../utils/navigation.dart';
 
 class BillsPage extends StatefulWidget {
@@ -86,6 +87,19 @@ class _BillsPageState extends State<BillsPage> {
     });
   }
 
+  Future<void> _openMonthPicker(BuildContext context) async {
+    final target = await showMonthYearPicker(context, currentMonth.value);
+    if (target == null || !mounted) return;
+    if (target.year == currentMonth.value.year && target.month == currentMonth.value.month) {
+      return;
+    }
+    currentMonth.value = target;
+    setState(() {
+      _expandedDays.clear();
+      _initialized = false;
+    });
+  }
+
   String get _monthLabel => formatMonthLabel(currentMonth.value);
 
   int get _monthBalance => _monthIncome - _monthExpense;
@@ -104,13 +118,14 @@ class _BillsPageState extends State<BillsPage> {
                     monthLabel: _monthLabel,
                     onPrevMonth: () => _changeMonth(-1),
                     onNextMonth: () => _changeMonth(1),
+                    onMonthLabelTap: () => _openMonthPicker(context),
                     onLedgerTap: () => openLedgerList(context),
                     onBackupTap: () => openBackup(context),
                     onSearchTap: () => openSearch(context),
                     onUserTap: () => openUser(context),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
+                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, 0),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final halfW = constraints.maxWidth / 2;
@@ -119,9 +134,9 @@ class _BillsPageState extends State<BillsPage> {
                           child: Stack(
                             children: [
                               Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true)),
-                              Positioned(left: halfW, top: heightSummaryArea / 3, width: halfW, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
+                              Positioned(left: halfW, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
                             ],
                           ),
                         );
@@ -157,14 +172,17 @@ class _BillsPageState extends State<BillsPage> {
     }
 
     return ListView(
-      children: _sortedKeys.map((key) {
+      padding: EdgeInsets.zero,
+      children: _sortedKeys.asMap().entries.map((entry) {
+        final isFirst = entry.key == 0;
+        final key = entry.value;
         final dayRecords = _grouped[key]!;
         final date = dayRecords.first.date;
         final dayExp = monthExpense(dayRecords);
         final dayInc = monthIncome(dayRecords);
         final expanded = _expandedDays.contains(key);
         return Container(
-          margin: const EdgeInsets.fromLTRB(spacingM, spacingSM, spacingM, spacingSM),
+          margin: EdgeInsets.fromLTRB(spacingM, isFirst ? spacingS : spacingXS, spacingM, spacingXS),
           decoration: BoxDecoration(
             color: colorBackgroundCard,
             borderRadius: BorderRadius.circular(radiusMedium),
@@ -182,7 +200,7 @@ class _BillsPageState extends State<BillsPage> {
                   }
                 }),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
                   child: Row(
                     children: [
                       Text(

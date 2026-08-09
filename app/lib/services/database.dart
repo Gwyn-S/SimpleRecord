@@ -38,19 +38,31 @@ class DatabaseHelper {
     final dir = await getApplicationSupportDirectory();
     final dbPath = join(dir.path, 'simplerecord.db');
     _dbPath = dbPath;
-    return openDatabase(
+    final db = await openDatabase(
       dbPath,
       version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+    await _ensureSchema(db);
+    return db;
+  }
+
+  /// 打开即自愈：历史遗留库的 books 表可能缺 created_at 列
+  /// （v3 新建库由 onCreate 直接建表、不走 onUpgrade），幂等补列。
+  Future<void> _ensureSchema(Database db) async {
+    final cols = await db.rawQuery('PRAGMA table_info(books)');
+    if (!cols.any((c) => c['name'] == 'created_at')) {
+      await db.execute('ALTER TABLE books ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE books (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''

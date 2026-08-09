@@ -7,6 +7,7 @@ class HomeTopBar extends StatelessWidget {
   final String monthLabel;
   final VoidCallback onPrevMonth;
   final VoidCallback onNextMonth;
+  final VoidCallback? onMonthLabelTap;
   final VoidCallback? onLedgerTap;
   final VoidCallback? onBackupTap;
   final VoidCallback? onSearchTap;
@@ -17,6 +18,7 @@ class HomeTopBar extends StatelessWidget {
     required this.monthLabel,
     required this.onPrevMonth,
     required this.onNextMonth,
+    this.onMonthLabelTap,
     this.onLedgerTap,
     this.onBackupTap,
     this.onSearchTap,
@@ -55,9 +57,16 @@ class HomeTopBar extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: spacingXXS),
-                child: Text(
-                  monthLabel,
-                  style: textTitle,
+                child: GestureDetector(
+                  onTap: onMonthLabelTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      monthLabel,
+                      style: textTitle,
+                    ),
+                  ),
                 ),
               ),
               GestureDetector(

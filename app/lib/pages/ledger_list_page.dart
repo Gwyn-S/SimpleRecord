@@ -207,7 +207,10 @@ class _LedgerListPageState extends State<LedgerListPage> {
                 final ledger = _ledgers[index];
                 final isCurrent = currentLedgerId.value == ledger.id;
                 return GestureDetector(
-                  onTap: () => saveCurrentLedgerId(ledger.id),
+                  onTap: () {
+                    saveCurrentLedgerId(ledger.id);
+                    Navigator.pop(context);
+                  },
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
                     child: SizedBox(
@@ -223,7 +226,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
                                   width: 80,
                                   height: 100,
                                   decoration: BoxDecoration(
-                                    color: isCurrent ? themeColor : themeColor.withValues(alpha: 0.5),
+                                    color: themeColor,
                                     borderRadius: BorderRadius.circular(radiusSmall),
                                   ),
                                   child: Center(

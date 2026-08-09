@@ -10,6 +10,8 @@ class LunarUtils {
 
   static int _dayKey(DateTime date) => date.year * 10000 + date.month * 100 + date.day;
 
+  static bool _isInRange(DateTime date) => date.year >= 1900 && date.year <= 2099;
+
   /// 获取农历显示文字（遵循 NCalendar 优先级）
   /// 优先级：替换文字 > 农历节日 > 节气 > 公历节日 > 农历日期
   static String getDisplayText(DateTime date) {
@@ -17,6 +19,8 @@ class LunarUtils {
   }
 
   static String _computeDisplayText(DateTime date) {
+    if (!_isInRange(date)) return '';
+
     final chineseDate = ChineseDate(date);
 
     // 1. 农历节日
@@ -54,6 +58,8 @@ class LunarUtils {
   }
 
   static bool _computeFestivalOrJieQi(DateTime date) {
+    if (!_isInRange(date)) return false;
+
     final chineseDate = ChineseDate(date);
 
     // 农历节日

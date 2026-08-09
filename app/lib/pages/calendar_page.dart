@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../utils/lunar_utils.dart';
 import '../utils/navigation.dart';
 import '../widgets/home_top_bar.dart';
+import '../widgets/month_year_picker.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -20,13 +21,21 @@ class CalendarPage extends StatefulWidget {
 
 class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
   late PageController _pageController;
+  late PageController _weekPageController;
   late DateTime _currentMonth;
   DateTime? _selectedDay;
   late AnimationController _foldController;
+  int _weekPage = 0;
+  int? _viewedWeekPage; // 周视图当前浏览的页
+  bool _wasFolded = false; // 是否处于折叠（周视图）状态
+  bool _pendingWeekJump = false; // 从月视图切到周视图时需重新定位到选中周
+  bool _pendingMonthJump = false; // 从周视图切回月视图时需重新定位到当前月
 
   int _monthExpense = 0;
   int _monthIncome = 0;
   int _loadSeq = 0;
+  final Map<String, int> _dayExpense = {};
+  final Map<String, int> _dayIncome = {};
 
   final Map<int, Widget> _monthGridCache = {};
   int _selCacheKey = 0;
@@ -37,8 +46,12 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _currentMonth = currentMonth.value;
+    _selectedDay = DateTime.now();
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
+    _weekPage = _foldWeekPage;
+    _weekPageController = PageController(initialPage: _weekPage);
     _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _foldController.addListener(_onFoldTick);
     _load();
     recordsVersion.addListener(_load);
     currentLedgerId.addListener(_load);
@@ -52,8 +65,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     currentLedgerId.removeListener(_load);
     currentMonth.removeListener(_onMonthChanged);
     themeColorNotifier.removeListener(_onThemeChanged);
+    _foldController.removeListener(_onFoldTick);
     _foldController.dispose();
     _pageController.dispose();
+    _weekPageController.dispose();
     super.dispose();
   }
 
@@ -86,6 +101,17 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     setState(() {
       _monthIncome = monthIncome(records);
       _monthExpense = monthExpense(records);
+      _dayExpense.clear();
+      _dayIncome.clear();
+      for (final r in records) {
+        final key = '${r.date.year}-${r.date.month}-${r.date.day}';
+        if (r.isExpense) {
+          _dayExpense[key] = (_dayExpense[key] ?? 0) + r.amountCents;
+        } else {
+          _dayIncome[key] = (_dayIncome[key] ?? 0) + r.amountCents;
+        }
+      }
+      _monthGridCache.clear();
     });
   }
 
@@ -111,9 +137,36 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     );
   }
 
+  Future<void> _openMonthPicker(BuildContext context) async {
+    final target = await showMonthYearPicker(context, _currentMonth);
+    if (target == null || !mounted) return;
+    if (target.year == _currentMonth.year && target.month == _currentMonth.month) {
+      return;
+    }
+    setState(() {
+      _currentMonth = target;
+    });
+    _pageController.jumpToPage(pageFromMonth(target));
+    _load();
+    currentMonth.value = target;
+    if (_foldController.value > 0.99) {
+      _foldController.reverse();
+    }
+  }
+
   int get _monthBalance => _monthIncome - _monthExpense;
 
   DateTime get _effectiveSelectedDay => _selectedDay ?? DateTime.now();
+
+  int get _foldWeekPage {
+    final sel = _selectedDay;
+    if (sel != null &&
+        sel.year == _currentMonth.year &&
+        sel.month == _currentMonth.month) {
+      return weekPageFromDay(sel);
+    }
+    return weekPageFromDay(DateTime(_currentMonth.year, _currentMonth.month, 1));
+  }
 
   int get _currentRowCount {
     final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
@@ -129,8 +182,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     return (firstDay.weekday - 1 + day.day - 1) ~/ 7;
   }
 
-  double get _rowHeight => heightCalendarGrid / _currentRowCount;
-  double get _maxOffset => heightCalendarGrid - _rowHeight;
+  double get _rowHeight => heightCalendarGrid / (_currentRowCount < 5 ? 5 : _currentRowCount);
+  double get _weekViewHeight => heightCalendarGrid / 5;
+  double get _maxOffset => heightCalendarGrid - _weekViewHeight;
 
   void _onVerticalDragStart(DragStartDetails details) {
     _foldController.stop();
@@ -173,6 +227,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                     monthLabel: _monthLabel,
                     onPrevMonth: () => _changeMonth(-1),
                     onNextMonth: () => _changeMonth(1),
+                    onMonthLabelTap: () => _openMonthPicker(context),
                     onLedgerTap: () => openLedgerList(context),
                     onBackupTap: () => openBackup(context),
                     onSearchTap: () => openSearch(context),
@@ -241,30 +296,14 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                                 child: Container(color: colorBackgroundCard),
                               ),
                               Positioned(
-                                top: -t * _selectedRowIndex * _rowHeight,
+                                top: t >= 0.999 ? 0 : -t * _selectedRowIndex * _rowHeight,
                                 left: 0,
                                 right: 0,
-                                height: heightCalendarGrid,
+                                height: t >= 0.999 ? calendarHeight : heightCalendarGrid,
                                 child: RepaintBoundary(
                                   child: Container(
                                     color: colorBackgroundCard,
-                                    child: ScrollConfiguration(
-                                      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-                                        PointerDeviceKind.touch,
-                                        PointerDeviceKind.mouse,
-                                      }),
-                                      child: PageView.builder(
-                                        controller: _pageController,
-                                        onPageChanged: (page) {
-                                          final m = monthFromPage(page);
-                                          _currentMonth = m;
-                                          currentMonth.value = m;
-                                          _load();
-                                          setState(() {});
-                                        },
-                                        itemBuilder: (context, page) => _monthGrid(monthFromPage(page)),
-                                      ),
-                                    ),
+                                    child: t >= 0.999 ? _buildWeekView() : _buildMonthPageView(),
                                   ),
                                 ),
                               ),
@@ -299,6 +338,97 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildMonthPageView() {
+    if (_pendingMonthJump) {
+      _pendingMonthJump = false;
+      // 重建 controller，让切回月视图时直接显示当前浏览月
+      _pageController.dispose();
+      _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
+    }
+    _pendingWeekJump = true;
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+      }),
+      child: PageView.builder(
+        key: const ValueKey('month_pager'),
+        controller: _pageController,
+        onPageChanged: (page) {
+          final m = monthFromPage(page);
+          _currentMonth = m;
+          currentMonth.value = m;
+          _load();
+          setState(() {});
+        },
+        itemBuilder: (context, page) => _monthGrid(monthFromPage(page)),
+      ),
+    );
+  }
+
+  Widget _buildWeekView() {
+    _pendingMonthJump = true;
+    final targetPage = _foldWeekPage;
+    if (_pendingWeekJump) {
+      _pendingWeekJump = false;
+      _weekPage = targetPage;
+      _viewedWeekPage = targetPage;
+      // 重建 controller，让首次 attach 即显示选中周，避免先显示初始周再跳转的抖动
+      _weekPageController.dispose();
+      _weekPageController = PageController(initialPage: targetPage);
+    }
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+      }),
+      child: PageView.builder(
+        key: const ValueKey('week_pager'),
+        controller: _weekPageController,
+        onPageChanged: _onWeekPageChanged,
+        itemBuilder: (context, page) {
+          final monday = dayFromWeekPage(page);
+          return Container(
+            color: colorBackgroundCard,
+            height: _weekViewHeight,
+            child: Row(
+              children: List.generate(7, (i) {
+                return Expanded(child: _buildDayCell(monday.add(Duration(days: i))));
+              }),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _onWeekPageChanged(int page) {
+    // 横向滑动只记录当前浏览的周，不改变选中日期（选中仅在收起周视图时确定）
+    _viewedWeekPage = page;
+    final m = dayFromWeekPage(page);
+    final month = DateTime(m.year, m.month);
+    if (month != _currentMonth) {
+      _currentMonth = month;
+      if (month != currentMonth.value) {
+        currentMonth.value = month;
+      }
+      setState(() {});
+    }
+  }
+
+  void _onFoldTick() {
+    final t = _foldController.value;
+    if (t >= 0.999) {
+      _wasFolded = true;
+    } else if (t < 0.999 && _wasFolded) {
+      _wasFolded = false;
+      final viewed = _viewedWeekPage;
+      if (viewed != null && viewed != _foldWeekPage) {
+        setState(() => _selectedDay = dayFromWeekPage(viewed));
+      }
+    }
+  }
+
   Widget _summaryItem(String label, int value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,7 +457,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     }
 
     final rowCount = cells.length ~/ 7;
-    final rowHeight = heightCalendarGrid / rowCount;
+    final rowHeight = heightCalendarGrid / (rowCount < 5 ? 5 : rowCount);
 
     return Container(
       color: colorBackgroundCard,
@@ -353,8 +483,17 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         day.month == _selectedDay!.month &&
         day.day == _selectedDay!.day;
 
+    final now = DateTime.now();
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
+
     final lunarText = LunarUtils.getDisplayText(day);
     final isSpecial = LunarUtils.isFestivalOrJieQi(day);
+
+    final primary = Theme.of(context).extension<AppThemeColors>()!.primary;
+    final dayKey = '${day.year}-${day.month}-${day.day}';
+    final dayExp = _dayExpense[dayKey] ?? 0;
+    final dayInc = _dayIncome[dayKey] ?? 0;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedDay = day),
@@ -363,10 +502,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
+          color: isToday ? colorTodayBackground : null,
           border: Border.all(
-            color: selected
-                ? Theme.of(context).extension<AppThemeColors>()!.primary
-                : Colors.transparent,
+            color: selected ? primary : Colors.transparent,
             width: borderWidthDefault,
           ),
         ),
@@ -399,12 +537,42 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                 ],
               ),
             ),
-            Expanded(child: Column(
-              children: const [
-                Expanded(child: SizedBox()),
-                Expanded(child: SizedBox()),
-              ],
-            )),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: dayInc > 0
+                        ? FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '+${(dayInc / 100).round()}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: primary,
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+                  Expanded(
+                    child: dayExp > 0
+                        ? FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '-${(dayExp / 100).round()}',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: colorExpense,
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

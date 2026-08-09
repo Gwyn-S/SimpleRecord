@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_colors.dart';
 
-final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF009688));
+final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF3F9795));
 
 class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color primary;

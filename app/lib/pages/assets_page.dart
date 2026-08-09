@@ -39,7 +39,13 @@ class _AssetsPageState extends State<AssetsPage> {
     setState(() => _accounts = accounts);
   }
 
-  int get _totalBalance => _accounts.fold(0, (s, a) => s + a.balanceCents);
+  int get _totalAssets =>
+      _accounts.where((a) => !a.isDebtAccount).fold(0, (s, a) => s + a.balanceCents);
+
+  int get _totalDebt =>
+      _accounts.where((a) => a.isDebtAccount).fold(0, (s, a) => s + a.balanceCents.abs());
+
+  int get _netWorth => _totalAssets - _totalDebt;
 
   void _showEditDialog(int index) {
     final account = _accounts[index];
@@ -149,9 +155,9 @@ class _AssetsPageState extends State<AssetsPage> {
                           height: heightSummaryArea,
                           child: Stack(
                             children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', formatAmount(_totalBalance), large: true)),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', formatAmount(_totalBalance))),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', '0.00')),
+                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', formatAmount(_netWorth), large: true)),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', formatAmount(_totalAssets))),
+                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', formatAmount(_totalDebt))),
                             ],
                           ),
                         );

@@ -26,6 +26,9 @@ const Color colorDeleteDark = Color(0xFFC62828);
 const Color colorLunarText = Color(0xFF666666);
 const Color colorLunarFestival = Color(0xFFE53935);
 
+// ===================== 当天背景 =====================
+const Color colorTodayBackground = Color(0xFFFEF4BF);
+
 // ===================== 资产分类色 =====================
 const Color colorAssetCash = Color(0xFFE53935);
 const Color colorAssetOnlinePay = Color(0xFF1E88E5);

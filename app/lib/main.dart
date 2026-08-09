@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'constants/app_colors.dart';
 import 'services/theme_service.dart';
 import 'services/database.dart';
 import 'services/ledger_service.dart';
@@ -8,6 +10,12 @@ import 'utils/test_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: colorBackgroundPage,
+  ));
   await DatabaseHelper.instance.database;
   await loadThemeColor();
   await loadCurrentLedgerId();
