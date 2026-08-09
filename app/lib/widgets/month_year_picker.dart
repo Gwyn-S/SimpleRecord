@@ -9,9 +9,6 @@ Future<DateTime?> showMonthYearPicker(BuildContext context, DateTime initial) {
   return showModalBottomSheet<DateTime>(
     context: context,
     backgroundColor: colorBackgroundCard,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(radiusLarge)),
-    ),
     builder: (ctx) => _MonthYearPickerSheet(initial: initial),
   );
 }

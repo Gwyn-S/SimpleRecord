@@ -18,9 +18,6 @@ Future<Object?> showAccountPicker(
   return showModalBottomSheet<Object?>(
     context: context,
     backgroundColor: colorBackgroundCard,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(radiusLarge)),
-    ),
     builder: (ctx) =>
         _AccountPickerSheet(accounts: accounts, selectedId: selectedId),
   );

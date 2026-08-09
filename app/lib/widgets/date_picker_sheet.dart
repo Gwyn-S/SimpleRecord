@@ -12,9 +12,6 @@ Future<DateTime?> showDatePickerSheet(BuildContext context, DateTime initial) {
     context: context,
     builder: (ctx) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radiusLarge),
-      ),
       clipBehavior: Clip.antiAlias,
       backgroundColor: colorBackgroundCard,
       child: _DatePickerSheet(initial: initial),
@@ -33,7 +30,7 @@ class _DatePickerSheet extends StatefulWidget {
 
 class _DatePickerSheetState extends State<_DatePickerSheet> {
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-  static const _rowHeight = 46.0;
+  static const _rowHeight = 44.0;
 
   late DateTime _baseMonth;
   late DateTime _month;
@@ -293,10 +290,10 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
         children: [
           _actionButton(
             '取消',
-            colorTextSecondary,
+            themeColor,
             () => Navigator.pop(context),
           ),
-          const SizedBox(width: spacingXL),
+          const SizedBox(width: spacingL),
           _actionButton(
             '确定',
             themeColor,
@@ -316,7 +313,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
             color: color,
           ),

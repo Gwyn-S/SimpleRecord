@@ -68,5 +68,5 @@ const TextStyle textButtonPrimary = TextStyle(fontSize: 18, fontWeight: FontWeig
 const TextStyle textBalance = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorTextPrimary);
 const TextStyle textAccountAmount = TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colorTextPrimary);
 const TextStyle textPickerItem = TextStyle(fontSize: 16, color: colorTextPrimary);
-const TextStyle textAmountInput = TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colorTextPrimary);
+const TextStyle textAmountInput = TextStyle(fontSize: 28, fontWeight: FontWeight.w400, color: colorTextPrimary);
 const TextStyle textSummaryEmpty = TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorTextOnPrimary);

@@ -115,13 +115,13 @@ class _AssetsPageState extends State<AssetsPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
-        SizedBox(height: MediaQuery.of(context).padding.top),
         Container(
           color: themeColor,
           child: Column(
-                children: [
-                  Container(
-                    height: heightHeaderBar,
+            children: [
+              SizedBox(height: MediaQuery.of(context).padding.top),
+              Container(
+                height: heightHeaderBar,
                     padding: const EdgeInsets.symmetric(horizontal: spacingL),
                     child: Row(
                       children: [

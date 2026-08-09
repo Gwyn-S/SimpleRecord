@@ -25,7 +25,7 @@ class ManualEntryPage extends StatefulWidget {
 
 class _ManualEntryPageState extends State<ManualEntryPage> {
   bool _isExpense = true;
-  int? _selectedCategory;
+  int? _selectedCategory = 0;
   String _amount = '0';
   DateTime _selectedDate = DateTime.now();
   AssetAccount? _selectedAccount;
@@ -114,7 +114,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         setState(() {
           _amount = '0';
           _remarkController.clear();
-          _selectedCategory = null;
+          _selectedCategory = 0;
           _selectedAccount = null;
         });
       });
@@ -213,7 +213,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () => setState(() => _isExpense = true),
+                  onTap: () => setState(() {
+                    _isExpense = true;
+                    _selectedCategory = 0;
+                  }),
                   child: SizedBox(
                     width: 72,
                     height: 36,
@@ -230,7 +233,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => setState(() => _isExpense = false),
+                  onTap: () => setState(() {
+                    _isExpense = false;
+                    _selectedCategory = 0;
+                  }),
                   child: SizedBox(
                     width: 72,
                     height: 36,
@@ -254,7 +260,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(spacingL),
+              padding: const EdgeInsets.fromLTRB(spacingL, 12, spacingL, 0),
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
@@ -275,14 +281,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                           width: sizeCategoryCircle,
                           height: sizeCategoryCircle,
                           decoration: BoxDecoration(
-                            color: selected ? themeColor.withValues(alpha: 0.15) : colorBackgroundLight,
+                            color: selected ? themeColor : const Color(0xFFDDDDDD),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             cat.icon,
                             size: iconSizeXLarge,
-                            color: selected ? themeColor : colorTextPrimary,
-                              ),
+                            color: selected ? colorTextOnPrimary : const Color(0xFF555555),
+                          ),
                             ),
                             const SizedBox(height: spacingXS),
                             Text(
@@ -297,10 +303,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       );
                     },
                   ),
-                ),
+              ),
           ),
+          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+            height: heightOptionBar,
+            padding: const EdgeInsets.symmetric(horizontal: spacingL),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -313,7 +321,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     cursorColor: Theme.of(context).extension<AppThemeColors>()!.primary,
                     decoration: const InputDecoration(
                       hintText: '备注',
-                      hintStyle: textHint,
+                      hintStyle: TextStyle(fontSize: 14, color: Color(0xFF6F6F6F)),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       counterText: '',
@@ -322,15 +330,16 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                 ),
                 Text(
                   endsWithOp(_amount)
-                      ? '¥ $_amount'
+                      ? _amount
                       : _amount.contains(RegExp(r'[+\-×÷]'))
-                          ? '¥ $_amount = ${evaluate(_amount)}'
-                          : '¥ $_amount',
-                  style: textAmountInput,
+                          ? '$_amount = ${evaluate(_amount)}'
+                          : _amount,
+                  style: textAmountInput.copyWith(color: themeColor),
                 ),
               ],
             ),
           ),
+          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           _buildOptionBar(),
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           _buildKeyboard(),
@@ -340,6 +349,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   String _formatSelectedDate() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    if (selected == today) return '今天';
     return '${_selectedDate.month}月${_selectedDate.day}日';
   }
 
@@ -405,9 +418,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: iconSizeMedium, color: colorTextSecondary),
+          Icon(icon, size: iconSizeMedium, color: colorTextPrimary),
           const SizedBox(width: spacingXS),
-          Text(label, style: textSecondary),
+          Text(label, style: textSecondary.copyWith(fontSize: 14, color: colorTextPrimary)),
         ],
       ),
     );
@@ -419,13 +432,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildKeyboardRow(['7', '8', '9', 'C', '⌫']),
+          _buildKeyboardRow(['7', '8', '9'], _buildBackspace()),
           _buildDivider(),
-          _buildKeyboardRow(['4', '5', '6', '+', '-']),
+          _buildKeyboardRow(['4', '5', '6'], _buildOpsPair('+', '-')),
           _buildDivider(),
-          _buildKeyboardRow(['1', '2', '3', '×', '÷']),
+          _buildKeyboardRow(['1', '2', '3'], _buildOpsPair('×', '÷')),
           _buildDivider(),
-          _buildKeyboardRow(['.', '0', '00', '再记', '完成']),
+          _buildKeyboardRow(['.', '0', '再记'], _buildDone()),
         ],
       ),
     );
@@ -438,25 +451,66 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     );
   }
 
-  Widget _buildKeyboardRow(List<String> keys) {
+  Widget _buildKeyboardRow(List<String> keys, Widget trailing) {
     return Row(
-      children: keys.map((key) {
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => _onKeyPressed(key),
-            child: Container(
-              height: heightKeyboardRow,
-              decoration: const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: _buildKeyChild(key),
-            ),
+      children: [
+        ...keys.map((key) => Expanded(child: _buildKey(key))),
+        Expanded(child: trailing),
+      ],
+    );
+  }
+
+  Widget _buildKey(String key) {
+    return GestureDetector(
+      onTap: () => _onKeyPressed(key),
+      child: Container(
+        height: heightKeyboardRow,
+        decoration: const BoxDecoration(
+          border: Border(
+            right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
           ),
-        );
-      }).toList(),
+        ),
+        alignment: Alignment.center,
+        child: _buildKeyChild(key),
+      ),
+    );
+  }
+
+  Widget _buildBackspace() {
+    return GestureDetector(
+      onTap: () => _onKeyPressed('⌫'),
+      child: Container(
+        height: heightKeyboardRow,
+        alignment: Alignment.center,
+        child: const Text(
+          '⌫',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOpsPair(String a, String b) {
+    return Row(
+      children: [
+        Expanded(child: _buildKey(a)),
+        Expanded(child: _buildKey(b)),
+      ],
+    );
+  }
+
+  Widget _buildDone() {
+    return GestureDetector(
+      onTap: () => _onKeyPressed('完成'),
+      child: Container(
+        height: heightKeyboardRow,
+        color: Theme.of(context).extension<AppThemeColors>()!.primary,
+        alignment: Alignment.center,
+        child: const Text(
+          '完成',
+          style: textButtonPrimary,
+        ),
+      ),
     );
   }
 
@@ -467,22 +521,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
       );
     }
-    if (key == '完成') {
-      return Container(
-        alignment: Alignment.center,
-        color: Theme.of(context).extension<AppThemeColors>()!.primary,
-        child: const Text(
-          '完成',
-          style: textButtonPrimary,
-        ),
-      );
-    }
     return Text(
       key,
-      style: TextStyle(
+      style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w500,
-        color: key == 'C' ? colorDanger : colorTextPrimary,
+        color: colorTextPrimary,
       ),
     );
   }

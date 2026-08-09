@@ -39,6 +39,16 @@ ThemeData buildAppTheme(Color primary) {
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       },
     ),
+    dialogTheme: const DialogThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+    ),
     extensions: [AppThemeColors(primary: primary)],
   );
 }

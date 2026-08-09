@@ -167,7 +167,7 @@ class UserPage extends StatelessWidget {
                       height: 40,
                       decoration: BoxDecoration(
                         color: hsv.toColor(),
-                        borderRadius: BorderRadius.circular(radiusLarge),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
                       child: const Text('确定', style: TextStyle(color: colorTextOnPrimary, fontWeight: FontWeight.w500)),

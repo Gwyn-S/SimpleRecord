@@ -26,7 +26,7 @@ const double heightBottomNav = 64;
 const double heightSummaryArea = 90;
 const double heightSummaryLarge = 60;
 const double heightCalendarGrid = 350;
-const double heightKeyboardRow = 46;
+const double heightKeyboardRow = 50;
 const double heightOptionBar = 48;
 
 // ===================== 图标尺寸 =====================
