@@ -67,12 +67,21 @@ class _LedgerListPageState extends State<LedgerListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('新建账本'),
+        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
+        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '请输入账本名称',
-            border: OutlineInputBorder(),
+            border: InputBorder.none,
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: colorDivider),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+              ),
+            ),
           ),
           autofocus: true,
         ),
@@ -103,12 +112,21 @@ class _LedgerListPageState extends State<LedgerListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('编辑账本'),
+        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
+        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '请输入账本名称',
-            border: OutlineInputBorder(),
+            border: InputBorder.none,
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: colorDivider),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+              ),
+            ),
           ),
           autofocus: true,
         ),
