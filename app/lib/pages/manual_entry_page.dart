@@ -260,7 +260,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(spacingL, 12, spacingL, 0),
+              padding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, 0),
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
@@ -274,36 +274,39 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   final selected = _selectedCategory == index;
                   return GestureDetector(
                     onTap: () => setState(() => _selectedCategory = index),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: sizeCategoryCircle,
-                          height: sizeCategoryCircle,
-                          decoration: BoxDecoration(
-                            color: selected ? themeColor : const Color(0xFFDDDDDD),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            cat.icon,
-                            size: iconSizeXLarge,
-                            color: selected ? colorTextOnPrimary : const Color(0xFF555555),
-                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: sizeCategoryCircle,
+                            height: sizeCategoryCircle,
+                            decoration: BoxDecoration(
+                              color: selected ? themeColor : const Color(0xFFDDDDDD),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(height: spacingXS),
-                            Text(
-                              cat.name,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: selected ? themeColor : Colors.black,
-                              ),
+                            child: Icon(
+                              cat.icon,
+                              size: iconSizeXLarge,
+                              color: selected ? colorTextOnPrimary : const Color(0xFF555555),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                          const SizedBox(height: spacingXS),
+                          Text(
+                            cat.name,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: selected ? themeColor : Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
+            ),
           ),
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           Container(
