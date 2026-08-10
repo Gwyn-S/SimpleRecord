@@ -142,4 +142,5 @@ Future<void> deleteRecord(String id) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  await DatabaseHelper.instance.vacuum();
 }

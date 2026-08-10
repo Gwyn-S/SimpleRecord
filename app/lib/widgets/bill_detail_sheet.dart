@@ -7,7 +7,6 @@ import '../utils/formatters.dart';
 
 class BillDetailSheet extends StatelessWidget {
   final Record record;
-  final String Function(int) fmt;
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
 
@@ -16,10 +15,7 @@ class BillDetailSheet extends StatelessWidget {
     required this.record,
     required this.onDelete,
     this.onEdit,
-    this.fmt = _defaultFmt,
   });
-
-  static String _defaultFmt(int cents) => formatAmount(cents);
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +45,7 @@ class BillDetailSheet extends StatelessWidget {
             const SizedBox(height: spacingM),
             _detailRow('分类', record.categoryName),
             if (record.remark.isNotEmpty) _detailRow('备注', record.remark),
-            _detailRow('金额', '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}'),
+            _detailRow('金额', '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}'),
             _detailRow('账户', record.accountName ?? '未选择'),
             _detailRow('日期', formatDate(record.date)),
             _detailRow('录入时间', _formatDateTime(record.createdAt)),

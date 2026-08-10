@@ -1,0 +1,126 @@
+﻿==================================================
+SimpleRecord 代码审查结果（P0/P1/P2 分级）
+审查时间：2026-08-10
+审查范围：app/lib 全部代码（Flutter/Dart）
+审查方法：逐文件阅读 + flutter analyze（无告警）
+==================================================
+
+总体评价（Needs Improvement）
+--------------------------------------
+Lint 零告警、数据库操作全部异步、备份/恢复在 isolate 执行、
+监听器注册/反注册成对，无崩溃级隐患（mounted 防护已补齐、
+调试日志已清理），基础质量良好。但无任何测试、列表全量构建、
+冷启动串行，性能与健壮性仍可提升。
+
+
+==================================================
+已修复（2026-08-10）
+==================================================
+[X] mounted 防护：ledger_list_page.dart _loadLedgers/_loadRecords
+    async 后 setState 前补 if (!mounted) return;（原 P1-1）
+[X] 账本统计 SQL 聚合：ledger_service.dart 新增 loadLedgerStats()
+    GROUP BY 一次聚合 COUNT/SUM，账本页不再全表加载 + 内存过滤
+    （原 P1-2）
+[X] 调试日志清零：全项目 debugPrint/print 移除
+    （ledger_list_page 加载失败日志删行，catch 静默保留）
+[X] 备份"列表空白"根因闭环：非 scoped storage 问题，系打包时
+    误用私有目录代码；B/C/D 多配置实测公共 Download 读写正常
+[X] 复核移除：账单列表按月加载（loadRecords 带 month 过滤），
+    单月数据量受限，全量构建非问题（原 P1-3）
+[X] 复核降级：冷启动串行 await 实测（Windows debug）5 步合计
+    ~123ms，release/AOT 预计几十 ms，相对引擎冷启动影响很小，
+    降级不做（原 P1-1）
+[X] CSV 导出 isolate 化：实测 10 万条拼接 120ms（30 万条 351ms），
+    拼接+写文件移 Isolate.run，_csvEscape/_two 提为顶层函数
+    （原 P1-1）
+[X] 删除后物理回收：database.dart 新增 vacuum()（孤儿记录清理 +
+    checkpoint + VACUUM + 再 checkpoint），deleteRecord/deleteLedger
+    删除后调用；实测 WAL 模式下 VACUUM 后需二次 checkpoint 文件才
+    物理缩小（2.2MB → 1.1MB，-50%）
+[X] _monthGridCache 只留相邻 3 月：calendar_page.dart _monthGrid 中
+    putIfAbsent 后 removeWhere 淘汰 (key-page).abs()>1 的条目，
+    翻页只保留当前月 ±1（原 P2-3）；首次仅 build 可见月，构建开销不变
+[X] fmt 默认参数冗余删除：record_item.dart/bill_detail_sheet.dart
+    移除 fmt 参数与 _defaultFmt 静态方法，直接调 formatAmount
+    （原 P2-4）
+[X] 图标按收支类型分别匹配：record_item.dart 按 record.isExpense
+    选 expenseCategories/incomeCategories 单列表匹配，同名不再串侧
+    （原 P2-5）；同时去掉每次 build 的数组展开，顺带修复原 P2-2
+
+
+==================================================
+P1（应修，崩溃/明确缺陷）
+==================================================
+
+[P1-1] 未用 SVG 资源打进包
+  位置  : assets/icons/（25 个中 17 个未引用）
+  影响  : 包体积无谓增大（flutter_assets 136KB 的大头）
+  现状  : assets/icons/ 全量打包
+  改进  : 白名单引用，删除 boc/ccb/citic/icbc/wechat 等未用图标
+  状态  : 已知项（用户决定不修）
+
+
+==================================================
+P2（可排期，体验/整洁）—— 剩余已知项（不修）
+==================================================
+
+[P2-1] 占位功能保留无效入口
+  位置  : pages/stats_page.dart、search_page.dart；
+          main_page.dart:73-85
+  影响  : 统计/搜索/拍照/语音/扫码点击无效，交互困惑
+  现状  : 占位页/空实现仍可点
+  改进  : 实现或隐藏入口/标"开发中"
+  状态  : 已知项（用户决定不修）
+
+[P2-6] 分类图标重复
+  位置  : models/category.dart
+  影响  : "人情"与"红包"共用 card_giftcard 图标
+  现状  : 同 IconData
+  改进  : 收入类换 distinct 图标
+  状态  : 已知项（用户决定不修）
+
+
+==================================================
+附加建议（测试、文档、监控等）
+==================================================
+- flutter test 覆盖：evaluate 计算器、Record.fromDbMap/toDbMap
+  往返、yuanToCents/formatAmount、分组排序、账本统计函数
+- 备份列表真机验证：Android 16 + targetSdk 36 下公共 Download 读写正常，
+  B/C/D 多构建配置实测均可见；此前"列表空白"系打包时误用私有目录代码，
+  与运行环境/构建配置无关（根因闭环）；恢复流程与低版本 Android 待验证
+- flutter run --profile + DevTools 实测：账单页滚动帧率、
+  冷启动耗时、内存曲线（目前零性能数据，需补充）
+- 建 AGENTS.md/README：备份文件格式（SRB 头+XOR）、
+  --dart-define=SEED_TEST 调试开关
+- 排查日志可选方案：加 --dart-define=LOG=1 编译期开关（默认关闭、
+  日志被 tree-shake 零开销，需真机排查时开），避免临时改源码
+
+==================================================
+场景化校验
+==================================================
+- 低端机（2GB RAM）：冷启动串行初始化明显放大首帧延迟；
+  bills 全量构建与账本全表加载在数据多时卡顿/掉帧
+- 弱网环境：完全离线，无网络风险
+- 多任务切换：状态靠全局 ValueNotifier+DB，进程被杀后重启不会
+  重复播种（SharedPreferences 标志持久化）；configChanges 已声明，
+  旋转不重建
+- 长时间运行：_monthGridCache 已限相邻 3 月（翻页逐页淘汰），
+  lunar static 缓存长期累积（小量级）；监听器全部成对释放，无泄漏
+- 屏幕尺寸/密度：dp 语义单位+FittedBox+LayoutBuilder 适配良好，
+  无硬编码 px
+
+==================================================
+最终审查清单
+==================================================
+[X] Lint：flutter analyze → No issues found
+[ ] 单元/UI 测试：无 test/ 目录（0 覆盖率）
+[ ] 真机验证关键场景：基本功能手动通过；备份列表可见性已验证
+    （Android 16）；恢复、低端机、多账本大数据量未系统验证
+[ ] 日志/性能监控：debugPrint/print 已清零；无埋点/性能数据
+[ ] 文档：有 todolist.txt，但无 README/备份格式/构建说明文档
+
+优先级建议：P0/P1 中崩溃与性能项已全部处理（mounted、日志、
+SQL 聚合、CSV isolate、删除回收），P2 的 2-3/2-4/2-5（含 2-2）
+已修复。剩余 3 项均标为已知项（用户决定不修）：未用 SVG（P1-1）、
+占位入口（P2-1）、图标重复（P2-6）。当前代码处于可用状态，
+后续按需再排。

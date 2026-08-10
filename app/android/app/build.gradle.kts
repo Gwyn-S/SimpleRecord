@@ -22,6 +22,14 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            // libsqlite3.so 仅供 sqflite_common_ffi 桌面端使用；
+            // Android 走 sqflite 插件的系统 SQLite，无需打包，可省约 1.5MB。
+            excludes += "**/libsqlite3.so"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

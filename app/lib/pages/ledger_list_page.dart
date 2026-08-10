@@ -3,7 +3,6 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
-import '../models/record.dart';
 import '../models/ledger.dart';
 import '../services/record_service.dart';
 import '../services/ledger_service.dart';
@@ -20,7 +19,7 @@ class LedgerListPage extends StatefulWidget {
 
 class _LedgerListPageState extends State<LedgerListPage> {
   final List<Ledger> _ledgers = [];
-  List<Record> _records = [];
+  Map<String, LedgerStats> _stats = {};
 
   @override
   void initState() {
@@ -38,7 +37,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
   }
 
   void _onLedgerChanged() {
-    _loadRecords();
+    _loadStats();
     setState(() {});
   }
 
@@ -46,21 +45,19 @@ class _LedgerListPageState extends State<LedgerListPage> {
     try {
       await ensureCurrentLedgerId();
       final loaded = await loadLedgers();
+      if (!mounted) return;
       setState(() => _ledgers.addAll(loaded));
-      _loadRecords();
-    } catch (e) {
-      debugPrint('加载账本失败: $e');
+      _loadStats();
+    } catch (_) {
+      // 加载失败保持空列表，等待下次进入页面重试
     }
   }
 
-  Future<void> _loadRecords() async {
-    final all = await loadRecords();
-    setState(() => _records = all);
+  Future<void> _loadStats() async {
+    final stats = await loadLedgerStats();
+    if (!mounted) return;
+    setState(() => _stats = stats);
   }
-
-  int _recordCount(String ledgerId) => ledgerRecordCount(_records, ledgerId);
-  int _totalIncome(String ledgerId) => ledgerIncome(_records, ledgerId);
-  int _totalExpense(String ledgerId) => ledgerExpense(_records, ledgerId);
 
   void _showAddDialog() {
     final controller = TextEditingController();
@@ -224,6 +221,10 @@ class _LedgerListPageState extends State<LedgerListPage> {
               itemBuilder: (context, index) {
                 final ledger = _ledgers[index];
                 final isCurrent = currentLedgerId.value == ledger.id;
+                final stats = _stats[ledger.id];
+                final count = stats?.count ?? 0;
+                final income = stats?.income ?? 0;
+                final expense = stats?.expense ?? 0;
                 return GestureDetector(
                   onTap: () {
                     saveCurrentLedgerId(ledger.id);
@@ -271,13 +272,13 @@ class _LedgerListPageState extends State<LedgerListPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('记录数：${_recordCount(ledger.id)}', style: textCardMeta),
+                              Text('记录数：$count', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总收入：${formatAmount(_totalIncome(ledger.id))}', style: textCardMeta),
+                              Text('总收入：${formatAmount(income)}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总支出：${formatAmount(_totalExpense(ledger.id))}', style: textCardMeta),
+                              Text('总支出：${formatAmount(expense)}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总结余：${formatAmount(_totalIncome(ledger.id) - _totalExpense(ledger.id))}', style: textCardMeta),
+                              Text('总结余：${formatAmount(income - expense)}', style: textCardMeta),
                             ],
                           ),
                         ),

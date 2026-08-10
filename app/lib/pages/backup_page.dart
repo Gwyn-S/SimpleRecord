@@ -94,8 +94,6 @@ class _BackupPageState extends State<BackupPage> {
     }
   }
 
-  String _two(int n) => n.toString().padLeft(2, '0');
-
   Future<void> _exportCsv() async {
     setState(() => _busy = true);
     try {
@@ -105,42 +103,34 @@ class _BackupPageState extends State<BackupPage> {
         for (final l in ledgers) l['id'] as String?: l['name'] as String,
       };
       final rows = await db.query('records', orderBy: 'date DESC, created_at DESC');
-      final buffer = StringBuffer();
-      buffer.writeln('账本,日期,收支,分类,金额,备注');
-      for (final r in rows) {
-        final date = DateTime.utc(1970).add(Duration(days: r['date'] as int));
-        final fields = [
-          _csvEscape(nameById[r['book_id']] ?? ''),
-          '${date.year}-${_two(date.month)}-${_two(date.day)}',
-          r['is_expense'] == 1 ? '支出' : '收入',
-          _csvEscape(r['category_name'] as String),
-          formatAmount(r['amount_cents'] as int),
-          _csvEscape(r['remark'] as String),
-        ];
-        buffer.writeln(fields.join(','));
-      }
       final now = DateTime.now();
       final stamp =
           '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}';
       final dir = await _backupDir();
       final path = p.join(dir.path, 'export_$stamp.csv');
-      await File(path).writeAsString('\uFEFF$buffer', encoding: utf8);
+      await Isolate.run(() {
+        final buffer = StringBuffer();
+        buffer.writeln('账本,日期,收支,分类,金额,备注');
+        for (final r in rows) {
+          final date = DateTime.utc(1970).add(Duration(days: r['date'] as int));
+          final fields = [
+            _csvEscape(nameById[r['book_id']] ?? ''),
+            '${date.year}-${_two(date.month)}-${_two(date.day)}',
+            r['is_expense'] == 1 ? '支出' : '收入',
+            _csvEscape(r['category_name'] as String),
+            formatAmount(r['amount_cents'] as int),
+            _csvEscape(r['remark'] as String),
+          ];
+          buffer.writeln(fields.join(','));
+        }
+        File(path).writeAsStringSync('\uFEFF$buffer', encoding: utf8);
+      });
       _toast('导出成功：$path');
     } catch (e) {
       _toast('导出失败：$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  String _csvEscape(String value) {
-    if (value.contains(',') ||
-        value.contains('"') ||
-        value.contains('\n') ||
-        value.contains('\r')) {
-      return '"${value.replaceAll('"', '""')}"';
-    }
-    return value;
   }
 
   Future<void> _doRestore(File file) async {
@@ -401,4 +391,16 @@ Future<({String? metaJson, String? error})> _decryptSrbToDb(
       return (metaJson: null, error: e.toString());
     }
   });
+}
+
+String _two(int n) => n.toString().padLeft(2, '0');
+
+String _csvEscape(String value) {
+  if (value.contains(',') ||
+      value.contains('"') ||
+      value.contains('\n') ||
+      value.contains('\r')) {
+    return '"${value.replaceAll('"', '""')}"';
+  }
+  return value;
 }

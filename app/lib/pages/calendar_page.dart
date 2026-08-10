@@ -92,7 +92,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       _selCacheKey = selKey;
       _monthGridCache.clear();
     }
-    return _monthGridCache.putIfAbsent(page, () => _buildMonthGrid(month));
+    final grid = _monthGridCache.putIfAbsent(page, () => _buildMonthGrid(month));
+    // 只保留相邻 3 个月，翻页时逐页淘汰远处条目，避免长期累积
+    _monthGridCache.removeWhere((key, _) => (key - page).abs() > 1);
+    return grid;
   }
 
   Future<void> _load() async {

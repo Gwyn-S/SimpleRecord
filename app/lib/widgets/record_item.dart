@@ -11,22 +11,19 @@ import 'bill_detail_sheet.dart';
 
 class RecordItem extends StatelessWidget {
   final Record record;
-  final String Function(int) fmt;
   final VoidCallback? onEdit;
 
   const RecordItem({
     super.key,
     required this.record,
-    this.fmt = _defaultFmt,
     this.onEdit,
   });
-
-  static String _defaultFmt(int cents) => formatAmount(cents);
 
   @override
   Widget build(BuildContext context) {
     IconData icon = Icons.help_outline;
-    for (final c in [...expenseCategories, ...incomeCategories]) {
+    final categories = record.isExpense ? expenseCategories : incomeCategories;
+    for (final c in categories) {
       if (c.name == record.categoryName) {
         icon = c.icon;
         break;
@@ -69,7 +66,7 @@ class RecordItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${record.isExpense ? '-' : '+'}${fmt(record.amountCents)}',
+                  '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -97,7 +94,6 @@ class RecordItem extends StatelessWidget {
       backgroundColor: colorBackgroundCard,
       builder: (sheetContext) => BillDetailSheet(
         record: record,
-        fmt: fmt,
         onEdit: () {
           Navigator.pop(sheetContext);
           onEdit?.call();

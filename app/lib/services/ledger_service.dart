@@ -1,19 +1,39 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../models/ledger.dart';
-import '../models/record.dart';
 import '../utils/id.dart';
 import 'database.dart';
 import 'record_service.dart';
 
-int ledgerRecordCount(List<Record> records, String ledgerId) =>
-    records.where((r) => r.ledgerId == ledgerId).length;
+class LedgerStats {
+  const LedgerStats({required this.count, required this.income, required this.expense});
+  final int count;
+  final int income;
+  final int expense;
+}
 
-int ledgerIncome(List<Record> records, String ledgerId) =>
-    records.where((r) => r.ledgerId == ledgerId && !r.isExpense).fold(0, (s, r) => s + r.amountCents);
-
-int ledgerExpense(List<Record> records, String ledgerId) =>
-    records.where((r) => r.ledgerId == ledgerId && r.isExpense).fold(0, (s, r) => s + r.amountCents);
+/// 各账本记录数与收支合计，SQL 一次聚合，
+/// 避免全表加载后在 Dart 内存里重复过滤统计。
+Future<Map<String, LedgerStats>> loadLedgerStats() async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.rawQuery('''
+    SELECT book_id,
+           COUNT(*) AS cnt,
+           COALESCE(SUM(CASE WHEN is_expense = 0 THEN amount_cents END), 0) AS income,
+           COALESCE(SUM(CASE WHEN is_expense = 1 THEN amount_cents END), 0) AS expense
+    FROM records
+    GROUP BY book_id
+  ''');
+  return {
+    for (final r in rows)
+      if (r['book_id'] is String)
+        r['book_id'] as String: LedgerStats(
+          count: r['cnt'] as int,
+          income: (r['income'] as num).toInt(),
+          expense: (r['expense'] as num).toInt(),
+        ),
+  };
+}
 
 Future<List<Ledger>> loadLedgers() async {
   final db = await DatabaseHelper.instance.database;
@@ -44,6 +64,7 @@ Future<void> deleteLedger(String id) async {
     await txn.delete('books', where: 'id = ?', whereArgs: [id]);
   });
   recordsVersion.value++;
+  await DatabaseHelper.instance.vacuum();
 }
 
 /// 确保存在一个有效的当前账本：无账本时创建默认账本，

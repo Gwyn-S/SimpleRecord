@@ -30,6 +30,24 @@ class DatabaseHelper {
     if (db != null) await db.close();
   }
 
+  /// 回收已删除数据的物理空间并清理孤儿记录：
+  /// 删除账本/记录后调用，避免 DB 文件（含备份）只增不减。
+  /// SQLite 默认 auto_vacuum=NONE，DELETE 只标记不回收页，
+  /// 需 VACUUM 才真正抹掉并压缩文件。
+  Future<void> vacuum() async {
+    try {
+      final db = await database;
+      await db.execute(
+          'DELETE FROM records WHERE book_id NOT IN (SELECT id FROM books)');
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+      await db.execute('VACUUM');
+      // WAL 模式下 VACUUM 的写入先进 WAL，需再次 checkpoint 才物理缩小主库文件
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch (_) {
+      // 压缩失败不阻塞删除流程，文件留待下次/备份时回收
+    }
+  }
+
   Future<Database> _open() async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       sqfliteFfiInit();
