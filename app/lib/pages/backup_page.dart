@@ -66,8 +66,7 @@ class _BackupPageState extends State<BackupPage> {
     setState(() => _busy = true);
     showToast(context, '备份中…');
     try {
-      final db = await DatabaseHelper.instance.database;
-      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+      await DatabaseHelper.instance.vacuum();
       final now = DateTime.now();
       final stamp =
           '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}';
