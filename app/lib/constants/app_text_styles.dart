@@ -22,14 +22,14 @@ const TextStyle textSecondary = TextStyle(
 
 const TextStyle textAmountLarge = TextStyle(
   fontSize: 26,
-  fontWeight: FontWeight.w400,
+  fontWeight: FontWeight.w700,
   letterSpacing: -1,
   color: colorTextOnPrimary,
 );
 
 const TextStyle textAmountMedium = TextStyle(
   fontSize: 20,
-  fontWeight: FontWeight.w400,
+  fontWeight: FontWeight.w700,
   letterSpacing: -1,
   color: colorTextOnPrimary,
 );
