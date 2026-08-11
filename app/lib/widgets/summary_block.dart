@@ -8,6 +8,7 @@ class SummaryBlock extends StatelessWidget {
   final String? amount;
   final bool large;
   final String? emptyText;
+  final VoidCallback? onTap;
 
   const SummaryBlock(
     this.label,
@@ -15,12 +16,14 @@ class SummaryBlock extends StatelessWidget {
     super.key,
     this.large = false,
     this.emptyText,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final Widget content;
     if (large) {
-      return FittedBox(
+      content = FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Column(
@@ -41,9 +44,8 @@ class SummaryBlock extends StatelessWidget {
           ],
         ),
       );
-    }
-    if (emptyText != null && amount == null) {
-      return FittedBox(
+    } else if (emptyText != null && amount == null) {
+      content = FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Row(
@@ -57,22 +59,29 @@ class SummaryBlock extends StatelessWidget {
           ],
         ),
       );
+    } else {
+      content = FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            const SizedBox(width: spacingXS),
+            Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            const SizedBox(width: spacingXXS),
+            Text(amount ?? '0.00', style: textAmountStat),
+          ],
+        ),
+      );
     }
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
-          const SizedBox(width: spacingXS),
-          Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
-          const SizedBox(width: spacingXXS),
-          Text(amount ?? '0.00', style: textAmountStat),
-        ],
-      ),
+    if (onTap == null) return content;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: content,
     );
   }
 }

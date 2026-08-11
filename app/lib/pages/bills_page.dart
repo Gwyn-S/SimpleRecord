@@ -5,7 +5,9 @@ import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../services/settings.dart';
 import '../utils/calendar_utils.dart';
+import 'budget_page.dart';
 import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
@@ -30,6 +32,7 @@ class _BillsPageState extends State<BillsPage> {
   List<String> _sortedKeys = [];
   int _monthIncome = 0;
   int _monthExpense = 0;
+  int _monthBudget = 0;
 
   int _loadSeq = 0;
 
@@ -40,6 +43,7 @@ class _BillsPageState extends State<BillsPage> {
     recordsVersion.addListener(_onRecordsChanged);
     currentLedgerId.addListener(_onRecordsChanged);
     currentMonth.addListener(_onRecordsChanged);
+    budgetVersion.addListener(_onRecordsChanged);
   }
 
   @override
@@ -47,15 +51,19 @@ class _BillsPageState extends State<BillsPage> {
     recordsVersion.removeListener(_onRecordsChanged);
     currentLedgerId.removeListener(_onRecordsChanged);
     currentMonth.removeListener(_onRecordsChanged);
+    budgetVersion.removeListener(_onRecordsChanged);
     super.dispose();
   }
 
   Future<void> _onRecordsChanged() async {
     final seq = ++_loadSeq;
+    final month = currentMonth.value;
     final records = await loadRecords(
       ledgerId: currentLedgerId.value,
-      month: currentMonth.value,
+      month: month,
     );
+    final monthBudget =
+        await Settings.getInt('budget_month_${month.year}-${month.month}') ?? 0;
     if (seq != _loadSeq || !mounted) return;
     setState(() {
       _records = records;
@@ -69,6 +77,7 @@ class _BillsPageState extends State<BillsPage> {
       _sortedKeys = _grouped.keys.toList()..sort((a, b) => b.compareTo(a));
       _monthIncome = monthIncome(records);
       _monthExpense = monthExpense(records);
+      _monthBudget = monthBudget;
       _expandedDays.clear();
       if (_sortedKeys.isNotEmpty) {
         _expandedDays.add(_sortedKeys.first);
@@ -135,7 +144,7 @@ class _BillsPageState extends State<BillsPage> {
                             children: [
                               Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true)),
                               Positioned(left: halfW, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('剩余预算', null, emptyText: '点此设置')),
+                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('剩余预算', _monthBudget > 0 ? formatAmount(_monthBudget - _monthExpense) : null, emptyText: _monthBudget > 0 ? null : '点此设置', onTap: () => openBudget(context))),
                               Positioned(left: halfW, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
                             ],
                           ),
