@@ -327,12 +327,20 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     return Container(
       color: colorBackgroundPage,
       padding: const EdgeInsets.only(top: 12),
-      child: ListView(
-        physics: _folded
-            ? const AlwaysScrollableScrollPhysics()
-            : const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: spacingS),
-        children: [
+      child: NotificationListener<OverscrollNotification>(
+        onNotification: (n) {
+          if (_folded && n.overscroll < 0) {
+            _foldController.reverse();
+            return true;
+          }
+          return false;
+        },
+        child: ListView(
+          physics: _folded
+              ? const AlwaysScrollableScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: spacingS),
+          children: [
           Container(
             color: colorBackgroundCard,
             child: Column(
@@ -378,6 +386,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
             ),
           ),
         ],
+        ),
       ),
     );
   }
