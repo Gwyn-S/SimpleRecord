@@ -44,7 +44,11 @@ class _MainPageState extends State<MainPage> {
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(0),
-        child: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
       ),
       body: Stack(
         children: [
