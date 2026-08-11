@@ -495,7 +495,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       children: [
         Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
         const SizedBox(height: spacingXS),
-        Text(formatAmount(value), style: textAmountMedium),
+        Text(formatAmount(value), style: textAmountStat),
       ],
     );
   }
