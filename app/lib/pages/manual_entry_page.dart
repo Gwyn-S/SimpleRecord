@@ -66,7 +66,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   String _getCategoryName() {
     final cats = _isExpense ? expenseCategories : incomeCategories;
-    if (_selectedCategory == null || _selectedCategory! >= cats.length) return '其他';
+    if (_selectedCategory == null) return '其他';
     return cats[_selectedCategory!].name;
   }
 
@@ -77,8 +77,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _showMessage('金额无效');
       return false;
     }
+    if (parsed < 0) {
+      _showMessage('金额不能为负');
+      return false;
+    }
     final amountCents = yuanToCents(result);
-    if (amountCents <= 0) {
+    if (amountCents == 0) {
       _showMessage('请输入金额');
       return false;
     }
