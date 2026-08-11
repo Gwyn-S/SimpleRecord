@@ -27,7 +27,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   late DateTime _currentMonth;
   DateTime? _selectedDay;
   late AnimationController _foldController;
-  int _weekPage = 0;
   int? _viewedWeekPage; // 周视图当前浏览的页
   bool _wasFolded = false; // 是否处于折叠（周视图）状态
   bool _folded = false; // 当前是否为折叠完成的周视图状态
@@ -52,8 +51,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     _currentMonth = currentMonth.value;
     _selectedDay = DateTime.now();
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
-    _weekPage = _foldWeekPage;
-    _weekPageController = PageController(initialPage: _weekPage);
+    _weekPageController = PageController(initialPage: _foldWeekPage);
     _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _foldController.addListener(_onFoldTick);
     _load();
@@ -156,7 +154,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       _currentMonth = target;
     });
     _pageController.jumpToPage(pageFromMonth(target));
-    _load();
     currentMonth.value = target;
     if (_foldController.value > 0.99) {
       _foldController.reverse();
@@ -386,12 +383,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   }
 
   Widget _buildMonthPageView() {
-    if (_pendingMonthJump) {
-      _pendingMonthJump = false;
-      // 重建 controller，让切回月视图时直接显示当前浏览月
-      _pageController.dispose();
-      _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
-    }
     _pendingWeekJump = true;
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
@@ -403,10 +394,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         controller: _pageController,
         onPageChanged: (page) {
           final m = monthFromPage(page);
-          _currentMonth = m;
-          currentMonth.value = m;
-          _load();
-          setState(() {});
+          if (m != _currentMonth) {
+            _currentMonth = m;
+            currentMonth.value = m;
+          }
         },
         itemBuilder: (context, page) => _monthGrid(monthFromPage(page)),
       ),
@@ -415,15 +406,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
 
   Widget _buildWeekView() {
     _pendingMonthJump = true;
-    final targetPage = _foldWeekPage;
-    if (_pendingWeekJump) {
-      _pendingWeekJump = false;
-      _weekPage = targetPage;
-      _viewedWeekPage = targetPage;
-      // 重建 controller，让首次 attach 即显示选中周，避免先显示初始周再跳转的抖动
-      _weekPageController.dispose();
-      _weekPageController = PageController(initialPage: targetPage);
-    }
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
         PointerDeviceKind.touch,
@@ -467,6 +449,24 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     final t = _foldController.value;
     final nowFolded = t >= 0.999;
     if (nowFolded != _folded) {
+      if (nowFolded) {
+        // 折叠完成切入周视图：重建 week controller 直接定位选中周，
+        // 避免周 PageView 从旧初始页先显示再跳转的抖动。
+        if (_pendingWeekJump) {
+          _pendingWeekJump = false;
+          final targetPage = _foldWeekPage;
+          _viewedWeekPage = targetPage;
+          _weekPageController.dispose();
+          _weekPageController = PageController(initialPage: targetPage);
+        }
+      } else {
+        // 展开完成切回月视图：重建 month controller 直接定位当前月。
+        if (_pendingMonthJump) {
+          _pendingMonthJump = false;
+          _pageController.dispose();
+          _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
+        }
+      }
       setState(() => _folded = nowFolded);
     }
     if (nowFolded) {
