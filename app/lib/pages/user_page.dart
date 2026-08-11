@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
+import '../utils/navigation.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});
@@ -16,10 +17,24 @@ class UserPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('用户'), backgroundColor: colorBackgroundCard, elevation: 0, leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context))),
+      appBar: AppBar(
+        title: const Text('用户'),
+        backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+        foregroundColor: colorTextOnPrimary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '',
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: ListView(
         children: [
           const SizedBox(height: spacingXL),
+          _settingsItem(
+            title: '预算中心',
+            onTap: () => openBudget(context),
+          ),
           _settingsItem(
             title: '主题颜色',
             trailing: Container(
