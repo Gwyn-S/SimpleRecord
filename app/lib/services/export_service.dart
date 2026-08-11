@@ -12,10 +12,10 @@ import 'database.dart';
 Future<Directory> backupDirectory() async {
   Directory dir;
   if (Platform.isAndroid) {
-    dir = Directory('/storage/emulated/0/Download/SimpleRecord/backup');
+    dir = Directory('/storage/emulated/0/Documents/SimpleRecord/backup');
   } else {
-    final support = await getApplicationSupportDirectory();
-    dir = Directory(p.join(support.path, 'backup'));
+    final docs = await getApplicationDocumentsDirectory();
+    dir = Directory(p.join(docs.path, 'backup'));
   }
   if (!dir.existsSync()) dir.createSync(recursive: true);
   return dir;
