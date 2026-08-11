@@ -40,6 +40,13 @@ const TextStyle textAmountBold = TextStyle(
   color: colorTextPrimary,
 );
 
+const TextStyle textAmountStat = TextStyle(
+  fontSize: 18,
+  fontWeight: FontWeight.w700,
+  letterSpacing: -1,
+  color: colorTextOnPrimary,
+);
+
 // ===================== 农历文字 =====================
 const TextStyle textLunarDay = TextStyle(
   fontSize: 8,

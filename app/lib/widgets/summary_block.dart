@@ -35,7 +35,7 @@ class SummaryBlock extends StatelessWidget {
               children: [
                 Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
                 const SizedBox(width: spacingXS),
-                Text(amount ?? '0.00', style: textAmountLarge),
+                Text(amount ?? '0.00', style: textAmountStat),
               ],
             ),
           ],
@@ -70,7 +70,7 @@ class SummaryBlock extends StatelessWidget {
           const SizedBox(width: spacingXS),
           Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
           const SizedBox(width: spacingXXS),
-          Text(amount ?? '0.00', style: textAmountMedium),
+          Text(amount ?? '0.00', style: textAmountStat),
         ],
       ),
     );

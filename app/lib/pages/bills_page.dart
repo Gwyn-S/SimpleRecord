@@ -172,7 +172,7 @@ class _BillsPageState extends State<BillsPage> {
     }
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 5),
       children: _sortedKeys.asMap().entries.map((entry) {
         final isFirst = entry.key == 0;
         final key = entry.value;
@@ -182,7 +182,7 @@ class _BillsPageState extends State<BillsPage> {
         final dayInc = monthIncome(dayRecords);
         final expanded = _expandedDays.contains(key);
         return Container(
-          margin: EdgeInsets.fromLTRB(spacingM, isFirst ? spacingS : spacingXS, spacingM, spacingXS),
+          margin: EdgeInsets.fromLTRB(spacingM, isFirst ? 10 : 5, spacingM, 5),
           decoration: BoxDecoration(
             color: colorBackgroundCard,
             borderRadius: BorderRadius.circular(radiusMedium),

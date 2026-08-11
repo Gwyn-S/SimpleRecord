@@ -266,6 +266,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, 0),
               child: GridView.builder(
+                padding: const EdgeInsets.only(bottom: spacingM),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
                   mainAxisSpacing: spacingM,
