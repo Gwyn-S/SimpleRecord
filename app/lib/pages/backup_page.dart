@@ -18,7 +18,7 @@ class BackupPage extends StatelessWidget {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: AppBar(
-          title: const Text('数据备份'),
+          title: const Text('备份'),
           backgroundColor: themeColor,
           foregroundColor: colorTextOnPrimary,
           elevation: 0,
