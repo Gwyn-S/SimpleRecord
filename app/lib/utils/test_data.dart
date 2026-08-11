@@ -63,15 +63,16 @@ Future<void> _seedRecords() async {
   final db = await DatabaseHelper.instance.database;
   final r = _Rand();
   final now = DateTime.now();
+  final batch = db.batch();
+  const perLedger = 2500;
   for (final ledger in ledgers) {
-    for (int dy = 0; dy < 90; dy++) {
-      if (r.nextInt(3) == 0) continue;
-      final day = now.subtract(Duration(days: dy));
+    for (int i = 0; i < perLedger; i++) {
+      final day = now.subtract(Duration(days: r.nextInt(90)));
       final isExp = r.nextBool();
       final cats = isExp ? expenseCategories : incomeCategories;
       final cat = cats[r.nextInt(cats.length)];
       final cents = [5, 10, 15, 20, 30, 50, 100, 200, 500][r.nextInt(9)] * 100;
-      await db.insert('records', <String, Object?>{
+      batch.insert('records', <String, Object?>{
         'id': _id(),
         'book_id': ledger.id,
         'is_expense': isExp ? 1 : 0,
@@ -86,6 +87,7 @@ Future<void> _seedRecords() async {
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
+  await batch.commit(noResult: true);
 }
 
 String _id() => const Uuid().v4();
