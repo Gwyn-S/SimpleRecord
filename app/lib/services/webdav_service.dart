@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'settings.dart';
 
 const _keyServer = 'webdav_server';
 const _keyUsername = 'webdav_username';
@@ -25,23 +25,21 @@ class WebDavConfig {
 }
 
 Future<WebDavConfig?> loadWebDavConfig() async {
-  final prefs = await SharedPreferences.getInstance();
-  final server = prefs.getString(_keyServer) ?? '';
+  final server = await Settings.getString(_keyServer) ?? '';
   if (server.trim().isEmpty) return null;
   return WebDavConfig(
     server: server,
-    username: prefs.getString(_keyUsername) ?? '',
-    password: prefs.getString(_keyPassword) ?? '',
-    directory: prefs.getString(_keyDirectory) ?? '',
+    username: await Settings.getString(_keyUsername) ?? '',
+    password: await Settings.getString(_keyPassword) ?? '',
+    directory: await Settings.getString(_keyDirectory) ?? '',
   );
 }
 
 Future<void> saveWebDavConfig(WebDavConfig config) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_keyServer, config.server.trim());
-  await prefs.setString(_keyUsername, config.username.trim());
-  await prefs.setString(_keyPassword, config.password);
-  await prefs.setString(_keyDirectory, config.directory.trim());
+  await Settings.setString(_keyServer, config.server.trim());
+  await Settings.setString(_keyUsername, config.username.trim());
+  await Settings.setString(_keyPassword, config.password);
+  await Settings.setString(_keyDirectory, config.directory.trim());
 }
 
 class WebDavFile {

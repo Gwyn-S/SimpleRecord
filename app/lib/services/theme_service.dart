@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_colors.dart';
+import 'settings.dart';
 
 final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF3F9795));
 
@@ -54,14 +54,12 @@ ThemeData buildAppTheme(Color primary) {
 }
 
 Future<void> loadThemeColor() async {
-  final prefs = await SharedPreferences.getInstance();
-  final colorValue = prefs.getInt('themeColor');
+  final colorValue = await Settings.getInt('themeColor');
   if (colorValue != null) {
     themeColorNotifier.value = Color(colorValue);
   }
 }
 
 Future<void> saveThemeColor(Color color) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('themeColor', color.toARGB32());
+  await Settings.setInt('themeColor', color.toARGB32());
 }

@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/record.dart';
 import 'asset_account_service.dart';
 import 'database.dart';
+import 'settings.dart';
 
 const _currentLedgerKey = 'currentBookId';
 
@@ -16,16 +16,14 @@ int _epochDayOf(DateTime d) =>
     DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
 
 Future<void> loadCurrentLedgerId() async {
-  final prefs = await SharedPreferences.getInstance();
-  currentLedgerId.value = prefs.getString(_currentLedgerKey);
+  currentLedgerId.value = await Settings.getString(_currentLedgerKey);
 }
 
 Future<void> saveCurrentLedgerId(String? id) async {
-  final prefs = await SharedPreferences.getInstance();
   if (id == null) {
-    await prefs.remove(_currentLedgerKey);
+    await Settings.remove(_currentLedgerKey);
   } else {
-    await prefs.setString(_currentLedgerKey, id);
+    await Settings.setString(_currentLedgerKey, id);
   }
   // 只置 currentLedgerId：ValueNotifier 值变化本身就会触发一次 reload，
   // 不再额外 ++recordsVersion，避免切账本时双触发两次全量加载。
