@@ -5,9 +5,8 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/asset_account.dart';
-import '../services/asset_account_service.dart';
-import '../utils/formatters.dart';
-import '../utils/id.dart';
+import 'asset_account_form_page.dart';
+import 'asset_category_select_page.dart';
 
 class AddAssetAccountPage extends StatefulWidget {
   const AddAssetAccountPage({super.key});
@@ -28,51 +27,101 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
     colorAssetCustom,
   ];
 
-  void _showAddDialog(int index) {
-    final cat = assetAccountCategories[index];
-    final nameController = TextEditingController(text: cat.name);
-    final balanceController = TextEditingController(text: '0');
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('添加${cat.name}账户'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(hintText: '账户名称', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: spacingM),
-            TextField(
-              controller: balanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: '余额', border: OutlineInputBorder()),
-            ),
+  static const _banks = <(String, String)>[
+    ('工商银行', 'assets/icons/icbc.svg'),
+    ('建设银行', 'assets/icons/ccb.svg'),
+    ('农业银行', 'assets/icons/abc.svg'),
+    ('中国银行', 'assets/icons/boc.svg'),
+    ('招商银行', 'assets/icons/cmb.svg'),
+    ('交通银行', 'assets/icons/comm_bank.svg'),
+    ('中信银行', 'assets/icons/citic.svg'),
+    ('浦发银行', 'assets/icons/spdb.svg'),
+    ('广发银行', 'assets/icons/cgb.svg'),
+  ];
+
+  Widget _buildEntry(int index) {
+    switch (index) {
+      case 0:
+        return AddAssetAccountFormPage(
+          title: '添加现金',
+          categoryName: '现金',
+          nameLabel: '名称',
+          nameEditable: true,
+          emptyNameFallback: '现金',
+        );
+      case 1:
+        return const AssetCategorySelectPage(
+          categoryName: '网络支付',
+          nameLabel: '名称',
+          showCardField: false,
+          options: [
+            AssetCategoryOption(name: '微信', iconPath: 'assets/icons/wechat.svg'),
+            AssetCategoryOption(name: '支付宝', iconPath: 'assets/icons/alipay.svg'),
+            AssetCategoryOption(name: '其他类型', iconPath: 'assets/icons/online_banking.svg', nameEditable: true),
           ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim().isNotEmpty ? nameController.text.trim() : cat.name;
-              final balanceCents = double.tryParse(balanceController.text) == null
-                  ? 0
-                  : yuanToCents(balanceController.text);
-              final account = AssetAccount(
-                id: genId(),
-                categoryName: cat.name,
-                name: name,
-                balanceCents: balanceCents,
-              );
-              await insertAssetAccount(account);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
+        );
+      case 2:
+        return AssetCategorySelectPage(
+          categoryName: '储蓄卡',
+          nameLabel: '所在银行',
+          showCardField: true,
+          options: [
+            for (final (name, iconPath) in _banks)
+              AssetCategoryOption(name: name, iconPath: iconPath),
+            const AssetCategoryOption(name: '其他银行', iconPath: 'assets/icons/savings_card.svg', nameEditable: true),
+          ],
+        );
+      case 3:
+        return AssetCategorySelectPage(
+          categoryName: '信用卡',
+          nameLabel: '所在银行',
+          showCardField: true,
+          options: [
+            const AssetCategoryOption(name: '蚂蚁花呗', iconPath: 'assets/icons/huabei.svg'),
+            const AssetCategoryOption(name: '京东白条', iconPath: 'assets/icons/jd_baitiao.svg'),
+            for (final (name, iconPath) in _banks)
+              AssetCategoryOption(name: name, iconPath: iconPath),
+            const AssetCategoryOption(name: '其他银行', iconPath: 'assets/icons/credit_card.svg', nameEditable: true),
+          ],
+        );
+      case 4:
+        return const AssetCategorySelectPage(
+          categoryName: '投资',
+          nameLabel: '名称',
+          showCardField: false,
+          options: [
+            AssetCategoryOption(name: '股票', iconPath: 'assets/icons/stocks.svg', iconColor: Color(0xFFFFC107)),
+            AssetCategoryOption(name: '基金', iconPath: 'assets/icons/funds.svg', iconColor: Color(0xFFFFC107)),
+            AssetCategoryOption(name: '其他投资', iconPath: 'assets/icons/investment.svg', iconColor: Color(0xFFFFC107), nameEditable: true),
+          ],
+        );
+      case 5:
+        return AddAssetAccountFormPage(
+          title: '添加负债',
+          categoryName: '负债',
+          nameLabel: '名称',
+          nameEditable: true,
+          emptyNameFallback: '负债',
+        );
+      case 6:
+        return AddAssetAccountFormPage(
+          title: '添加债券',
+          categoryName: '债券',
+          nameLabel: '名称',
+          nameEditable: true,
+          emptyNameFallback: '债券',
+        );
+      case 7:
+        return AddAssetAccountFormPage(
+          title: '添加自定义资产',
+          categoryName: '自定义资产',
+          nameLabel: '名称',
+          nameEditable: true,
+          emptyNameFallback: '自定义资产',
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
@@ -89,7 +138,6 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             tooltip: '',
             onPressed: () => Navigator.pop(context),
           ),
-          centerTitle: true,
           title: const Text('添加账户'),
         ),
       ),
@@ -99,16 +147,18 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
         separatorBuilder: (_, _) => Container(
           height: 1,
           color: colorDivider,
-          margin: const EdgeInsets.only(left: 72),
         ),
         itemBuilder: (context, index) {
           final cat = assetAccountCategories[index];
           final color = _categoryColors[index % _categoryColors.length];
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _showAddDialog(index),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => _buildEntry(index)),
+            ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingXS),
               child: Row(
                 children: [
                   Container(
@@ -121,18 +171,20 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                     child: cat.iconPath != null
                         ? SvgPicture.asset(
                             cat.iconPath!,
-                            width: iconSizeXLarge,
-                            height: iconSizeXLarge,
+                            width: iconSizeSmall,
+                            height: iconSizeSmall,
                             fit: BoxFit.contain,
                             colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                           )
-                        : Icon(cat.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: color),
+                        : Icon(cat.icon ?? Icons.account_balance_wallet, size: iconSizeSmall, color: color),
                   ),
                   const SizedBox(width: spacingL),
                   Text(
                     cat.name,
                     style: textPickerItem,
                   ),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right, size: iconSizeDefault, color: colorTextSecondary),
                 ],
               ),
             ),
