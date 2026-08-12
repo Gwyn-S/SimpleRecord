@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 4,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -73,6 +73,13 @@ class DatabaseHelper {
     final recordCols = await db.rawQuery('PRAGMA table_info(records)');
     if (!recordCols.any((c) => c['name'] == 'account_id')) {
       await db.execute('ALTER TABLE records ADD COLUMN account_id TEXT');
+    }
+    final accountCols = await db.rawQuery('PRAGMA table_info(asset_accounts)');
+    if (!accountCols.any((c) => c['name'] == 'remark')) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN remark TEXT NOT NULL DEFAULT \'\'');
+    }
+    if (!accountCols.any((c) => c['name'] == 'card_last4')) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN card_last4 TEXT NOT NULL DEFAULT \'\'');
     }
   }
 
@@ -102,7 +109,9 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         category_name TEXT NOT NULL,
         name TEXT NOT NULL,
-        balance_cents INTEGER NOT NULL DEFAULT 0
+        balance_cents INTEGER NOT NULL DEFAULT 0,
+        remark TEXT NOT NULL DEFAULT '',
+        card_last4 TEXT NOT NULL DEFAULT ''
       )
     ''');
     await _upgradeToV2(db);
@@ -117,6 +126,12 @@ class DatabaseHelper {
     }
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE records ADD COLUMN account_id TEXT');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN remark TEXT NOT NULL DEFAULT \'\'');
+    }
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN card_last4 TEXT NOT NULL DEFAULT \'\'');
     }
   }
 
