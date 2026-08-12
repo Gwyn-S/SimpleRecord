@@ -33,7 +33,7 @@ Future<String> exportCsv() async {
   final rows = await db.query('records', orderBy: 'date DESC, created_at DESC');
   final now = DateTime.now();
   final stamp =
-      '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}';
+      '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}${now.millisecond.toString().padLeft(2, '0')}';
   final dir = await backupDirectory();
   final path = p.join(dir.path, 'export_$stamp.csv');
   await Isolate.run(() {
@@ -47,7 +47,7 @@ Future<String> exportCsv() async {
         r['is_expense'] == 1 ? '支出' : '收入',
         _csvEscape(r['category_name'] as String),
         formatAmount(r['amount_cents'] as int),
-        _csvEscape(r['remark'] as String),
+        _csvEscape(r['remark'] as String? ?? ''),
       ];
       buffer.writeln(fields.join(','));
     }
