@@ -9,7 +9,7 @@ class DatabaseHelper {
 
   static final DatabaseHelper instance = DatabaseHelper._();
 
-  Database? _db;
+  Future<Database>? _dbFuture;
   String? _dbPath;
 
   String get dbPath {
@@ -18,15 +18,12 @@ class DatabaseHelper {
     return p;
   }
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _open();
-    return _db!;
-  }
+  Future<Database> get database => _dbFuture ??= _open();
 
   Future<void> close() async {
-    final db = _db;
-    _db = null;
+    final future = _dbFuture;
+    _dbFuture = null;
+    final db = future == null ? null : await future;
     if (db != null) await db.close();
   }
 
