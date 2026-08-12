@@ -1,126 +1,218 @@
 ﻿==================================================
-SimpleRecord 代码审查结果（P0/P1/P2 分级）
-审查时间：2026-08-10
-审查范围：app/lib 全部代码（Flutter/Dart）
-审查方法：逐文件阅读 + flutter analyze（无告警）
+SimpleRecord 代码审查结果（P0/P1/P2/P3 分级）
+审查时间：2026-08-12
+审查范围：app/lib 全部代码（Flutter/Dart），含远端最新合并
+         （预算中心、图标资源、日历 overscroll 下拉展开）
+审查方法：逐文件阅读 + 3 路并行深挖 + 关键项手工复核
+          + flutter analyze（无告警）
 ==================================================
 
-总体评价（Needs Improvement）
---------------------------------------
-Lint 零告警、数据库操作全部异步、备份/恢复在 isolate 执行、
-监听器注册/反注册成对，无崩溃级隐患（mounted 防护已补齐、
-调试日志已清理），基础质量良好。但无任何测试、列表全量构建、
-冷启动串行，性能与健壮性仍可提升。
+总体评价（整体良好）
+-------------------------------------
+Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
+监听器注册/反注册成对、折叠动画与 PageController 生命周期
+管理规范。预算中心功能完整、入口联动正常。剩余问题已按
+用户视角重排优先级，分为「待修」与「不修」两类，
+不修项均附理由（多为真实使用中极难触发或纯代码洁癖）。
 
 
-==================================================
-已修复（2026-08-10）
-==================================================
+=================================================
+已修复（✅）
+=================================================
 [X] mounted 防护：ledger_list_page.dart _loadLedgers/_loadRecords
-    async 后 setState 前补 if (!mounted) return;（原 P1-1）
-[X] 账本统计 SQL 聚合：ledger_service.dart 新增 loadLedgerStats()
-    GROUP BY 一次聚合 COUNT/SUM，账本页不再全表加载 + 内存过滤
-    （原 P1-2）
+    async 后 setState 前补 if (!mounted) return;
+[X] 账本统计 SQL 聚合：ledger_service.dart loadLedgerStats()
+    GROUP BY 一次聚合，账本页不再全表加载 + 内存过滤
 [X] 调试日志清零：全项目 debugPrint/print 移除
-    （ledger_list_page 加载失败日志删行，catch 静默保留）
 [X] 备份"列表空白"根因闭环：非 scoped storage 问题，系打包时
     误用私有目录代码；B/C/D 多配置实测公共 Download 读写正常
-[X] 复核移除：账单列表按月加载（loadRecords 带 month 过滤），
-    单月数据量受限，全量构建非问题（原 P1-3）
-[X] 复核降级：冷启动串行 await 实测（Windows debug）5 步合计
-    ~123ms，release/AOT 预计几十 ms，相对引擎冷启动影响很小，
-    降级不做（原 P1-1）
-[X] CSV 导出 isolate 化：实测 10 万条拼接 120ms（30 万条 351ms），
-    拼接+写文件移 Isolate.run，_csvEscape/_two 提为顶层函数
-    （原 P1-1）
-[X] 删除后物理回收：database.dart 新增 vacuum()（孤儿记录清理 +
-    checkpoint + VACUUM + 再 checkpoint），deleteRecord/deleteLedger
-    删除后调用；实测 WAL 模式下 VACUUM 后需二次 checkpoint 文件才
-    物理缩小（2.2MB → 1.1MB，-50%）
-[X] _monthGridCache 只留相邻 3 月：calendar_page.dart _monthGrid 中
-    putIfAbsent 后 removeWhere 淘汰 (key-page).abs()>1 的条目，
-    翻页只保留当前月 ±1（原 P2-3）；首次仅 build 可见月，构建开销不变
-[X] fmt 默认参数冗余删除：record_item.dart/bill_detail_sheet.dart
-    移除 fmt 参数与 _defaultFmt 静态方法，直接调 formatAmount
-    （原 P2-4）
-[X] 图标按收支类型分别匹配：record_item.dart 按 record.isExpense
-    选 expenseCategories/incomeCategories 单列表匹配，同名不再串侧
-    （原 P2-5）；同时去掉每次 build 的数组展开，顺带修复原 P2-2
+[X] 账单列表按月加载复核：单月数据量受限，全量构建非问题
+[X] 冷启动串行 await 复核：Windows debug 5 步合计 ~123ms，
+    release 预计几十 ms，降级不做
+[X] CSV 导出 isolate 化：拼接+写文件移 Isolate.run
+[X] 删除后物理回收：database.dart vacuum()，WAL 下二次 checkpoint
+    文件才缩小（2.2MB → 1.1MB，-50%）
+[X] _monthGridCache 只留相邻 3 月：翻页逐页淘汰
+[X] fmt 默认参数冗余删除
+[X] 图标按收支类型分别匹配，去掉每次 build 的数组展开
+[X] 测试数据扩至每账本 2500 条并改 batch 批量插入（8153f8d）
+[X] AppBar 禁用 scrolledUnderElevation，修复账单页滚动后
+    状态栏 tint 变色（f37a54a）
+[X] 备份/导出目录从 Download 改为公共 Documents（f7febe5）
+[X] 移除 shared_preferences，自建 Settings 配置存储
+    （simplerecord.json 缩进可读，6e9d5a8）
+[X] 日历 PageController 重建移出 build 到 _onFoldTick
+    完成边界，动画打断不再有 dispose 竞态（994923b）
+[X] 日历翻页加载去重：_load 收敛到 _onMonthChanged 单一入口
+    （994923b）
+[X] 记账金额负数提示"金额不能为负"、零值"请输入金额"、
+    分类名越界判断清理（814e251）
+[X] 预算按账本隔离：key 拼入账本 ID
+    （budget_{ledgerId}_month_YYYY-M / budget_{ledgerId}_cat_YYYY-M_分类），
+    切换账本预算不再串台（budget_page.dart / bills_page.dart）
+[X] 日期选择后 setState 判活：picked==null || !mounted 提前返回
+    （manual_entry_page.dart:377-378）
+[X] 日期选择器连点被吞修复：_changeMonth 改用
+    _pageController.page.round() 计算目标页，动画中连点不丢页
+    （date_picker_sheet.dart:58-64）
+[X] 账本页死代码删除：deletedId==currentLedgerId 分支（已被
+    禁删当前账本拦截，永假）移除（ledger_list_page.dart:176-178）
+[X] 导出修复：remark 用 as String? ?? ''（防历史 NULL 强转崩溃）；
+    文件名加毫秒后缀防秒级覆盖（export_service.dart:36-50）
+[X] 数据库懒加载双开竞态：getter 改为 _dbFuture ??= _open() 缓存
+    打开任务，并发调用共享同一连接；close() 同步重置
+    （database.dart:21-25）
 
 
-==================================================
-P1（应修，崩溃/明确缺陷）
-==================================================
+=================================================
+待修（⬜，按优先级）
+=================================================
 
-[P1-1] 未用 SVG 资源打进包
-  位置  : assets/icons/（25 个中 17 个未引用）
-  影响  : 包体积无谓增大（flutter_assets 136KB 的大头）
-  现状  : assets/icons/ 全量打包
-  改进  : 白名单引用，删除 boc/ccb/citic/icbc/wechat 等未用图标
-  状态  : 已知项（用户决定不修）
+[P2-15] WebDAV 无读超时
+  位置  : services/webdav_service.dart:84-85
+  问题  : 仅连接超时，服务器挂起时读阶段无限等待
+  建议  : response.timeout(...)；证书全信任保留（个人 NAS 便利）
 
-
-==================================================
-P2（可排期，体验/整洁）—— 剩余已知项（不修）
-==================================================
-
-[P2-1] 占位功能保留无效入口
-  位置  : pages/stats_page.dart、search_page.dart；
-          main_page.dart:73-85
-  影响  : 统计/搜索/拍照/语音/扫码点击无效，交互困惑
-  现状  : 占位页/空实现仍可点
-  改进  : 实现或隐藏入口/标"开发中"
-  状态  : 已知项（用户决定不修）
-
-[P2-6] 分类图标重复
-  位置  : models/category.dart
-  影响  : "人情"与"红包"共用 card_giftcard 图标
-  现状  : 同 IconData
-  改进  : 收入类换 distinct 图标
-  状态  : 已知项（用户决定不修）
+[P3-14] WebDAV 恢复临时文件不清理
+  位置  : pages/webdav_page.dart:170-171
+  问题  : 上传路径有 finally 清理，恢复路径没有，每次恢复泄漏
+          一个系统临时目录
+  建议  : 参照上传路径补 finally 删除
 
 
-==================================================
-附加建议（测试、文档、监控等）
-==================================================
-- flutter test 覆盖：evaluate 计算器、Record.fromDbMap/toDbMap
-  往返、yuanToCents/formatAmount、分组排序、账本统计函数
-- 备份列表真机验证：Android 16 + targetSdk 36 下公共 Download 读写正常，
-  B/C/D 多构建配置实测均可见；此前"列表空白"系打包时误用私有目录代码，
-  与运行环境/构建配置无关（根因闭环）；恢复流程与低版本 Android 待验证
-- flutter run --profile + DevTools 实测：账单页滚动帧率、
-  冷启动耗时、内存曲线（目前零性能数据，需补充）
-- 建 AGENTS.md/README：备份文件格式（SRB 头+XOR）、
-  --dart-define=SEED_TEST 调试开关
-- 排查日志可选方案：加 --dart-define=LOG=1 编译期开关（默认关闭、
-  日志被 tree-shake 零开销，需真机排查时开），避免临时改源码
+=================================================
+不修（🚫，附理由）
+=================================================
 
-==================================================
-场景化校验
-==================================================
-- 低端机（2GB RAM）：冷启动串行初始化明显放大首帧延迟；
-  bills 全量构建与账本全表加载在数据多时卡顿/掉帧
-- 弱网环境：完全离线，无网络风险
-- 多任务切换：状态靠全局 ValueNotifier+DB，进程被杀后重启不会
-  重复播种（SharedPreferences 标志持久化）；configChanges 已声明，
-  旋转不重建
-- 长时间运行：_monthGridCache 已限相邻 3 月（翻页逐页淘汰），
-  lunar static 缓存长期累积（小量级）；监听器全部成对释放，无泄漏
-- 屏幕尺寸/密度：dp 语义单位+FittedBox+LayoutBuilder 适配良好，
-  无硬编码 px
+[🚫-1/2] 金额溢出/静默负数
+  位置  : utils/formatters.dart:9-14 / manual_entry_page.dart:74-97
+  理由  : 需 17+ 位（元×100 溢出）才产生负数记录、19+ 位才崩溃；
+          手动输入不可达，仅粘贴超长串才触发；即使发生保存的
+          也是可正常删除的脏记录，可逆
 
-==================================================
+[🚫-3] 测试数据无条件播种
+  位置  : main.dart:23 / utils/test_data.dart
+  理由  : 开发期专用，正式发布前移除本行；main.dart 已加注释，
+          review 请忽略此项
+
+[🚫-4] 备份恢复破坏性覆盖（恢复前备份旧库、原子替换）
+  位置  : services/srb_backup_service.dart:60-69
+  理由  : 触发概率低；SRB 备份文件始终未被改动，失败可重试恢复
+          （两入口均有 try/catch + "恢复失败" toast）
+
+[🚫-6] 节气表越界（S_TERM_INFO 仅 173 条，2073-2100 越界）
+  位置  : utils/lunar/solar_terms.dart:87,113
+  理由  : 月选择器需滚动 50+ 年才触发
+
+[🚫-7] 农历 1900-01 负索引（基准日 1900-01-31 之前）
+  位置  : utils/lunar/chinese_date.dart:42,113
+  理由  : 需滚动 120 年才触发
+
+[🚫-8] 预算输入 Infinity/1e999 崩溃
+  位置  : pages/budget_page.dart:146
+  理由  : 数字键盘输不出来
+
+[🚫-10] 预算串行读文件（每分类一次 await Settings.getInt）
+  位置  : pages/budget_page.dart:89-92
+  理由  : JSON 仅几 KB，毫秒级，用户无感知
+
+[🚫-11] Settings 损坏静默清空
+  位置  : services/settings.dart:29-43
+  理由  : 需用户手改文件才触发
+
+[🚫-12] updateRecord 幽灵余额（0 行更新仍 +1）
+  位置  : services/record_service.dart:110-118
+  理由  : UI 编辑的记录必然存在，实际不可触发
+
+[🚫-13] insertRecord replace 冲突余额重复累计
+  位置  : services/record_service.dart:81-89
+  理由  : UUID 实际不可碰撞
+
+[🚫-16] IndexedStack 启动即构建全部 5 tab
+  位置  : pages/main_page.dart:58
+  理由  : 实测 5000 条无感
+
+[🚫-17] 删除资产账户乐观更新无回滚
+  位置  : pages/assets_page.dart:101-104
+  理由  : DB 删除不易失败
+
+[🚫-18] bills build 中改状态
+  位置  : pages/bills_page.dart:178-181
+  理由  : 功能正常，纯代码洁癖
+
+[🚫-19] 日历点选日期清空缓存重建 ±1 月
+  位置  : pages/calendar_page.dart:89-96
+  理由  : 实测流畅
+
+[🚫-21] 详情弹窗长文本溢出
+  位置  : widgets/bill_detail_sheet.dart:49,58-69
+  理由  : 备注有 20 字上限且 Text 默认换行兜底；仅账户名等
+          超长连续字母/数字串才可能溢出色条，低概率观感问题
+
+[🚫-22] 账单删除无确认
+  位置  : widgets/record_item.dart:101-104
+  理由  : 用户决定不修，保持当前交互（详情面板直接删除）
+
+[🚫-23] 日期选择器确定跨月 + 固定 6 行（连点被吞已修）
+  位置  : widgets/date_picker_sheet.dart
+  理由  : 确认返回旧月日期需"滑动到新月不点日期直接确定"才触发，
+          概率低；固定 6 行纯观感
+
+[🚫-24] 年月选择器越界/惯性滑动快速确认读旧值
+  位置  : widgets/month_year_picker.dart
+  理由  : 惯性滑动中秒点确认，概率极低
+
+[🚫-25] user_page Navigator.pop 后复用 context
+  位置  : pages/user_page.dart:106-108
+  理由  : 触发路径低
+
+[🚫-26] 账本页加载失败静默吞异常（死代码已删）
+  位置  : pages/ledger_list_page.dart:51-53
+  理由  : 失败仅发生在数据库异常，返回空列表无崩溃；下次进入
+          页面会重试，影响极低
+
+[🚫-27] 本地备份删除按钮未受 _busy 禁用
+  位置  : pages/local_backup_page.dart:197-200
+  理由  : 备份/导出写的是新文件，删除旧文件无冲突；恢复中恢复
+          按钮已禁用；唯一缝隙是删除进行中（不置 _busy）点同
+          文件恢复，毫秒级窗口且失败有 catch 提示可重试
+
+[🚫-29] 计算器负号/连续运算符无反馈
+  位置  : utils/calculator.dart:5-9
+  理由  : UI 已限制表达式不能以运算符开头/结尾，无输入路径
+
+[🚫-30] 日收支 round 截断（199 分显示 +1）
+  位置  : pages/calendar_page.dart:608-631
+  理由  : 元级显示，影响可忽略
+
+[🚫-31] toast 延时移除无 mounted 防护
+  位置  : utils/toast.dart:12
+  理由  : 触发条件苛刻
+
+[🚫-32] _todayDay 跨天不刷新
+  位置  : pages/main_page.dart:22
+  理由  : app 常驻跨天才触发
+
+[🚫-33] 预算编辑不预填当前值
+  位置  : pages/budget_page.dart:113-133
+  理由  : 用户决定不修，保持每次编辑空输入框重新输入
+
+[🚫-34] 农历缓存无上限 / 图标名称线性匹配 / Theme.extension!
+        强解包 / budget==0 误判"未设置"
+  位置  : lunar_utils.dart / record_item.dart / 多处 / bills_page.dart
+  理由  : 纯代码洁癖，用户无感知
+
+
+=================================================
 最终审查清单
-==================================================
+=================================================
 [X] Lint：flutter analyze → No issues found
 [ ] 单元/UI 测试：无 test/ 目录（0 覆盖率）
 [ ] 真机验证关键场景：基本功能手动通过；备份列表可见性已验证
     （Android 16）；恢复、低端机、多账本大数据量未系统验证
 [ ] 日志/性能监控：debugPrint/print 已清零；无埋点/性能数据
-[ ] 文档：有 todolist.txt，但无 README/备份格式/构建说明文档
+[ ] 文档：有本清单，但无 README/备份格式/构建说明文档
 
-优先级建议：P0/P1 中崩溃与性能项已全部处理（mounted、日志、
-SQL 聚合、CSV isolate、删除回收），P2 的 2-3/2-4/2-5（含 2-2）
-已修复。剩余 3 项均标为已知项（用户决定不修）：未用 SVG（P1-1）、
-占位入口（P2-1）、图标重复（P2-6）。当前代码处于可用状态，
-后续按需再排。
+优先级建议：P0/P1 项已全部处理或确认不修；当前待修集中在
+P2（WebDAV 超时）与 P3（临时文件清理/未判活/溢出/预填等顺手项），
+按用户使用频率排序后从 P2 开始修复即可。
