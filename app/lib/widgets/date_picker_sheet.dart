@@ -56,8 +56,9 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
       (_baseMonth.year * 12 + _baseMonth.month);
 
   void _changeMonth(int delta) {
+    final current = _pageController.page ?? _pageIndex.toDouble();
     _pageController.animateToPage(
-      _pageIndex + delta,
+      current.round() + delta,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
     );

@@ -375,7 +375,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             label: _formatSelectedDate(),
             onTap: () async {
               final picked = await showDatePickerSheet(context, _selectedDate);
-              if (picked != null) setState(() => _selectedDate = picked);
+              if (picked == null || !mounted) return;
+              setState(() => _selectedDate = picked);
             },
           ),
           const SizedBox(width: spacingXXL),
