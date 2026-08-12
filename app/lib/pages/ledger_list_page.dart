@@ -173,9 +173,6 @@ class _LedgerListPageState extends State<LedgerListPage> {
               final deletedId = _ledgers[index].id;
               setState(() => _ledgers.removeAt(index));
               await deleteLedger(deletedId);
-              if (deletedId == currentLedgerId.value) {
-                await saveCurrentLedgerId(_ledgers.isNotEmpty ? _ledgers.first.id : null);
-              }
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('删除', style: TextStyle(color: colorDelete)),
