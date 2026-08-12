@@ -62,8 +62,9 @@ class _BillsPageState extends State<BillsPage> {
       ledgerId: currentLedgerId.value,
       month: month,
     );
-    final monthBudget =
-        await Settings.getInt('budget_month_${month.year}-${month.month}') ?? 0;
+    final monthBudget = await Settings.getInt(
+      'budget_${currentLedgerId.value ?? 'none'}_month_${month.year}-${month.month}',
+    ) ?? 0;
     if (seq != _loadSeq || !mounted) return;
     setState(() {
       _records = records;

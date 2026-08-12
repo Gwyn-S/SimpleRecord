@@ -51,6 +51,12 @@ class _BudgetPageState extends State<BudgetPage> {
     return '${m.year}-${m.month}';
   }
 
+  String get _budgetPrefix => 'budget_${currentLedgerId.value ?? 'none'}';
+
+  String get _monthBudgetKey => '${_budgetPrefix}_month_$_monthKey';
+
+  String _catBudgetKey(String name) => '${_budgetPrefix}_cat_${_monthKey}_$name';
+
   int get _daysInMonth =>
       DateTime(currentMonth.value.year, currentMonth.value.month + 1, 0).day;
 
@@ -84,11 +90,10 @@ class _BudgetPageState extends State<BudgetPage> {
         catExp[r.categoryName] = (catExp[r.categoryName] ?? 0) + r.amountCents;
       }
     }
-    final monthBudget = await Settings.getInt('budget_month_$_monthKey') ?? 0;
+    final monthBudget = await Settings.getInt(_monthBudgetKey) ?? 0;
     final catBudget = <String, int>{};
     for (final c in expenseCategories) {
-      catBudget[c.name] =
-          await Settings.getInt('budget_cat_${_monthKey}_${c.name}') ?? 0;
+      catBudget[c.name] = await Settings.getInt(_catBudgetKey(c.name)) ?? 0;
     }
     if (seq != _loadSeq || !mounted) return;
     setState(() {
@@ -147,20 +152,20 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Future<void> _saveMonthBudget(int cents) async {
-    await Settings.setInt('budget_month_$_monthKey', cents);
+    await Settings.setInt(_monthBudgetKey, cents);
     budgetVersion.value++;
     setState(() => _monthBudget = cents);
   }
 
   Future<void> _saveCatBudget(String name, int cents) async {
-    await Settings.setInt('budget_cat_${_monthKey}_$name', cents);
+    await Settings.setInt(_catBudgetKey(name), cents);
     final newCatBudget = <String, int>{..._categoryBudget};
     newCatBudget[name] = cents;
     var newMonthBudget = _monthBudget;
     if (newMonthBudget == 0) {
       newMonthBudget = newCatBudget.values.fold(0, (s, v) => s + v);
       if (newMonthBudget > 0) {
-        await Settings.setInt('budget_month_$_monthKey', newMonthBudget);
+        await Settings.setInt(_monthBudgetKey, newMonthBudget);
       }
     }
     budgetVersion.value++;
