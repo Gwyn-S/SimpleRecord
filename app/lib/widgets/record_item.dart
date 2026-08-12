@@ -40,10 +40,10 @@ class RecordItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                color: colorBackgroundLight,
+                color: Color(0xFFDDDDDD),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: iconSizeDefault, color: colorTextPrimary),
+              child: Icon(icon, size: iconSizeDefault, color: Color(0xFF555555)),
             ),
             const SizedBox(width: spacingM),
             Expanded(
