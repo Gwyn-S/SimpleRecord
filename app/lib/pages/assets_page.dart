@@ -18,6 +18,17 @@ class AssetsPage extends StatefulWidget {
 }
 
 class _AssetsPageState extends State<AssetsPage> {
+  static const _categoryColors = [
+    colorAssetCash,
+    colorAssetOnlinePay,
+    colorAssetSavingsCard,
+    colorAssetCreditCard,
+    colorAssetInvestment,
+    colorAssetDebt,
+    colorAssetBond,
+    colorAssetCustom,
+  ];
+
   List<AssetAccount> _accounts = [];
 
   @override
@@ -47,8 +58,20 @@ class _AssetsPageState extends State<AssetsPage> {
 
   int get _netWorth => _totalAssets - _totalDebt;
 
-  void _showEditDialog(int index) {
-    final account = _accounts[index];
+  Map<String, List<AssetAccount>> get _grouped {
+    final map = <String, List<AssetAccount>>{};
+    for (final a in _accounts) {
+      map.putIfAbsent(a.categoryName, () => []).add(a);
+    }
+    return map;
+  }
+
+  Color _categoryColor(String categoryName) {
+    final idx = assetAccountCategories.indexWhere((c) => c.name == categoryName);
+    return idx >= 0 ? _categoryColors[idx] : colorAssetCustom;
+  }
+
+  void _showEditDialog(AssetAccount account) {
     final nameController = TextEditingController(text: account.name);
     final balanceController = TextEditingController(text: formatAmount(account.balanceCents));
     showDialog(
@@ -88,19 +111,17 @@ class _AssetsPageState extends State<AssetsPage> {
     );
   }
 
-  void _showDeleteDialog(int index) {
+  void _showDeleteDialog(AssetAccount account) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除账户'),
-        content: Text('确定删除「${_accounts[index].name}」吗？'),
+        content: Text('确定删除「${account.name}」吗？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
           TextButton(
             onPressed: () async {
-              final deletedId = _accounts[index].id;
-              setState(() => _accounts.removeAt(index));
-              await deleteAssetAccount(deletedId);
+              await deleteAssetAccount(account.id);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('删除', style: TextStyle(color: colorDelete)),
@@ -122,122 +143,159 @@ class _AssetsPageState extends State<AssetsPage> {
               SizedBox(height: MediaQuery.of(context).padding.top),
               Container(
                 height: heightHeaderBar,
-                    padding: const EdgeInsets.symmetric(horizontal: spacingL),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: iconSizeLarge,
-                          height: iconSizeLarge,
-                          child: CustomPaint(
-                            painter: _ChartAxisPainter(),
-                            child: const Icon(Icons.show_chart, size: iconSizeSmall, color: colorTextOnPrimary),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '资产管理',
-                          style: textTitle,
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserPage())),
-                          child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
-                        ),
-                      ],
+                padding: const EdgeInsets.symmetric(horizontal: spacingL),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: iconSizeLarge,
+                      height: iconSizeLarge,
+                      child: CustomPaint(
+                        painter: _ChartAxisPainter(),
+                        child: const Icon(Icons.show_chart, size: iconSizeSmall, color: colorTextOnPrimary),
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final halfW = constraints.maxWidth / 2;
-                        return SizedBox(
-                          height: heightSummaryArea,
-                          child: Stack(
-                            children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', formatAmount(_netWorth), large: true)),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', formatAmount(_totalAssets))),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', formatAmount(_totalDebt))),
-                            ],
-                          ),
-                        );
-                      },
+                    const Spacer(),
+                    Text(
+                      '资产管理',
+                      style: textTitle,
                     ),
-                  ),
-                ],
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserPage())),
+                      child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
+                    ),
+                  ],
+                ),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingXS),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final halfW = constraints.maxWidth / 2;
+                    return SizedBox(
+                      height: heightSummaryArea,
+                      child: Stack(
+                        children: [
+                          Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('净资产', formatAmount(_netWorth), large: true)),
+                          Positioned(left: 0, top: heightSummaryLarge, width: halfW, child: SummaryBlock('资产', formatAmount(_totalAssets))),
+                          Positioned(left: halfW, top: heightSummaryLarge, width: halfW, child: SummaryBlock('负债', formatAmount(_totalDebt))),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: _accounts.isEmpty
               ? const Center(
                   child: Text('点击 + 添加资产账户', style: textHint),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: spacingS),
-                  itemCount: _accounts.length,
-                  separatorBuilder: (_, _) => Container(
-                    height: 1,
-                    color: colorDivider,
-                    margin: const EdgeInsets.only(left: 60),
-                  ),
-                  itemBuilder: (context, index) {
-                    final account = _accounts[index];
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(spacingL, spacingSM, spacingL, spacingSM),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: sizeIconContainer,
-                            height: sizeIconContainer,
-                            decoration: BoxDecoration(
-                              color: themeColor.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: account.category?.iconPath != null
-                                ? SvgPicture.asset(
-                                    account.category!.iconPath!,
-                                    width: iconSizeXLarge,
-                                    height: iconSizeXLarge,
-                                    fit: BoxFit.contain,
-                                    colorFilter: ColorFilter.mode(themeColor, BlendMode.srcIn),
-                                  )
-                                : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: iconSizeXLarge, color: themeColor),
-                          ),
-                          const SizedBox(width: spacingM),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(account.name, style: textListItem),
-                                const SizedBox(height: spacingXXS),
-                                Text(account.categoryName, style: textItemSub),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            formatAmount(account.balanceCents),
-                            style: textAccountAmount,
-                          ),
-                          const SizedBox(width: spacingS),
-                          GestureDetector(
-                            onTap: () => _showEditDialog(index),
-                            child: Icon(Icons.edit, size: iconSizeXLarge, color: themeColor),
-                          ),
-                          const SizedBox(width: spacingS),
-                          GestureDetector(
-                            onTap: () => _showDeleteDialog(index),
-                            child: const Icon(Icons.delete_outline, size: iconSizeXLarge, color: colorTextSecondary),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+              : _buildCategoryList(),
         ),
       ],
     );
   }
 
+  Widget _buildCategoryList() {
+    final grouped = _grouped;
+    return ListView.builder(
+      padding: const EdgeInsets.all(spacingM),
+      itemCount: grouped.length,
+      itemBuilder: (context, index) {
+        final entry = grouped.entries.elementAt(index);
+        final catName = entry.key;
+        final accounts = entry.value;
+        final color = _categoryColor(catName);
+        final total = accounts.fold(0, (s, a) => s + a.balanceCents);
+        return Container(
+          margin: const EdgeInsets.only(bottom: spacingM),
+          decoration: BoxDecoration(
+            color: colorBackgroundCard,
+            borderRadius: BorderRadius.circular(radiusMedium),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingSM),
+                child: Row(
+                  children: [
+                    Text(catName, style: textListItem),
+                    const Spacer(),
+                    Text(formatAmount(total), style: textAccountAmount),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+              ...accounts.map((account) => _buildAccountRow(account, color)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAccountRow(AssetAccount account, Color color) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(spacingL, spacingSM, spacingL, spacingSM),
+      child: Row(
+        children: [
+          Container(
+            width: sizeIconContainer,
+            height: sizeIconContainer,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: account.category?.iconPath != null
+                ? SvgPicture.asset(
+                    account.category!.iconPath!,
+                    width: iconSizeDefault,
+                    height: iconSizeDefault,
+                    fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                  )
+                : Icon(account.category?.icon ?? Icons.account_balance_wallet, size: iconSizeDefault, color: color),
+          ),
+          const SizedBox(width: spacingM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(account.name, style: textListItem),
+                if (account.cardLast4.isNotEmpty) ...[
+                  const SizedBox(height: spacingXXS),
+                  Text('尾号 ${account.cardLast4}', style: textItemSub),
+                ],
+                if (account.remark.isNotEmpty) ...[
+                  const SizedBox(height: spacingXXS),
+                  Text(account.remark, style: textItemSub),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            formatAmount(account.balanceCents),
+            style: textAccountAmount,
+          ),
+          const SizedBox(width: spacingS),
+          GestureDetector(
+            onTap: () => _showEditDialog(account),
+            child: Icon(Icons.edit, size: iconSizeXLarge, color: themeColor),
+          ),
+          const SizedBox(width: spacingS),
+          GestureDetector(
+            onTap: () => _showDeleteDialog(account),
+            child: const Icon(Icons.delete_outline, size: iconSizeXLarge, color: colorTextSecondary),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ChartAxisPainter extends CustomPainter {
