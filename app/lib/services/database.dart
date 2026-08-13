@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -80,6 +80,10 @@ class DatabaseHelper {
     }
     if (!accountCols.any((c) => c['name'] == 'card_last4')) {
       await db.execute('ALTER TABLE asset_accounts ADD COLUMN card_last4 TEXT NOT NULL DEFAULT \'\'');
+    }
+    final accountCols2 = await db.rawQuery('PRAGMA table_info(asset_accounts)');
+    if (!accountCols2.any((c) => c['name'] == 'icon_path')) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN icon_path TEXT NOT NULL DEFAULT \'\'');
     }
   }
 
@@ -111,7 +115,8 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         balance_cents INTEGER NOT NULL DEFAULT 0,
         remark TEXT NOT NULL DEFAULT '',
-        card_last4 TEXT NOT NULL DEFAULT ''
+        card_last4 TEXT NOT NULL DEFAULT '',
+        icon_path TEXT NOT NULL DEFAULT ''
       )
     ''');
     await _upgradeToV2(db);
@@ -132,6 +137,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 6) {
       await db.execute('ALTER TABLE asset_accounts ADD COLUMN card_last4 TEXT NOT NULL DEFAULT \'\'');
+    }
+    if (oldVersion < 7) {
+      await db.execute('ALTER TABLE asset_accounts ADD COLUMN icon_path TEXT NOT NULL DEFAULT \'\'');
     }
   }
 

@@ -5,6 +5,7 @@ import 'services/theme_service.dart';
 import 'services/database.dart';
 import 'services/ledger_service.dart';
 import 'services/record_service.dart';
+import 'services/asset_account_service.dart';
 import 'pages/main_page.dart';
 import 'utils/test_data.dart';
 
@@ -18,6 +19,7 @@ void main() async {
   ));
   await DatabaseHelper.instance.database;
   await loadThemeColor();
+  await backfillAccountIcons();
   await loadCurrentLedgerId();
   await ensureCurrentLedgerId();
   // 【开发期专用】首次启动播种 5000 条测试数据，方便交互联调。

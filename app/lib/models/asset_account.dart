@@ -27,6 +27,7 @@ class AssetAccount {
   int balanceCents;
   String remark;
   String cardLast4;
+  String iconPath;
 
   AssetAccount({
     required this.id,
@@ -35,6 +36,7 @@ class AssetAccount {
     this.balanceCents = 0,
     this.remark = '',
     this.cardLast4 = '',
+    this.iconPath = '',
   });
 
   AssetAccountCategory? get category {
@@ -53,6 +55,7 @@ class AssetAccount {
         'balance_cents': balanceCents,
         'remark': remark,
         'card_last4': cardLast4,
+        'icon_path': iconPath,
       };
 
   factory AssetAccount.fromDbMap(Map<String, dynamic> map) => AssetAccount(
@@ -62,5 +65,6 @@ class AssetAccount {
         balanceCents: map['balance_cents'] as int,
         remark: (map['remark'] as String?) ?? '',
         cardLast4: (map['card_last4'] as String?) ?? '',
+        iconPath: (map['icon_path'] as String?) ?? '',
       );
 }
