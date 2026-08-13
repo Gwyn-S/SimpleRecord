@@ -6,6 +6,7 @@ SimpleRecord 代码审查结果（P0/P1/P2/P3 分级）
          二次全库逐项复核（3 路并行）
 审查方法：逐文件阅读 + 3 路并行深挖 + 关键项手工复核
           + flutter analyze（无告警）
+          三次复核：WebDAV 模块换库修复（15/14/40 转已修复）
 ==================================================
 
 总体评价（整体良好）
@@ -69,28 +70,18 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 [X] 预算页保存后 mounted 防护：_saveMonthBudget/_saveCatBudget
     await Settings.setInt 后补 if (!mounted) return;（含分支内
     第二次 setInt），（budget_page.dart:154-177）
+[X] WebDAV 换用 webdav_client 库（三次复核）：
+    读/写/连接超时 30s/30s/15s（#15）、恢复后 finally 清理临时
+    目录（#14）、下载本地文件名 basename 防路径穿越（#40）、
+    流式读写不整文件入内存、失败半成品自动清理（#42 一并处理）
+    （webdav_service.dart / webdav_page.dart）
 
 
 =================================================
 待修（⬜，按优先级）
 =================================================
 
-[P2-15] WebDAV 无读超时
-  位置  : services/webdav_service.dart:82-87
-  问题  : 仅连接超时，服务器挂起时读阶段无限等待
-  建议  : response.timeout(...)；证书全信任保留（个人 NAS 便利）
-
-[P3-14] WebDAV 恢复临时文件不清理
-  位置  : pages/webdav_page.dart:144-180
-  问题  : 上传路径有 finally 清理，恢复路径没有，每次恢复泄漏
-          一个系统临时目录
-  建议  : 参照上传路径补 finally 删除
-
-[P2-40] WebDAV 下载路径穿越
-  位置  : services/webdav_service.dart:153
-  问题  : download 用服务端返回的文件名直接拼临时路径，含 / \ ..
-          时越出临时目录
-  建议  : p.basename(remoteName) 只取文件名
+（当前待修项已清零）
 
 
 =================================================
@@ -226,10 +217,6 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
   位置  : record_service.dart / ledger_service.dart / asset_account_service.dart
   理由  : 同 🚫-26 判据，DB 异常为低概率环境问题，范围大收益低
 
-[🚫-42] WebDAV 下载失败时 sink 不关闭
-  位置  : services/webdav_service.dart:154-156
-  理由  : 与 #14 同路径，修复 #14 时一并处理
-
 
 =================================================
 最终审查清单
@@ -241,6 +228,6 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 [ ] 日志/性能监控：debugPrint/print 已清零；无埋点/性能数据
 [ ] 文档：有本清单，但无 README/备份格式/构建说明文档
 
-优先级建议：P0/P1 项已全部处理或确认不修；当前待修集中在
-WebDAV 三项（P2 读超时、P2 路径穿越、P3 临时文件清理），
-从 P2 开始修复即可。
+优先级建议：P0/P1 项已全部处理或确认不修；WebDAV 三项
+（P2 读超时、P2 路径穿越、P3 临时文件清理）已随换库修复，
+待修区为空。剩余均可按 🚫 理由确认不修。
