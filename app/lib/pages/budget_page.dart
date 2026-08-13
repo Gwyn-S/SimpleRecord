@@ -153,12 +153,14 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Future<void> _saveMonthBudget(int cents) async {
     await Settings.setInt(_monthBudgetKey, cents);
+    if (!mounted) return;
     budgetVersion.value++;
     setState(() => _monthBudget = cents);
   }
 
   Future<void> _saveCatBudget(String name, int cents) async {
     await Settings.setInt(_catBudgetKey(name), cents);
+    if (!mounted) return;
     final newCatBudget = <String, int>{..._categoryBudget};
     newCatBudget[name] = cents;
     var newMonthBudget = _monthBudget;
@@ -166,6 +168,7 @@ class _BudgetPageState extends State<BudgetPage> {
       newMonthBudget = newCatBudget.values.fold(0, (s, v) => s + v);
       if (newMonthBudget > 0) {
         await Settings.setInt(_monthBudgetKey, newMonthBudget);
+        if (!mounted) return;
       }
     }
     budgetVersion.value++;
