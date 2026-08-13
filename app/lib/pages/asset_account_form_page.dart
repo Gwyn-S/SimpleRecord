@@ -15,6 +15,8 @@ class AddAssetAccountFormPage extends StatefulWidget {
   final String categoryName;
   final String nameLabel;
   final String? presetName;
+  final String presetIconPath;
+  final AssetAccount? existingAccount;
   final bool nameEditable;
   final bool showCardField;
   final String emptyNameFallback;
@@ -26,12 +28,15 @@ class AddAssetAccountFormPage extends StatefulWidget {
     required this.nameLabel,
     required this.nameEditable,
     this.presetName,
+    this.presetIconPath = '',
+    this.existingAccount,
     this.showCardField = false,
     this.emptyNameFallback = '',
   });
 
   @override
-  State<AddAssetAccountFormPage> createState() => _AddAssetAccountFormPageState();
+  State<AddAssetAccountFormPage> createState() =>
+      _AddAssetAccountFormPageState();
 }
 
 class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
@@ -39,6 +44,17 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
   final _cardController = TextEditingController();
   final _remarkController = TextEditingController();
   final _balanceController = TextEditingController(text: '0');
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existingAccount;
+    if (e == null) return;
+    if (widget.nameEditable) _nameController.text = e.name;
+    _cardController.text = e.cardLast4;
+    _remarkController.text = e.remark;
+    _balanceController.text = formatAmount(e.balanceCents);
+  }
 
   @override
   void dispose() {
@@ -52,21 +68,28 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
   Future<void> _save() async {
     final name = widget.nameEditable
         ? (_nameController.text.trim().isEmpty
-            ? widget.emptyNameFallback
-            : _nameController.text.trim())
+              ? widget.emptyNameFallback
+              : _nameController.text.trim())
         : widget.presetName!;
     final balanceText = _balanceController.text.trim();
-    final balanceCents = balanceText.isEmpty || double.tryParse(balanceText) == null
+    final balanceCents =
+        balanceText.isEmpty || double.tryParse(balanceText) == null
         ? 0
         : yuanToCents(balanceText);
-    await insertAssetAccount(AssetAccount(
-      id: genId(),
+    final account = AssetAccount(
+      id: widget.existingAccount?.id ?? genId(),
       categoryName: widget.categoryName,
       name: name,
       balanceCents: balanceCents,
       remark: _remarkController.text.trim(),
       cardLast4: _cardController.text.trim(),
-    ));
+      iconPath: widget.presetIconPath,
+    );
+    if (widget.existingAccount != null) {
+      await updateAssetAccount(account);
+    } else {
+      await insertAssetAccount(account);
+    }
     if (mounted) Navigator.pop(context);
   }
 
@@ -89,53 +112,101 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
-            child: _buildField(widget.nameLabel, widget.nameEditable
-                ? TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-                  )
-                : Text(widget.presetName!, style: textBody)),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: spacingM,
+            ),
+            child: _buildField(
+              widget.nameLabel,
+              widget.nameEditable
+                  ? TextField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    )
+                  : Text(widget.presetName!, style: textBody),
+            ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorDivider,
+          ),
           if (widget.showCardField) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
-              child: _buildField('卡号(后四位)', TextField(
-                controller: _cardController,
-                keyboardType: TextInputType.number,
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingL,
+                vertical: spacingM,
+              ),
+              child: _buildField(
+                '卡号(后四位)',
+                TextField(
+                  controller: _cardController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    hintText: '非必填',
+                    hintStyle: textHint,
+                  ),
+                ),
+              ),
+            ),
+            const Divider(
+              height: 1,
+              thickness: borderWidthThin,
+              color: colorDivider,
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: spacingM,
+            ),
+            child: _buildField(
+              '备注',
+              TextField(
+                controller: _remarkController,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   isDense: true,
                   hintText: '非必填',
                   hintStyle: textHint,
                 ),
-              )),
-            ),
-            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-          ],
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
-            child: _buildField('备注', TextField(
-              controller: _remarkController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                isDense: true,
-                hintText: '非必填',
-                hintStyle: textHint,
               ),
-            )),
+            ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorDivider,
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
-            child: _buildField('余额', TextField(
-              controller: _balanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-            )),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: spacingM,
+            ),
+            child: _buildField(
+              '余额',
+              TextField(
+                controller: _balanceController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorDivider,
+          ),
           Padding(
             padding: const EdgeInsets.all(spacingL),
             child: SizedBox(
@@ -145,7 +216,9 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: themeColor,
                   foregroundColor: colorTextOnPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 child: const Text('保存'),
               ),
@@ -163,10 +236,7 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
           children: [
             Text(label, style: textBody),
             const Spacer(),
-            SizedBox(
-              width: constraints.maxWidth * 0.5,
-              child: child,
-            ),
+            SizedBox(width: constraints.maxWidth * 0.5, child: child),
           ],
         );
       },

@@ -70,6 +70,7 @@ class AssetCategorySelectPage extends StatelessWidget {
                   categoryName: categoryName,
                   nameLabel: nameLabel,
                   presetName: option.name,
+                  presetIconPath: option.iconPath ?? '',
                   nameEditable: option.nameEditable,
                   showCardField: showCardField,
                   emptyNameFallback: option.name,
