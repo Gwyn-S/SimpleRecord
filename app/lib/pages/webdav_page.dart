@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
@@ -160,6 +161,7 @@ class _WebDavPageState extends State<WebDavPage> {
     if (confirmed != true || !mounted) return;
     setState(() => _operating = true);
     showToast(context, '恢复中…');
+    String? localPath;
     try {
       final service = WebDavService(
         server: _config!.server,
@@ -167,7 +169,7 @@ class _WebDavPageState extends State<WebDavPage> {
         password: _config!.password,
         directory: _config!.directory,
       );
-      final localPath = await service.download(file.name);
+      localPath = await service.download(file.name);
       await restoreSrbBackup(localPath);
       if (!mounted) return;
       setState(() => _operating = false);
@@ -176,6 +178,13 @@ class _WebDavPageState extends State<WebDavPage> {
       if (!mounted) return;
       setState(() => _operating = false);
       showToast(context, '恢复失败：$e');
+    } finally {
+      if (localPath != null) {
+        try {
+          final dir = Directory(p.dirname(localPath));
+          if (dir.existsSync()) await dir.delete(recursive: true);
+        } catch (_) {}
+      }
     }
   }
 
