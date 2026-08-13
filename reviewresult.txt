@@ -1,8 +1,9 @@
 ﻿==================================================
 SimpleRecord 代码审查结果（P0/P1/P2/P3 分级）
-审查时间：2026-08-12
+审查时间：2026-08-13
 审查范围：app/lib 全部代码（Flutter/Dart），含远端最新合并
-         （预算中心、图标资源、日历 overscroll 下拉展开）
+         （资产账户 v6 迁移、添加账户重构、资产页分类卡片）
+         二次全库逐项复核（3 路并行）
 审查方法：逐文件阅读 + 3 路并行深挖 + 关键项手工复核
           + flutter analyze（无告警）
 ==================================================
@@ -62,6 +63,12 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 [X] 数据库懒加载双开竞态：getter 改为 _dbFuture ??= _open() 缓存
     打开任务，并发调用共享同一连接；close() 同步重置
     （database.dart:21-25）
+[X] 删除资产账户乐观更新消除：资产页重构后改为确认弹窗 +
+    DB 事务删除（含 records.account_id 置 NULL）+ 版本监听刷新
+    （assets_page.dart:114-132 / asset_account_service.dart:30-38）
+[X] 预算页保存后 mounted 防护：_saveMonthBudget/_saveCatBudget
+    await Settings.setInt 后补 if (!mounted) return;（含分支内
+    第二次 setInt），（budget_page.dart:154-177）
 
 
 =================================================
@@ -69,15 +76,21 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 =================================================
 
 [P2-15] WebDAV 无读超时
-  位置  : services/webdav_service.dart:84-85
+  位置  : services/webdav_service.dart:82-87
   问题  : 仅连接超时，服务器挂起时读阶段无限等待
   建议  : response.timeout(...)；证书全信任保留（个人 NAS 便利）
 
 [P3-14] WebDAV 恢复临时文件不清理
-  位置  : pages/webdav_page.dart:170-171
+  位置  : pages/webdav_page.dart:144-180
   问题  : 上传路径有 finally 清理，恢复路径没有，每次恢复泄漏
           一个系统临时目录
   建议  : 参照上传路径补 finally 删除
+
+[P2-40] WebDAV 下载路径穿越
+  位置  : services/webdav_service.dart:153
+  问题  : download 用服务端返回的文件名直接拼临时路径，含 / \ ..
+          时越出临时目录
+  建议  : p.basename(remoteName) 只取文件名
 
 
 =================================================
@@ -90,13 +103,15 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
           手动输入不可达，仅粘贴超长串才触发；即使发生保存的
           也是可正常删除的脏记录，可逆
 
-[🚫-3] 测试数据无条件播种
+[🚫-3] 测试数据播种（已缓解：test_data.dart 加 _seedDoneKey 标志 +
+      已有记录数≥60 双重防重播）
   位置  : main.dart:23 / utils/test_data.dart
-  理由  : 开发期专用，正式发布前移除本行；main.dart 已加注释，
+  理由  : 开发期专用，正式发布前移除 main.dart 调用行；已加注释，
           review 请忽略此项
 
-[🚫-4] 备份恢复破坏性覆盖（恢复前备份旧库、原子替换）
-  位置  : services/srb_backup_service.dart:60-69
+[🚫-4] 备份恢复破坏性覆盖（恢复前备份旧库、原子替换）（已缓解：
+      恢复前新增对解密库的只读完整性预校验，失败中止）
+  位置  : services/srb_backup_service.dart:60-71
   理由  : 触发概率低；SRB 备份文件始终未被改动，失败可重试恢复
           （两入口均有 try/catch + "恢复失败" toast）
 
@@ -112,8 +127,9 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
   位置  : pages/budget_page.dart:146
   理由  : 数字键盘输不出来
 
-[🚫-10] 预算串行读文件（每分类一次 await Settings.getInt）
-  位置  : pages/budget_page.dart:89-92
+[🚫-10] 预算串行读文件（已缓解：Settings 内存缓存，实际磁盘
+       只读一次）
+  位置  : pages/budget_page.dart:93-97
   理由  : JSON 仅几 KB，毫秒级，用户无感知
 
 [🚫-11] Settings 损坏静默清空
@@ -131,10 +147,6 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 [🚫-16] IndexedStack 启动即构建全部 5 tab
   位置  : pages/main_page.dart:58
   理由  : 实测 5000 条无感
-
-[🚫-17] 删除资产账户乐观更新无回滚
-  位置  : pages/assets_page.dart:101-104
-  理由  : DB 删除不易失败
 
 [🚫-18] bills build 中改状态
   位置  : pages/bills_page.dart:178-181
@@ -202,6 +214,22 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
   位置  : lunar_utils.dart / record_item.dart / 多处 / bills_page.dart
   理由  : 纯代码洁癖，用户无感知
 
+[🚫-37] 账户余额 1e999/超长粘贴崩溃
+  位置  : assets_page.dart:100-103 / asset_account_form_page.dart:59-61
+  理由  : 同 🚫-1/2、🚫-8 判据，手动输入不可达
+
+[🚫-38] 资产页加载失败静默吞异常
+  位置  : pages/assets_page.dart:47-51
+  理由  : 同 🚫-26 判据，仅数据库异常，下次进入页面重试
+
+[🚫-41] DB service 层（records/ledger/asset_accounts）读写无异常兜底
+  位置  : record_service.dart / ledger_service.dart / asset_account_service.dart
+  理由  : 同 🚫-26 判据，DB 异常为低概率环境问题，范围大收益低
+
+[🚫-42] WebDAV 下载失败时 sink 不关闭
+  位置  : services/webdav_service.dart:154-156
+  理由  : 与 #14 同路径，修复 #14 时一并处理
+
 
 =================================================
 最终审查清单
@@ -214,5 +242,5 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 [ ] 文档：有本清单，但无 README/备份格式/构建说明文档
 
 优先级建议：P0/P1 项已全部处理或确认不修；当前待修集中在
-P2（WebDAV 超时）与 P3（临时文件清理/未判活/溢出/预填等顺手项），
-按用户使用频率排序后从 P2 开始修复即可。
+WebDAV 三项（P2 读超时、P2 路径穿越、P3 临时文件清理），
+从 P2 开始修复即可。
