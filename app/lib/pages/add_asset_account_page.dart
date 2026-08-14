@@ -118,17 +118,17 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             AssetCategoryOption(
               name: '股票',
               iconPath: 'assets/icons/stocks.svg',
-              iconColor: Color(0xFFFFC107),
+              iconColor: colorAssetInvestIcon,
             ),
             AssetCategoryOption(
               name: '基金',
               iconPath: 'assets/icons/funds.svg',
-              iconColor: Color(0xFFFFC107),
+              iconColor: colorAssetInvestIcon,
             ),
             AssetCategoryOption(
               name: '其他投资',
               iconPath: 'assets/icons/investment.svg',
-              iconColor: Color(0xFFFFC107),
+              iconColor: colorAssetInvestIcon,
               nameEditable: true,
             ),
           ],

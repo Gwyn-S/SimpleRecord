@@ -433,13 +433,13 @@ class _BudgetPageState extends State<BudgetPage> {
               width: sizeCategoryCircle,
               height: sizeCategoryCircle,
               decoration: const BoxDecoration(
-                color: Color(0xFFDDDDDD),
+                color: colorIconLightBackground,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 c.icon,
                 size: iconSizeXLarge,
-                color: const Color(0xFF555555),
+                color: colorIconGray,
               ),
             ),
             const SizedBox(width: spacingM),
@@ -458,7 +458,7 @@ class _BudgetPageState extends State<BudgetPage> {
                               text: '支出',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF767676),
+                                color: colorTextHint,
                               ),
                             ),
                             TextSpan(
@@ -488,7 +488,7 @@ class _BudgetPageState extends State<BudgetPage> {
                   const SizedBox(height: 6),
                   Text(
                     budget > 0 ? '支出预算 ${formatAmount(budget)}' : '支出预算 未设置',
-                    style: textItemSub.copyWith(color: const Color(0xFF767676)),
+                    style: textItemSub.copyWith(color: colorTextHint),
                   ),
                 ],
               ),

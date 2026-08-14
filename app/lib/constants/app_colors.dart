@@ -5,6 +5,17 @@ const Color colorTextPrimary = Color(0xFF333333);
 const Color colorTextSecondary = Color(0xFF999999);
 const Color colorTextPlaceholder = Color(0xFFBBBBBB);
 const Color colorTextOnPrimary = Colors.white;
+const Color colorTextHint = Color(0xFF767676);
+const Color colorTextHintLight = Color(0xFF6F6F6F);
+
+// ===================== 图标颜色 =====================
+const Color colorIconGray = Color(0xFF555555);
+const Color colorIconLightBackground = Color(0xFFDDDDDD);
+const Color colorGrey300 = Color(0xFFE0E0E0);
+
+// ===================== 标签 =====================
+const Color colorTagBackground = Colors.black;
+const Color colorTagText = Colors.white;
 
 // ===================== 背景色 =====================
 const Color colorBackgroundPage = Color(0xFFF3F3F3);
@@ -38,6 +49,19 @@ const Color colorAssetInvestment = Color(0xFFFB8C00);
 const Color colorAssetDebt = Color(0xFF8E24AA);
 const Color colorAssetBond = Color(0xFF66BB6A);
 const Color colorAssetCustom = Color(0xFF546E7A);
+
+// ===================== 投资分类图标色 =====================
+const Color colorAssetInvestIcon = Color(0xFFFFC107);
+
+// ===================== 渐变装饰 =====================
+const List<Color> rainbowGradientColors = [
+  Color(0xFFF44336),
+  Color(0xFFFF9800),
+  Color(0xFFFFEB3B),
+  Color(0xFF4CAF50),
+  Color(0xFF2196F3),
+  Color(0xFF9C27B0),
+];
 
 // ===================== 主题色盘 =====================
 const List<Color> themeColorPalette = [

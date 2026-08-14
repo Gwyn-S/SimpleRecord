@@ -288,13 +288,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             width: sizeCategoryCircle,
                             height: sizeCategoryCircle,
                             decoration: BoxDecoration(
-                              color: selected ? themeColor : const Color(0xFFDDDDDD),
+                              color: selected ? themeColor : colorIconLightBackground,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               cat.icon,
                               size: iconSizeXLarge,
-                              color: selected ? colorTextOnPrimary : const Color(0xFF555555),
+                              color: selected ? colorTextOnPrimary : colorIconGray,
                             ),
                           ),
                           const SizedBox(height: spacingXS),
@@ -302,7 +302,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             cat.name,
                             style: TextStyle(
                               fontSize: 13,
-                              color: selected ? themeColor : Colors.black,
+                              color: selected ? themeColor : colorTextPrimary,
                             ),
                           ),
                         ],
@@ -327,9 +327,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     maxLength: 20,
                     style: textBody,
                     cursorColor: Theme.of(context).extension<AppThemeColors>()!.primary,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: '备注',
-                      hintStyle: TextStyle(fontSize: 14, color: Color(0xFF6F6F6F)),
+                      hintStyle: TextStyle(fontSize: 14, color: colorTextHintLight),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       counterText: '',
@@ -340,7 +340,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   endsWithOp(_amount)
                       ? _amount
                       : _amount.contains(RegExp(r'[+\-×÷]'))
-                          ? '$_amount = ${evaluate(_amount)}'
+                          ? '$_amount=${evaluate(_amount)}'
                           : _amount,
                   style: textAmountInput.copyWith(color: themeColor),
                 ),
