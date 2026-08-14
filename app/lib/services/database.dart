@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 7,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -84,6 +84,27 @@ class DatabaseHelper {
     final accountCols2 = await db.rawQuery('PRAGMA table_info(asset_accounts)');
     if (!accountCols2.any((c) => c['name'] == 'icon_path')) {
       await db.execute('ALTER TABLE asset_accounts ADD COLUMN icon_path TEXT NOT NULL DEFAULT \'\'');
+    }
+    final transferTables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'transfers'");
+    if (transferTables.isEmpty) {
+      await db.execute('''
+        CREATE TABLE transfers (
+          id TEXT PRIMARY KEY,
+          from_account_id TEXT NOT NULL,
+          to_account_id TEXT NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          fee_cents INTEGER NOT NULL DEFAULT 0,
+          remark TEXT NOT NULL DEFAULT '',
+          date INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+    }
+    final transferCols = await db.rawQuery('PRAGMA table_info(transfers)');
+    if (!transferCols.any((c) => c['name'] == 'fee_cents')) {
+      await db.execute(
+          'ALTER TABLE transfers ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0');
     }
   }
 
@@ -119,6 +140,18 @@ class DatabaseHelper {
         icon_path TEXT NOT NULL DEFAULT ''
       )
     ''');
+    await db.execute('''
+      CREATE TABLE transfers (
+        id TEXT PRIMARY KEY,
+        from_account_id TEXT NOT NULL,
+        to_account_id TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        fee_cents INTEGER NOT NULL DEFAULT 0,
+        remark TEXT NOT NULL DEFAULT '',
+        date INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
     await _upgradeToV2(db);
   }
 
@@ -140,6 +173,23 @@ class DatabaseHelper {
     }
     if (oldVersion < 7) {
       await db.execute('ALTER TABLE asset_accounts ADD COLUMN icon_path TEXT NOT NULL DEFAULT \'\'');
+    }
+    if (oldVersion < 8) {
+      await db.execute('''
+        CREATE TABLE transfers (
+          id TEXT PRIMARY KEY,
+          from_account_id TEXT NOT NULL,
+          to_account_id TEXT NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          remark TEXT NOT NULL DEFAULT '',
+          date INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 9) {
+      await db.execute(
+          'ALTER TABLE transfers ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0');
     }
   }
 

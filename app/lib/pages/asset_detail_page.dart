@@ -4,12 +4,15 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/asset_account.dart';
+import '../models/transfer.dart';
 import '../services/theme_service.dart';
 import '../services/asset_account_service.dart';
+import '../services/transfer_service.dart';
 import '../utils/formatters.dart';
 import 'asset_account_form_page.dart';
 import 'asset_bill_page.dart';
 import 'asset_trend_page.dart';
+import 'transfer_page.dart';
 
 class AssetDetailPage extends StatefulWidget {
   final AssetAccount account;
@@ -22,6 +25,61 @@ class AssetDetailPage extends StatefulWidget {
 
 class _AssetDetailPageState extends State<AssetDetailPage> {
   AssetAccount get account => widget.account;
+
+  final List<_FlowEntry> _flows = [];
+
+  @override
+  void initState() {
+    super.initState();
+    assetAccountsVersion.addListener(_loadFlows);
+    transfersVersion.addListener(_loadFlows);
+    _loadFlows();
+  }
+
+  @override
+  void dispose() {
+    assetAccountsVersion.removeListener(_loadFlows);
+    transfersVersion.removeListener(_loadFlows);
+    super.dispose();
+  }
+
+  Future<void> _loadFlows() async {
+    final accounts = await loadAssetAccounts();
+    final byId = {for (final a in accounts) a.id: a};
+    final fresh = byId[account.id];
+    if (fresh != null) {
+      account.balanceCents = fresh.balanceCents;
+    }
+    final transfers = await loadTransfersForAccount(account.id);
+    if (!mounted) return;
+    final entries = <_FlowEntry>[];
+    for (final t in transfers) {
+      String label(AssetAccount? a, String? fallback) {
+        if (a == null) return fallback ?? '';
+        return a.cardLast4.isNotEmpty ? '${a.name}(${a.cardLast4})' : a.name;
+      }
+
+      final isIn = t.toAccountId == account.id;
+      entries.add(_FlowEntry(
+        date: t.date,
+        createdAt: t.createdAt,
+        isIn: isIn,
+        amountCents: t.amountCents,
+        feeCents: t.feeCents,
+        remark: t.remark,
+        fromLabel: label(byId[t.fromAccountId], t.fromAccountName),
+        toLabel: label(byId[t.toAccountId], t.toAccountName),
+        transfer: t,
+      ));
+    }
+    entries.sort((a, b) {
+      final d = b.date.compareTo(a.date);
+      return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
+    });
+    setState(() => _flows
+      ..clear()
+      ..addAll(entries));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +126,30 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(spacingL),
-              children: [_buildAccountCard(themeColor)],
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    spacingL,
+                    spacingL,
+                    spacingL,
+                    spacingM,
+                  ),
+                  child: _buildAccountCard(themeColor),
+                ),
+                if (_flows.isNotEmpty)
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        spacingL,
+                        0,
+                        spacingL,
+                        spacingL,
+                      ),
+                      children: _buildFlowGroups(),
+                    ),
+                  ),
+              ],
             ),
           ),
           Container(
@@ -86,10 +165,14 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                     '转账',
                     Icons.swap_horiz,
                     colorTextPrimary,
-                    () {
-                      ScaffoldMessenger.of(
+                    () async {
+                      final changed = await Navigator.push(
                         context,
-                      ).showSnackBar(const SnackBar(content: Text('转账（开发中）')));
+                        MaterialPageRoute(
+                          builder: (_) => TransferPage(fromAccount: account),
+                        ),
+                      );
+                      if (changed == true && mounted) setState(() {});
                     },
                   ),
                   _buildActionDivider(),
@@ -122,7 +205,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                     context,
                     '删除',
                     Icons.delete_outline,
-                    colorDelete,
+                    colorTextPrimary,
                     () => _showDeleteDialog(context),
                   ),
                 ],
@@ -159,12 +242,12 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: colorTagBackground,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   account.categoryName,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: const TextStyle(color: colorTagText, fontSize: 12),
                 ),
               ),
               const Spacer(),
@@ -221,6 +304,135 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     );
   }
 
+  List<Widget> _buildFlowGroups() {
+    final groups = <DateTime, List<_FlowEntry>>{};
+    for (final f in _flows) {
+      final key = DateTime(f.date.year, f.date.month, f.date.day);
+      groups.putIfAbsent(key, () => []).add(f);
+    }
+    final sortedKeys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+    return [
+      for (final key in sortedKeys)
+        Padding(
+          padding: const EdgeInsets.only(bottom: spacingM),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorBackgroundCard,
+              borderRadius: BorderRadius.circular(radiusMedium),
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    spacingL,
+                    spacingM,
+                    spacingL,
+                    spacingS,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      formatDate(key),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: colorTextPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                for (var i = 0; i < groups[key]!.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.all(spacingL),
+                    child: _buildTransferRow(groups[key]![i]),
+                  ),
+              ],
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildTransferRow(_FlowEntry f) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransferPage(initialTransfer: f.transfer),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.swap_horiz,
+                  size: iconSizeDefault,
+                  color: colorIconGray,
+                ),
+                const SizedBox(width: spacingXS),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '转账',
+                        style: textListItem.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: spacingXS),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (f.remark.isNotEmpty) ...[
+                            Text(
+                              f.remark,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textItemSub,
+                            ),
+                            const SizedBox(width: spacingXS),
+                          ],
+                          Text(
+                            f.feeCents == 0
+                                ? '手续费0'
+                                : '手续费${formatAmount(f.feeCents)}',
+                            style: textItemSub,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: spacingM),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${f.isIn ? '转入' : '转出'}：¥${formatAmount(f.amountCents)}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: f.isIn
+                      ? Theme.of(
+                          context,
+                        ).extension<AppThemeColors>()!.primary
+                      : colorExpense,
+                ),
+              ),
+              const SizedBox(height: spacingXS),
+              Text('${f.fromLabel}->${f.toLabel}', style: textItemSub),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAdjustBalanceDialog(BuildContext context) {
     final controller = TextEditingController(
       text: formatAmount(account.balanceCents),
@@ -228,11 +440,36 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('调整余额'),
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '请输入余额',
+            border: InputBorder.none,
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: colorDivider),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: Theme.of(
+                  context,
+                ).extension<AppThemeColors>()!.primary,
+              ),
+            ),
+          ),
         ),
         actions: [
           TextButton(
@@ -302,7 +539,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               if (dialogContext.mounted) Navigator.pop(dialogContext);
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('删除', style: TextStyle(color: colorDelete)),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -312,4 +549,28 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   Widget _buildActionDivider() {
     return Container(width: 1, color: colorDivider);
   }
+}
+
+class _FlowEntry {
+  final DateTime date;
+  final DateTime createdAt;
+  final bool isIn;
+  final int amountCents;
+  final int feeCents;
+  final String remark;
+  final String fromLabel;
+  final String toLabel;
+  final Transfer transfer;
+
+  _FlowEntry({
+    required this.date,
+    required this.createdAt,
+    required this.isIn,
+    required this.amountCents,
+    required this.feeCents,
+    required this.remark,
+    required this.fromLabel,
+    required this.toLabel,
+    required this.transfer,
+  });
 }
