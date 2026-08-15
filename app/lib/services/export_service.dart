@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../models/record.dart';
 import '../utils/formatters.dart';
 import 'database.dart';
 
@@ -23,14 +24,19 @@ Future<Directory> backupDirectory() async {
 
 String _two(int n) => n.toString().padLeft(2, '0');
 
-/// 导出全部记录为 CSV，返回导出文件路径。
-Future<String> exportCsv() async {
+/// 导出记录为 CSV，返回导出文件路径。
+/// 不传 [records] 时导出账本全部记录；传入时导出过滤后的结果。
+Future<String> exportCsv({List<Record>? records}) async {
   final db = await DatabaseHelper.instance.database;
   final ledgers = await db.query('books');
   final nameById = {
     for (final l in ledgers) l['id'] as String?: l['name'] as String,
   };
-  final rows = await db.query('records', orderBy: 'date DESC, created_at DESC');
+  final rows =
+      records ??
+      (await db.query('records', orderBy: 'date DESC, created_at DESC'))
+          .map(Record.fromDbMap)
+          .toList();
   final now = DateTime.now();
   final stamp =
       '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}${now.millisecond.toString().padLeft(2, '0')}';
@@ -40,14 +46,13 @@ Future<String> exportCsv() async {
     final buffer = StringBuffer();
     buffer.writeln('账本,日期,收支,分类,金额,备注');
     for (final r in rows) {
-      final date = DateTime.utc(1970).add(Duration(days: r['date'] as int));
       final fields = [
-        _csvEscape(nameById[r['book_id']] ?? ''),
-        '${date.year}-${_two(date.month)}-${_two(date.day)}',
-        r['is_expense'] == 1 ? '支出' : '收入',
-        _csvEscape(r['category_name'] as String),
-        formatAmount(r['amount_cents'] as int),
-        _csvEscape(r['remark'] as String? ?? ''),
+        _csvEscape(nameById[r.ledgerId] ?? ''),
+        '${r.date.year}-${_two(r.date.month)}-${_two(r.date.day)}',
+        r.isExpense ? '支出' : '收入',
+        _csvEscape(r.categoryName),
+        formatAmount(r.amountCents),
+        _csvEscape(r.remark),
       ];
       buffer.writeln(fields.join(','));
     }
