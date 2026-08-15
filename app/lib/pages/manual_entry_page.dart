@@ -13,7 +13,9 @@ import '../utils/formatters.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
+import '../widgets/calc_keyboard.dart';
 import '../widgets/date_picker_sheet.dart';
+import '../widgets/tag_picker_sheet.dart';
 
 class ManualEntryPage extends StatefulWidget {
   final Record? initialRecord;
@@ -29,6 +31,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   String _amount = '0';
   DateTime _selectedDate = DateTime.now();
   AssetAccount? _selectedAccount;
+  String? _selectedTag;
   final _remarkController = TextEditingController();
 
   @override
@@ -43,6 +46,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _amount = (r.amountCents / 100).toStringAsFixed(2);
       _selectedDate = r.date;
       _remarkController.text = r.remark;
+      _selectedTag = r.tag;
       if (r.accountId != null) _loadSelectedAccount(r.accountId!);
     }
   }
@@ -95,6 +99,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       categoryName: _getCategoryName(),
       amountCents: amountCents,
       remark: _remarkController.text,
+      tag: _selectedTag,
       date: _selectedDate,
       createdAt: origin?.createdAt ?? DateTime.now(),
     );
@@ -109,67 +114,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   void _showMessage(String text) {
     if (!mounted) return;
     showToast(context, text);
-  }
-
-  void _onKeyPressed(String key) {
-    if (key == '再记') {
-      _saveRecord().then((ok) {
-        if (!ok || !mounted) return;
-        setState(() {
-          _amount = '0';
-          _remarkController.clear();
-          _selectedCategory = 0;
-          _selectedAccount = null;
-        });
-      });
-      return;
-    }
-    if (key == '完成') {
-      _saveRecord().then((ok) {
-        if (ok && mounted) Navigator.pop(context);
-      });
-      return;
-    }
-    setState(() {
-      if (key == 'C') {
-        _amount = '0';
-      } else if (key == '⌫') {
-        if (_amount.length > 1) {
-          _amount = _amount.substring(0, _amount.length - 1);
-        } else {
-          _amount = '0';
-        }
-      } else if (key == '.') {
-        final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-        if (!segment.contains('.')) _amount += '.';
-      } else if (key == '00') {
-        final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-        if (segment.contains('.')) {
-          final decimals = segment.split('.')[1];
-          if (decimals.isEmpty) {
-            _amount += '00';
-          } else if (decimals.length == 1) {
-            _amount += '0';
-          }
-        } else if (segment != '0' && segment != '00') {
-          _amount += '00';
-        }
-      } else if ('+-×÷'.contains(key)) {
-        if (endsWithOp(_amount)) {
-          _amount = _amount.substring(0, _amount.length - 1) + key;
-        } else if (_amount != '0') {
-          _amount += key;
-        }
-      } else {
-        if (_amount == '0') {
-          _amount = key;
-        } else {
-          final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-          if (segment.contains('.') && segment.split('.')[1].length >= 2) return;
-          _amount += key;
-        }
-      }
-    });
   }
 
   @override
@@ -350,7 +294,27 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           _buildOptionBar(),
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
-          _buildKeyboard(),
+          CalcKeyboard(
+            amount: _amount,
+            onChanged: (v) => setState(() => _amount = v),
+            extraLabel: '再记',
+            onExtra: () {
+              _saveRecord().then((ok) {
+                if (!ok || !mounted) return;
+                setState(() {
+                  _amount = '0';
+                  _remarkController.clear();
+                  _selectedCategory = 0;
+                  _selectedAccount = null;
+                });
+              });
+            },
+            onDone: () {
+              _saveRecord().then((ok) {
+                if (ok && context.mounted) Navigator.pop(context);
+              });
+            },
+          ),
         ],
       ),
     );
@@ -386,11 +350,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             onTap: _pickAccount,
           ),
           const SizedBox(width: spacingXXL),
-          // TODO: 接入标签功能（关联 tags 表）
+          // 标签：单标签，选择后回填
           _buildOptionItem(
             icon: Icons.label_outline,
-            label: '标签',
-            onTap: () => showToast(context, '标签功能开发中'),
+            label: _selectedTag ?? '标签',
+            onTap: _pickTag,
           ),
           const SizedBox(width: spacingXXL),
           // TODO: 接入图片附件功能
@@ -402,6 +366,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickTag() async {
+    final result = await showTagPickerSheet(context, selected: _selectedTag);
+    if (result == null || !mounted) return;
+    setState(() {
+      _selectedTag = result == noTagSelection ? null : result;
+    });
   }
 
   Future<void> _pickAccount() async {
@@ -434,109 +406,5 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       ),
     );
   }
-
-  Widget _buildKeyboard() {
-    return Container(
-      color: colorBackgroundCard,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildKeyboardRow(['7', '8', '9'], _buildBackspace()),
-          _buildDivider(),
-          _buildKeyboardRow(['4', '5', '6'], _buildOpsPair('+', '-')),
-          _buildDivider(),
-          _buildKeyboardRow(['1', '2', '3'], _buildOpsPair('×', '÷')),
-          _buildDivider(),
-          _buildKeyboardRow(['.', '0', '再记'], _buildDone()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return const SizedBox(
-      height: 1,
-      child: Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
-    );
-  }
-
-  Widget _buildKeyboardRow(List<String> keys, Widget trailing) {
-    return Row(
-      children: [
-        ...keys.map((key) => Expanded(child: _buildKey(key))),
-        Expanded(child: trailing),
-      ],
-    );
-  }
-
-  Widget _buildKey(String key) {
-    return GestureDetector(
-      onTap: () => _onKeyPressed(key),
-      child: Container(
-        height: heightKeyboardRow,
-        decoration: const BoxDecoration(
-          border: Border(
-            right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
-          ),
-        ),
-        alignment: Alignment.center,
-        child: _buildKeyChild(key),
-      ),
-    );
-  }
-
-  Widget _buildBackspace() {
-    return GestureDetector(
-      onTap: () => _onKeyPressed('⌫'),
-      child: Container(
-        height: heightKeyboardRow,
-        alignment: Alignment.center,
-        child: const Text(
-          '⌫',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOpsPair(String a, String b) {
-    return Row(
-      children: [
-        Expanded(child: _buildKey(a)),
-        Expanded(child: _buildKey(b)),
-      ],
-    );
-  }
-
-  Widget _buildDone() {
-    return GestureDetector(
-      onTap: () => _onKeyPressed('完成'),
-      child: Container(
-        height: heightKeyboardRow,
-        color: Theme.of(context).extension<AppThemeColors>()!.primary,
-        alignment: Alignment.center,
-        child: const Text(
-          '完成',
-          style: textButtonPrimary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKeyChild(String key) {
-    if (key == '再记') {
-      return const Text(
-        '再记',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
-      );
-    }
-    return Text(
-      key,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w500,
-        color: colorTextPrimary,
-      ),
-    );
-  }
 }
+

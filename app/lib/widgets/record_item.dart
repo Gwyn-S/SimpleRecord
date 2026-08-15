@@ -54,10 +54,29 @@ class RecordItem extends StatelessWidget {
                     record.categoryName,
                     style: textListItem,
                   ),
-                  if (record.remark.isNotEmpty)
-                    Text(
-                      record.remark,
-                      style: textItemSub,
+                  if (record.tag != null || record.remark.isNotEmpty)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (record.tag != null) ...[
+                          Text(
+                            record.tag!,
+                            style: textItemSub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(width: spacingXS),
+                        ],
+                        if (record.remark.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              record.remark,
+                              style: textItemSub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
                     ),
                 ],
               ),

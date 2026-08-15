@@ -45,6 +45,7 @@ class BillDetailSheet extends StatelessWidget {
             const SizedBox(height: spacingM),
             _detailRow('分类', record.categoryName),
             if (record.remark.isNotEmpty) _detailRow('备注', record.remark),
+            if (record.tag != null) _detailRow('标签', record.tag!),
             _detailRow('金额', '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}'),
             _detailRow('账户', record.accountName ?? '未选择'),
             _detailRow('日期', formatDate(record.date)),
@@ -70,6 +71,6 @@ class BillDetailSheet extends StatelessWidget {
 
   String _formatDateTime(DateTime d) {
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}:${two(d.second)}';
   }
 }

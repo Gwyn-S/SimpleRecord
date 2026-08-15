@@ -6,6 +6,7 @@ class Record {
   final String categoryName;
   final int amountCents;
   final String remark;
+  final String? tag;
   final DateTime date;
   final DateTime createdAt;
   final String? accountName;
@@ -18,6 +19,7 @@ class Record {
     required this.categoryName,
     required this.amountCents,
     this.remark = '',
+    this.tag,
     required this.date,
     required this.createdAt,
     this.accountName,
@@ -36,6 +38,7 @@ class Record {
         'category_name': categoryName,
         'amount_cents': amountCents,
         'remark': remark,
+        'tag': tag,
         'date': _epochDay,
         'created_at': createdAt.millisecondsSinceEpoch,
       };
@@ -48,6 +51,7 @@ class Record {
         categoryName: map['category_name'] as String,
         amountCents: map['amount_cents'] as int,
         remark: map['remark'] as String? ?? '',
+        tag: map['tag'] as String?,
         date: _epoch.add(Duration(days: map['date'] as int)),
         createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
         accountName: map['account_name'] as String?,

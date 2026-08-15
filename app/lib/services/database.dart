@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 9,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -106,6 +106,29 @@ class DatabaseHelper {
       await db.execute(
           'ALTER TABLE transfers ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0');
     }
+    final tagTables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tags'");
+    if (tagTables.isEmpty) {
+      await db.execute('''
+        CREATE TABLE tags (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+    }
+    final recordCols2 = await db.rawQuery('PRAGMA table_info(records)');
+    if (!recordCols2.any((c) => c['name'] == 'tag')) {
+      await db.execute('ALTER TABLE records ADD COLUMN tag TEXT');
+    }
+    final tagCols = await db.rawQuery('PRAGMA table_info(tags)');
+    if (!tagCols.any((c) => c['name'] == 'sort_order')) {
+      await db.execute(
+          'ALTER TABLE tags ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+      // 老库按创建顺序补齐初始排序
+      await db.execute(
+          'UPDATE tags SET sort_order = rowid WHERE sort_order = 0');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -126,7 +149,8 @@ class DatabaseHelper {
         amount_cents INTEGER NOT NULL,
         remark TEXT NOT NULL DEFAULT '',
         date INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        tag TEXT
       )
     ''');
     await db.execute('''
@@ -150,6 +174,14 @@ class DatabaseHelper {
         remark TEXT NOT NULL DEFAULT '',
         date INTEGER NOT NULL,
         created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE tags (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await _upgradeToV2(db);
@@ -190,6 +222,29 @@ class DatabaseHelper {
     if (oldVersion < 9) {
       await db.execute(
           'ALTER TABLE transfers ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0');
+    }
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS tags (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          created_at INTEGER NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+      final cols = await db.rawQuery('PRAGMA table_info(records)');
+      if (!cols.any((c) => c['name'] == 'tag')) {
+        await db.execute('ALTER TABLE records ADD COLUMN tag TEXT');
+      }
+    }
+    if (oldVersion < 11) {
+      final cols = await db.rawQuery('PRAGMA table_info(tags)');
+      if (!cols.any((c) => c['name'] == 'sort_order')) {
+        await db.execute(
+            'ALTER TABLE tags ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+        await db.execute(
+            'UPDATE tags SET sort_order = rowid WHERE sort_order = 0');
+      }
     }
   }
 
