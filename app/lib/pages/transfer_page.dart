@@ -12,6 +12,7 @@ import '../utils/calculator.dart';
 import '../utils/formatters.dart';
 import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
+import '../widgets/calc_keyboard.dart';
 import '../widgets/date_picker_sheet.dart';
 
 class TransferPage extends StatefulWidget {
@@ -134,59 +135,6 @@ class _TransferPageState extends State<TransferPage> {
       );
     }
     return true;
-  }
-
-  void _onKeyPressed(String key) {
-    if (key == '返回') {
-      Navigator.pop(context);
-      return;
-    }
-    if (key == '完成') {
-      _saveTransfer().then((ok) {
-        if (ok && mounted) Navigator.pop(context, true);
-      });
-      return;
-    }
-    setState(() {
-      if (key == 'C') {
-        _amount = '0';
-      } else if (key == '⌫') {
-        if (_amount.length > 1) {
-          _amount = _amount.substring(0, _amount.length - 1);
-        } else {
-          _amount = '0';
-        }
-      } else if (key == '.') {
-        final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-        if (!segment.contains('.')) _amount += '.';
-      } else if (key == '00') {
-        final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-        if (segment.contains('.')) {
-          final decimals = segment.split('.')[1];
-          if (decimals.isEmpty) {
-            _amount += '00';
-          } else if (decimals.length == 1) {
-            _amount += '0';
-          }
-        } else if (segment != '0' && segment != '00') {
-          _amount += '00';
-        }
-      } else if ('+-×÷'.contains(key)) {
-        if (endsWithOp(_amount)) {
-          _amount = _amount.substring(0, _amount.length - 1) + key;
-        } else if (_amount != '0') {
-          _amount += key;
-        }
-      } else {
-        if (_amount == '0') {
-          _amount = key;
-        } else {
-          final segment = _amount.split(RegExp(r'[+\-×÷]')).last;
-          if (segment.contains('.') && segment.split('.')[1].length >= 2) return;
-          _amount += key;
-        }
-      }
-    });
   }
 
   Future<void> _pickToAccount() async {
@@ -362,7 +310,17 @@ class _TransferPageState extends State<TransferPage> {
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
           _buildOptionBar(),
           const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
-          _buildKeyboard(),
+          CalcKeyboard(
+            amount: _amount,
+            onChanged: (v) => setState(() => _amount = v),
+            extraLabel: '返回',
+            onExtra: () => Navigator.pop(context),
+            onDone: () {
+              _saveTransfer().then((ok) {
+                if (ok && context.mounted) Navigator.pop(context, true);
+              });
+            },
+          ),
         ],
       ),
     );
@@ -474,96 +432,5 @@ class _TransferPageState extends State<TransferPage> {
       ),
     );
   }
-
-  Widget _buildKeyboard() {
-    return Container(
-      color: colorBackgroundCard,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildKeyboardRow(['7', '8', '9'], _buildBackspace()),
-          _buildDivider(),
-          _buildKeyboardRow(['4', '5', '6'], _buildOpsPair('+', '-')),
-          _buildDivider(),
-          _buildKeyboardRow(['1', '2', '3'], _buildOpsPair('×', '÷')),
-          _buildDivider(),
-          _buildKeyboardRow(['.', '0', '返回'], _buildDone()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return const SizedBox(
-      height: 1,
-      child: Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
-    );
-  }
-
-  Widget _buildKeyboardRow(List<String> keys, Widget trailing) {
-    return Row(
-      children: [
-        ...keys.map((key) => Expanded(child: _buildKey(key))),
-        Expanded(child: trailing),
-      ],
-    );
-  }
-
-  Widget _buildKey(String key) {
-    return GestureDetector(
-      onTap: () => _onKeyPressed(key),
-      child: Container(
-        height: heightKeyboardRow,
-        decoration: const BoxDecoration(
-          border: Border(
-            right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          key,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-            color: colorTextPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBackspace() {
-    return GestureDetector(
-      onTap: () => _onKeyPressed('⌫'),
-      child: Container(
-        height: heightKeyboardRow,
-        alignment: Alignment.center,
-        child: const Text(
-          '⌫',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOpsPair(String a, String b) {
-    return Row(
-      children: [
-        Expanded(child: _buildKey(a)),
-        Expanded(child: _buildKey(b)),
-      ],
-    );
-  }
-
-  Widget _buildDone() {
-    return GestureDetector(
-      onTap: () => _onKeyPressed('完成'),
-      child: Container(
-        height: heightKeyboardRow,
-        color: Theme.of(context).extension<AppThemeColors>()!.primary,
-        alignment: Alignment.center,
-        child: const Text('完成', style: textButtonPrimary),
-      ),
-    );
-  }
 }
+
