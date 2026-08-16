@@ -10,8 +10,8 @@ import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/formatters.dart';
 import 'asset_account_form_page.dart';
-import 'asset_bill_page.dart';
 import 'asset_trend_page.dart';
+import 'search_page.dart';
 import 'transfer_page.dart';
 
 class AssetDetailPage extends StatefulWidget {
@@ -104,6 +104,12 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 builder: (_) => AssetTrendPage(account: account),
               ),
             ),
+            style: TextButton.styleFrom(
+              shape: const RoundedRectangleBorder(),
+              backgroundColor: Colors.transparent,
+              overlayColor: Colors.transparent,
+              foregroundColor: colorTextOnPrimary,
+            ),
             child: const Text(
               '趋势图',
               style: TextStyle(color: colorTextOnPrimary, fontSize: 16),
@@ -113,8 +119,14 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => AssetBillPage(account: account),
+                builder: (_) => SearchPage(initialAccountId: account.id),
               ),
+            ),
+            style: TextButton.styleFrom(
+              shape: const RoundedRectangleBorder(),
+              backgroundColor: Colors.transparent,
+              overlayColor: Colors.transparent,
+              foregroundColor: colorTextOnPrimary,
             ),
             child: const Text(
               '账单',

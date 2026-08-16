@@ -17,7 +17,10 @@ import '../widgets/date_picker_sheet.dart';
 import '../widgets/record_item.dart';
 
 class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
+  /// 预填的账户筛选（null=不限），用于资产详情"账单"入口。
+  final String? initialAccountId;
+
+  const SearchPage({super.key, this.initialAccountId});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -62,6 +65,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
+    _accountFilter = widget.initialAccountId; // 预填账户筛选
     _load();
     _loadAccounts();
     recordsVersion.addListener(_load);
