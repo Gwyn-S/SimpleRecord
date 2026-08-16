@@ -5,6 +5,7 @@ import '../pages/budget_page.dart';
 import '../pages/ledger_list_page.dart';
 import '../pages/manual_entry_page.dart';
 import '../pages/search_page.dart';
+import '../pages/tag_manage_page.dart';
 import '../pages/user_page.dart';
 import '../models/record.dart';
 
@@ -16,6 +17,9 @@ void openBackup(BuildContext context) =>
 
 void openBudget(BuildContext context) =>
     Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetPage()));
+
+void openTagManage(BuildContext context) =>
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const TagManagePage()));
 
 void openSearch(BuildContext context) =>
     Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage()));

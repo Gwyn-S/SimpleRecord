@@ -36,6 +36,10 @@ class UserPage extends StatelessWidget {
             onTap: () => openBudget(context),
           ),
           _settingsItem(
+            title: '标签管理',
+            onTap: () => openTagManage(context),
+          ),
+          _settingsItem(
             title: '主题颜色',
             trailing: Container(
               width: 20,

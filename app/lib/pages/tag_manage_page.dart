@@ -125,113 +125,105 @@ class _TagManagePageState extends State<TagManagePage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _tags.isEmpty
-                ? Center(
-                    child: Text(
-                      '暂无标签，点击下方新建',
-                      style: textHint,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            if (_tags.isNotEmpty) ...[
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _tags.length,
+                onReorderItem: _onReorder,
+                buildDefaultDragHandles: false,
+                itemBuilder: (context, index) {
+                  final tag = _tags[index];
+                  final isLast = index == _tags.length - 1;
+                  return Container(
+                    key: ValueKey(tag.id),
+                    decoration: BoxDecoration(
+                      border: isLast
+                          ? null
+                          : const Border(
+                              bottom: BorderSide(color: colorDivider)),
                     ),
-                  )
-                : Column(
-                    children: [
-                      Expanded(
-                        child: ReorderableListView.builder(
-                          itemCount: _tags.length,
-                          onReorderItem: _onReorder,
-                          buildDefaultDragHandles: false,
-                          itemBuilder: (context, index) {
-                            final tag = _tags[index];
-                            final isLast = index == _tags.length - 1;
-                            return Container(
-                              key: ValueKey(tag.id),
-                              decoration: BoxDecoration(
-                                border: isLast
-                                    ? null
-                                    : const Border(
-                                        bottom: BorderSide(
-                                            color: colorDivider)),
-                              ),
-                              child: ReorderableDelayedDragStartListener(
-                                index: index,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      _showInputDialog(editing: tag.name),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: spacingL,
-                                      vertical: spacingS,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // 左侧红底减号删除按钮
-                                        GestureDetector(
-                                          onTap: () => _delete(tag.name),
-                                          child: Container(
-                                            width: 20,
-                                            height: 20,
-                                            decoration: BoxDecoration(
-                                              color: colorDelete,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.remove,
-                                              size: 16,
-                                              color: colorTextOnPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: spacingS),
-                                        Expanded(
-                                          child: Text(tag.name,
-                                              style: textBody),
-                                        ),
-                                      ],
-                                    ),
+                    child: ReorderableDelayedDragStartListener(
+                      index: index,
+                      child: GestureDetector(
+                        onTap: () => _showInputDialog(editing: tag.name),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: spacingL,
+                            vertical: spacingS,
+                          ),
+                          child: Row(
+                            children: [
+                              // 左侧红底减号删除按钮
+                              GestureDetector(
+                                onTap: () => _delete(tag.name),
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: colorDelete,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    size: 16,
+                                    color: colorTextOnPrimary,
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                              const SizedBox(width: spacingS),
+                              Expanded(
+                                child: Text(tag.name, style: textBody),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      // 最后一个标签下方的细线
-                      Container(height: 1, color: colorDivider),
-                    ],
-                  ),
+                    ),
+                  );
+                },
+              ),
+              // 最后一个标签下方的细线
+              Container(height: 1, color: colorDivider),
+            ],
+            _buildBottomBar(themeColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 排序提示 + 新增标签按钮（账单页背景色）。
+  Widget _buildBottomBar(Color themeColor) {
+    return Container(
+      color: colorBackgroundPage,
+      padding: const EdgeInsets.fromLTRB(
+          spacingL, spacingS, spacingL, spacingS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '长按拖曳排序标签列表',
+            style: textHint,
           ),
-          // 排序提示 + 底部新增按钮（账单页背景色）
-          Container(
-            color: colorBackgroundPage,
-            padding: const EdgeInsets.fromLTRB(
-                spacingL, spacingS, spacingL, spacingS),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '长按拖曳排序标签列表',
-                  style: textHint,
-                ),
-                const SizedBox(height: spacingS),
-                GestureDetector(
-                  onTap: () => _showInputDialog(),
-                  child: Container(
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: themeColor,
-                      borderRadius: BorderRadius.circular(radiusTiny),
-                    ),
-                    child: Text(
-                      '新增标签',
-                      style: TextStyle(
-                          fontSize: 15, color: colorTextOnPrimary),
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: spacingS),
+          GestureDetector(
+            onTap: () => _showInputDialog(),
+            child: Container(
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: themeColor,
+                borderRadius: BorderRadius.circular(radiusTiny),
+              ),
+              child: Text(
+                '新增标签',
+                style: TextStyle(
+                    fontSize: 15, color: colorTextOnPrimary),
+              ),
             ),
           ),
         ],
