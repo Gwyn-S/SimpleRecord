@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 11,
+      version: 12,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -245,6 +245,10 @@ class DatabaseHelper {
         await db.execute(
             'UPDATE tags SET sort_order = rowid WHERE sort_order = 0');
       }
+    }
+    if (oldVersion < 12) {
+      await db.execute(
+          "UPDATE asset_accounts SET category_name = '网络账户' WHERE category_name = '网络支付'");
     }
   }
 

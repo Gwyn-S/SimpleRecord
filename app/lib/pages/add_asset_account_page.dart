@@ -51,27 +51,6 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
           presetIconPath: 'assets/icons/cash.svg',
         );
       case 1:
-        return const AssetCategorySelectPage(
-          categoryName: '网络支付',
-          nameLabel: '名称',
-          showCardField: false,
-          options: [
-            AssetCategoryOption(
-              name: '微信',
-              iconPath: 'assets/icons/wechat.svg',
-            ),
-            AssetCategoryOption(
-              name: '支付宝',
-              iconPath: 'assets/icons/alipay.svg',
-            ),
-            AssetCategoryOption(
-              name: '其他类型',
-              iconPath: 'assets/icons/online_banking.svg',
-              nameEditable: true,
-            ),
-          ],
-        );
-      case 2:
         return AssetCategorySelectPage(
           categoryName: '储蓄卡',
           nameLabel: '所在银行',
@@ -86,7 +65,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             ),
           ],
         );
-      case 3:
+      case 2:
         return AssetCategorySelectPage(
           categoryName: '信用卡',
           nameLabel: '所在银行',
@@ -105,6 +84,27 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             const AssetCategoryOption(
               name: '其他银行',
               iconPath: 'assets/icons/credit_card.svg',
+              nameEditable: true,
+            ),
+          ],
+        );
+      case 3:
+        return const AssetCategorySelectPage(
+          categoryName: '网络账户',
+          nameLabel: '名称',
+          showCardField: false,
+          options: [
+            AssetCategoryOption(
+              name: '微信',
+              iconPath: 'assets/icons/wechat.svg',
+            ),
+            AssetCategoryOption(
+              name: '支付宝',
+              iconPath: 'assets/icons/alipay.svg',
+            ),
+            AssetCategoryOption(
+              name: '其他类型',
+              iconPath: 'assets/icons/online_banking.svg',
               nameEditable: true,
             ),
           ],

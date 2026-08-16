@@ -28,7 +28,7 @@ const _iconByTypeName = {
 
 const _iconByCategory = {
   '现金': 'assets/icons/cash.svg',
-  '网络支付': 'assets/icons/online_banking.svg',
+  '网络账户': 'assets/icons/online_banking.svg',
   '储蓄卡': 'assets/icons/savings_card.svg',
   '信用卡': 'assets/icons/credit_card.svg',
   '投资': 'assets/icons/investment.svg',

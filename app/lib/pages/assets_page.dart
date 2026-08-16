@@ -21,9 +21,9 @@ class AssetsPage extends StatefulWidget {
 class _AssetsPageState extends State<AssetsPage> {
   static const _categoryColors = [
     colorAssetCash,
-    colorAssetOnlinePay,
     colorAssetSavingsCard,
     colorAssetCreditCard,
+    colorAssetOnlinePay,
     colorAssetInvestment,
     colorAssetDebt,
     colorAssetBond,

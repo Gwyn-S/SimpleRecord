@@ -11,9 +11,9 @@ const _debtCategoryNames = {'信用卡', '负债'};
 
 final assetAccountCategories = [
   const AssetAccountCategory(iconPath: 'assets/icons/cash.svg', name: '现金'),
-  const AssetAccountCategory(iconPath: 'assets/icons/online_banking.svg', name: '网络支付'),
   const AssetAccountCategory(iconPath: 'assets/icons/savings_card.svg', name: '储蓄卡'),
   const AssetAccountCategory(iconPath: 'assets/icons/credit_card.svg', name: '信用卡'),
+  const AssetAccountCategory(iconPath: 'assets/icons/online_banking.svg', name: '网络账户'),
   const AssetAccountCategory(iconPath: 'assets/icons/investment.svg', name: '投资'),
   const AssetAccountCategory(iconPath: 'assets/icons/total_debt.svg', name: '负债'),
   const AssetAccountCategory(iconPath: 'assets/icons/bonds.svg', name: '债券'),
