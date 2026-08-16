@@ -19,6 +19,11 @@ String formatDate(DateTime d) {
   return '${d.month}月${d.day}日 ${_weekdays[(d.weekday - 1) % 7]}';
 }
 
+/// yyyy-MM-dd
+String formatDateYmd(DateTime d) {
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
 String formatMonthLabel(DateTime d) {
   return '${d.year}-${d.month.toString().padLeft(2, '0')}';
 }

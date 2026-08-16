@@ -12,11 +12,13 @@ import 'bill_detail_sheet.dart';
 class RecordItem extends StatelessWidget {
   final Record record;
   final VoidCallback? onEdit;
+  final bool showDate;
 
   const RecordItem({
     super.key,
     required this.record,
     this.onEdit,
+    this.showDate = false,
   });
 
   @override
@@ -61,7 +63,8 @@ class RecordItem extends StatelessWidget {
                         if (record.tag != null) ...[
                           Text(
                             record.tag!,
-                            style: textItemSub,
+                            // 统一行高，避免中英文混排时与备注高度不一致
+                            style: textItemSub.copyWith(height: 1.4),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -71,12 +74,20 @@ class RecordItem extends StatelessWidget {
                           Expanded(
                             child: Text(
                               record.remark,
-                              style: textItemSub,
+                              style: textItemSub.copyWith(height: 1.4),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                       ],
+                    ),
+                  if (showDate)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        formatDateYmd(record.date),
+                        style: textItemSub,
+                      ),
                     ),
                 ],
               ),
