@@ -38,6 +38,7 @@ dependencies:
     sdk: flutter
 
   flutter_svg: ^2.0.10
+  fl_chart: ^0.70.2
   sqflite: ^2.4.1
   sqflite_common_ffi: ^2.3.4
   sqlite3_flutter_libs: ^0.5.24
@@ -64,10 +65,10 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icons/icon_green_1024.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#12A7A7"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icons/icon_white_1024.png"
   remove_alpha_ios: true
-  background_color_ios: "#12A7A7"
+  background_color_ios: "#FFFFFF"
   flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the

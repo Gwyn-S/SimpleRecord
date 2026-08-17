@@ -9,6 +9,7 @@ import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
 import '../widgets/summary_block.dart';
 import 'asset_detail_page.dart';
+import 'asset_statistics_page.dart';
 import 'user_page.dart';
 
 class AssetsPage extends StatefulWidget {
@@ -78,15 +79,21 @@ class _AssetsPageState extends State<AssetsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: spacingL),
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: iconSizeLarge,
-                      height: iconSizeLarge,
-                      child: CustomPaint(
-                        painter: _ChartAxisPainter(),
-                        child: const Icon(
-                          Icons.show_chart,
-                          size: iconSizeSmall,
-                          color: colorTextOnPrimary,
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AssetStatisticsPage()),
+                      ),
+                      child: SizedBox(
+                        width: iconSizeLarge,
+                        height: iconSizeLarge,
+                        child: CustomPaint(
+                          painter: _ChartAxisPainter(),
+                          child: const Icon(
+                            Icons.show_chart,
+                            size: iconSizeSmall,
+                            color: colorTextOnPrimary,
+                          ),
                         ),
                       ),
                     ),
