@@ -50,44 +50,6 @@ Future<List<AssetAccount>> loadAssetAccounts() async {
   return rows.map(AssetAccount.fromDbMap).toList();
 }
 
-/// 资产汇总数据。
-class AssetSummary {
-  final int totalAssets;
-  final int totalDebt;
-  final int netWorth;
-  final Map<String, List<AssetAccount>> grouped;
-
-  const AssetSummary({
-    required this.totalAssets,
-    required this.totalDebt,
-    required this.netWorth,
-    required this.grouped,
-  });
-}
-
-/// 从账户列表计算汇总数据。
-AssetSummary computeSummary(List<AssetAccount> accounts) {
-  var totalAssets = 0;
-  var totalDebt = 0;
-  for (final a in accounts) {
-    if (a.isDebtAccount) {
-      totalDebt += a.balanceCents.abs();
-    } else {
-      totalAssets += a.balanceCents;
-    }
-  }
-  final grouped = <String, List<AssetAccount>>{};
-  for (final a in accounts) {
-    grouped.putIfAbsent(a.categoryName, () => []).add(a);
-  }
-  return AssetSummary(
-    totalAssets: totalAssets,
-    totalDebt: totalDebt,
-    netWorth: totalAssets - totalDebt,
-    grouped: grouped,
-  );
-}
-
 Future<void> insertAssetAccount(AssetAccount account) async {
   final db = await DatabaseHelper.instance.database;
   await db.insert('asset_accounts', account.toDbMap(),

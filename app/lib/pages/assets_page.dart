@@ -20,7 +20,6 @@ class AssetsPage extends StatefulWidget {
 
 class _AssetsPageState extends State<AssetsPage> {
   List<AssetAccount> _accounts = [];
-  AssetSummary? _summary;
 
   @override
   void initState() {
@@ -38,10 +37,25 @@ class _AssetsPageState extends State<AssetsPage> {
   Future<void> _loadAccounts() async {
     final accounts = await loadAssetAccounts();
     if (!mounted) return;
-    setState(() {
-      _accounts = accounts;
-      _summary = computeSummary(accounts);
-    });
+    setState(() => _accounts = accounts);
+  }
+
+  int get _totalAssets => _accounts
+      .where((a) => !a.isDebtAccount)
+      .fold(0, (s, a) => s + a.balanceCents);
+
+  int get _totalDebt => _accounts
+      .where((a) => a.isDebtAccount)
+      .fold(0, (s, a) => s + a.balanceCents.abs());
+
+  int get _netWorth => _totalAssets - _totalDebt;
+
+  Map<String, List<AssetAccount>> get _grouped {
+    final map = <String, List<AssetAccount>>{};
+    for (final a in _accounts) {
+      map.putIfAbsent(a.categoryName, () => []).add(a);
+    }
+    return map;
   }
 
   Color _categoryColor(String categoryName) {
@@ -114,7 +128,7 @@ class _AssetsPageState extends State<AssetsPage> {
                             height: heightSummaryLarge,
                             child: SummaryBlock(
                               '净资产',
-                              formatAmount(_summary!.netWorth),
+                              formatAmount(_netWorth),
                               large: true,
                             ),
                           ),
@@ -124,14 +138,14 @@ class _AssetsPageState extends State<AssetsPage> {
                             width: halfW,
                             child: SummaryBlock(
                               '资产',
-                              formatAmount(_summary!.totalAssets),
+                              formatAmount(_totalAssets),
                             ),
                           ),
                           Positioned(
                             left: halfW,
                             top: heightSummaryLarge,
                             width: halfW,
-                            child: SummaryBlock('负债', formatAmount(_summary!.totalDebt)),
+                            child: SummaryBlock('负债', formatAmount(_totalDebt)),
                           ),
                         ],
                       ),
@@ -152,7 +166,7 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   Widget _buildCategoryList() {
-    final grouped = _summary!.grouped;
+    final grouped = _grouped;
     return ListView.builder(
       padding: const EdgeInsets.all(spacingM),
       itemCount: grouped.length,
