@@ -69,15 +69,10 @@ class _TransferPageState extends State<TransferPage> {
 
   String get _feeLabel => '手续费';
 
-  void _showMessage(String text) {
-    if (!mounted) return;
-    showToast(context, text);
-  }
-
   Future<bool> _saveTransfer() async {
     final (amountCents, amountError) = parseAmountCents(_amount);
     if (amountError != null) {
-      _showMessage(amountError);
+      safeShowToast(context, amountError);
       return false;
     }
     final feeResult = evaluate(_fee);
@@ -87,12 +82,12 @@ class _TransferPageState extends State<TransferPage> {
         : yuanToCents(feeResult);
     final toAccount = _toAccount;
     if (toAccount == null) {
-      _showMessage('请选择转入账户');
+      safeShowToast(context, '请选择转入账户');
       return false;
     }
     final fromAccount = _fromAccount;
     if (fromAccount == null) {
-      _showMessage('转出账户无效');
+      safeShowToast(context, '转出账户无效');
       return false;
     }
     final t = widget.initialTransfer;
@@ -125,7 +120,7 @@ class _TransferPageState extends State<TransferPage> {
     if (!mounted) return;
     final others = accounts.where((a) => a.id != _fromAccount?.id).toList();
     if (others.isEmpty) {
-      _showMessage('暂无其他账户');
+      safeShowToast(context, '暂无其他账户');
       return;
     }
     final result = await showAccountPicker(
@@ -199,7 +194,7 @@ class _TransferPageState extends State<TransferPage> {
 
   void _onDelete() {
     if (!_isEdit) {
-      _showMessage('当前是新建转账记录');
+      safeShowToast(context, '当前是新建转账记录');
       return;
     }
     showDialog(

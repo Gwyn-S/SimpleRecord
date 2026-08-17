@@ -12,6 +12,12 @@ void showToast(BuildContext context, String text,
   Future.delayed(duration, () => entry.remove());
 }
 
+/// mounted 安全的 showToast 包装。
+void safeShowToast(BuildContext context, String text) {
+  if (!context.mounted) return;
+  showToast(context, text);
+}
+
 class _Toast extends StatelessWidget {
   final String text;
   const _Toast({required this.text});

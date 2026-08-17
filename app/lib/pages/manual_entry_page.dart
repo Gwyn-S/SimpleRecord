@@ -78,7 +78,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   Future<bool> _saveRecord() async {
     final (amountCents, amountError) = parseAmountCents(_amount);
     if (amountError != null) {
-      _showMessage(amountError);
+      safeShowToast(context, amountError);
       return false;
     }
     final origin = widget.initialRecord;
@@ -100,11 +100,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       await insertRecord(record);
     }
     return true;
-  }
-
-  void _showMessage(String text) {
-    if (!mounted) return;
-    showToast(context, text);
   }
 
   @override
