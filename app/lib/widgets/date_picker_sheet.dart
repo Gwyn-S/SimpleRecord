@@ -5,6 +5,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
+import '../utils/formatters.dart';
 import 'month_year_picker.dart';
 
 Future<DateTime?> showDatePickerSheet(BuildContext context, DateTime initial) {
@@ -29,7 +30,6 @@ class _DatePickerSheet extends StatefulWidget {
 }
 
 class _DatePickerSheetState extends State<_DatePickerSheet> {
-  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
   static const _rowHeight = 44.0;
 
   late DateTime _baseMonth;
@@ -102,7 +102,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
   }
 
   Widget _buildHeader(Color themeColor) {
-    final wd = '周${_weekdays[_selected.weekday - 1]}';
+    final wd = '周${weekdaysShort[_selected.weekday - 1]}';
     return Container(
       width: double.infinity,
       color: themeColor,
@@ -175,7 +175,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: spacingXS),
       child: Row(
-        children: _weekdays
+        children: weekdaysShort
             .map((w) => Expanded(
                   child: Center(child: Text(w, style: textCaption)),
                 ))

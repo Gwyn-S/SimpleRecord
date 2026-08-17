@@ -43,8 +43,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   final Map<int, Widget> _monthGridCache = {};
   int _selCacheKey = 0;
 
-  static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
-
   @override
   void initState() {
     super.initState();
@@ -262,7 +260,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                 height: heightHeaderBar,
                 child: Row(
                   children: [
-                    ..._weekdayLabels.map((label) {
+                    ...weekdaysShort.map((label) {
                       return Expanded(
                         child: Center(
                           child: Text(

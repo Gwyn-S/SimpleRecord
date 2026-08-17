@@ -15,7 +15,9 @@ int yuanToCents(String s) {
   return yuan * 100 + int.parse(frac);
 }
 
-const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const weekdaysFull = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const weekdaysShort = ['一', '二', '三', '四', '五', '六', '日'];
+const _weekdays = weekdaysFull;
 
 String formatDate(DateTime d) {
   return '${d.month}月${d.day}日 ${_weekdays[(d.weekday - 1) % 7]}';
