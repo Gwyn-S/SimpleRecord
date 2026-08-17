@@ -20,20 +20,6 @@ const TextStyle textSecondary = TextStyle(
   color: colorTextSecondary,
 );
 
-const TextStyle textAmountLarge = TextStyle(
-  fontSize: 26,
-  fontWeight: FontWeight.w700,
-  letterSpacing: -1,
-  color: colorTextOnPrimary,
-);
-
-const TextStyle textAmountMedium = TextStyle(
-  fontSize: 20,
-  fontWeight: FontWeight.w700,
-  letterSpacing: -1,
-  color: colorTextOnPrimary,
-);
-
 const TextStyle textAmountBold = TextStyle(
   fontSize: 18,
   fontWeight: FontWeight.w400,
@@ -77,3 +63,15 @@ const TextStyle textAccountAmount = TextStyle(fontSize: 16, fontWeight: FontWeig
 const TextStyle textPickerItem = TextStyle(fontSize: 16, color: colorTextPrimary);
 const TextStyle textAmountInput = TextStyle(fontSize: 28, fontWeight: FontWeight.w400, color: colorTextPrimary);
 const TextStyle textSummaryEmpty = TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorTextOnPrimary);
+
+// ===================== 提取自页面内联 =====================
+const TextStyle textTabActive = TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colorTextOnPrimary);
+const TextStyle textTabInactive = TextStyle(fontSize: 18, fontWeight: FontWeight.w400, color: colorTextOnPrimary);
+const TextStyle textBalanceLarge = TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: colorTextPrimary);
+const TextStyle textAppBarAction = TextStyle(fontSize: 16, color: colorTextOnPrimary);
+const TextStyle textAmountFlow = TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: colorTextPrimary);
+const TextStyle textBudgetRemaining = TextStyle(fontSize: 30, fontWeight: FontWeight.w400, letterSpacing: -1, color: colorTextPrimary);
+const TextStyle textAmountSummary = TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: colorTextPrimary);
+const TextStyle textPagerButton = TextStyle(fontSize: 14, color: colorTextOnPrimary);
+const TextStyle textButtonDefault = TextStyle(fontSize: 15, color: colorTextPrimary);
+const TextStyle textButtonDanger = TextStyle(fontSize: 15, color: colorDeleteDark);

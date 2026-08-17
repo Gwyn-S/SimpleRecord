@@ -22,6 +22,8 @@ const Color colorBackgroundPage = Color(0xFFF3F3F3);
 const Color colorBackgroundCard = Colors.white;
 const Color colorBackgroundLight = Color(0xFFF5F5F5);
 const Color colorBackgroundToast = Color(0xFFE0E0E0);
+const Color colorBackgroundInput = Color(0xFFF2F2F2);
+const Color colorBackgroundSummary = Color(0xFFFAFAFA);
 
 // ===================== 边框/分隔线 =====================
 const Color colorDivider = Color(0xFFEEEEEE);
@@ -29,7 +31,6 @@ const Color colorBorderKeyboard = Color(0xFFE0E0E0);
 
 // ===================== 语义色 =====================
 const Color colorExpense = Color(0xFFC62828);
-const Color colorDanger = Color(0xFFE53935);
 const Color colorDelete = Colors.red;
 const Color colorDeleteDark = Color(0xFFC62828);
 
