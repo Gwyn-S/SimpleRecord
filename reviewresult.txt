@@ -293,9 +293,15 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [H4] AssetAccount.displayName getter（assets_page、asset_detail_page、search_page）
    account_picker_sheet 保持不动（圆形容器+colorFilter 染色，用法不同）
 
+--------------------------------------------------
+优化进度（2026-08-16 第四轮：金额验证封装 + 公共 Widget）
+--------------------------------------------------
+✅ [H5] 金额验证流程封装（parseAmountCents，manual_entry_page + transfer_page）
+✅ [M2] OptionBarItem 公共 Widget（manual_entry_page + transfer_page）
+
 待做（下一轮）：
-⬜ [H5] 金额验证流程封装
-⬜ [M2-M6] 重复方法/Widget 抽取
+⬜ [M3] _showMessage 统一为 safeShowToast
+⬜ [M4-M6] 其他重复抽取
 ⬜ [1.1] search_page.dart 拆分
 ⬜ [1.2] RingProgress 提取
 ⬜ [2.6/2.7/2.8] 业务逻辑下沉
@@ -383,7 +389,7 @@ P0 — 重复的核心逻辑
 
 --------------------------------------------------
 
-[H5] 金额验证流程重复（evaluate → parse → 校验 → yuanToCents）
+[H5] 金额验证流程重复（evaluate → parse → 校验 → yuanToCents） ✅ 已封装为 parseAmountCents
 
   文件与行号：
   - lib/pages/manual_entry_page.dart 第 78-91 行（_saveRecord 内验证段）
@@ -415,7 +421,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M2] _buildOptionItem Widget 重复
+[M2] _buildOptionItem Widget 重复 ✅ 已抽取为 OptionBarItem
 
   文件与行号：
   - lib/pages/manual_entry_page.dart 第 397-408 行
