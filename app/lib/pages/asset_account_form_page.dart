@@ -217,7 +217,7 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
                   backgroundColor: themeColor,
                   foregroundColor: colorTextOnPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(radiusXS),
                   ),
                 ),
                 child: const Text('保存'),

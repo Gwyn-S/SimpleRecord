@@ -33,11 +33,11 @@ class BillDetailSheet extends StatelessWidget {
                 if (onEdit != null)
                   TextButton(
                     onPressed: onEdit,
-                    child: const Text('修改', style: TextStyle(color: colorTextPrimary)),
+                    child: const Text('修改', style: textButtonDefault),
                   ),
                 TextButton(
                   onPressed: onDelete,
-                  child: const Text('删除', style: TextStyle(color: colorDeleteDark)),
+                  child: const Text('删除', style: textButtonDanger),
                 ),
               ],
             ),

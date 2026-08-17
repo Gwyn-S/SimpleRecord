@@ -112,7 +112,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             ),
             child: const Text(
               '趋势图',
-              style: TextStyle(color: colorTextOnPrimary, fontSize: 16),
+              style: textAppBarAction,
             ),
           ),
           TextButton(
@@ -130,7 +130,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             ),
             child: const Text(
               '账单',
-              style: TextStyle(color: colorTextOnPrimary, fontSize: 16),
+              style: textAppBarAction,
             ),
           ),
         ],
@@ -255,7 +255,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorTagBackground,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(radiusXS),
                 ),
                 child: Text(
                   account.categoryName,
@@ -287,11 +287,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   children: [
                     Text(
                       formatAmount(account.balanceCents),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: colorTextPrimary,
-                      ),
+                      style: textBalanceLarge,
                     ),
                     const SizedBox(height: spacingXXS),
                     const Text('余额', style: textItemSub),

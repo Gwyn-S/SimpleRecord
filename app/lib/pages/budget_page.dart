@@ -261,11 +261,7 @@ class _BudgetPageState extends State<BudgetPage> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         hasBudget ? formatAmount(remaining) : '0.00',
-                        style: TextStyle(
-                          fontSize: 30,
-                          letterSpacing: -1,
-                          color: colorTextPrimary,
-                        ),
+                        style: textBudgetRemaining,
                       ),
                     ),
                   ],
@@ -381,11 +377,7 @@ class _BudgetPageState extends State<BudgetPage> {
           const SizedBox(width: spacingXS),
           Text(
             formatAmount(_monthExpense),
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: colorTextPrimary,
-            ),
+            style: textAmountSummary,
           ),
         ],
       ),

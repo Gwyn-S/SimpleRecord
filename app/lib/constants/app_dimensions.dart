@@ -10,6 +10,7 @@ const double spacingXXL = 24;
 
 // ===================== 圆角 =====================
 const double radiusTiny = 1.5;
+const double radiusXS = 4;
 const double radiusSmall = 6;
 const double radiusMedium = 10;
 const double radiusLarge = 20;
