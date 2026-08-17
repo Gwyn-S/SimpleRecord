@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -10,6 +9,7 @@ import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
+import '../widgets/account_avatar.dart';
 import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
 import '../widgets/calc_keyboard.dart';
@@ -340,9 +340,6 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Widget _buildAccountValue(AssetAccount? account, {VoidCallback? onTap}) {
-    final iconPath = account != null && account.iconPath.isNotEmpty
-        ? account.iconPath
-        : account?.category?.iconPath ?? '';
     return Container(
       color: colorBackgroundCard,
       padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
@@ -352,16 +349,9 @@ class _TransferPageState extends State<TransferPage> {
           children: [
             if (account == null)
               const SizedBox(width: iconSizeLarge, height: iconSizeLarge)
-            else if (iconPath.isNotEmpty)
-              SvgPicture.asset(
-                iconPath,
-                width: iconSizeLarge,
-                height: iconSizeLarge,
-                fit: BoxFit.contain,
-              )
             else
-              Icon(
-                account.category?.icon ?? Icons.account_balance_wallet,
+              AccountAvatar(
+                account: account,
                 size: iconSizeLarge,
                 color: Theme.of(context).extension<AppThemeColors>()!.primary,
               ),
