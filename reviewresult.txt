@@ -231,3 +231,915 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 优先级建议：P0/P1 项已全部处理或确认不修；WebDAV 三项
 （P2 读超时、P2 路径穿越、P3 临时文件清理）已随换库修复，
 待修区为空。剩余均可按 🚫 理由确认不修。
+
+
+=================================================================
+全库代码质量审查（四维度）
+审查时间：2026-08-16
+审查范围：app/lib 全部 Dart 文件
+审查方法：3 路并行 Agent 深挖 + 逐文件手工复核
+          + flutter analyze（无告警）
+优化状态：2026-08-16 第一轮常量提取已完成，analyze 通过
+=================================================================
+
+--------------------------------------------------
+优化进度（2026-08-16 第一轮：常量提取）
+--------------------------------------------------
+✅ [L1/L2/1.5/2] Color(0xFFF2F2F2)/Color(0xFFFAFAFA) → colorBackgroundInput/colorBackgroundSummary
+   search_page.dart ×5、tag_picker_sheet.dart ×2、search_page ×1
+✅ [D4] rainbowGradientColors 从死代码变为使用中（user_page.dart）
+✅ [D5] colorDanger 未使用常量已删除
+✅ [D2/D3] textAmountLarge/textAmountMedium 未使用常量已删除
+✅ [1.6] 新增 10 个 TextStyle 常量，替换了 bill_detail_sheet、search_page、
+   budget_page、asset_detail_page 中的内联 TextStyle
+✅ [1.7] BorderRadius.circular(4) → radiusXS（asset_account_form_page、asset_detail_page）
+✅ [H1] app_dimensions.dart 新增 radiusXS = 4
+
+待做（下一轮）：
+⬜ [H1] epochDay 统一到公共函数
+⬜ [H2] _two() 补零统一到 formatters.dart
+⬜ [H3] 账户图标降级抽公共 Widget
+⬜ [H4] AssetAccount.displayName getter
+⬜ [H5] 金额验证流程封装
+⬜ [M1-M7] 重复方法/Widget 抽取
+⬜ [1.1] search_page.dart 拆分
+⬜ [1.2] RingProgress 提取
+⬜ [2.6/2.7/2.8] 业务逻辑下沉
+⬜ 其余 borderRadius/间距常量替换
+
+
+=================================================================
+维度一：冗余代码（重复逻辑）
+=================================================================
+
+--------------------------------------------------
+P0 — 重复的核心逻辑
+--------------------------------------------------
+
+[H1] _epochDay / _epochDayOf 日期转换逻辑重复 4 处
+
+  文件与行号：
+  - lib/services/record_service.dart 第 15-16 行
+  - lib/services/transfer_service.dart 第 11-12 行
+  - lib/models/record.dart 第 30-31 行（_epochDay getter）
+  - lib/models/transfer.dart 第 28-29 行（_epochDay getter）
+
+  问题描述：4 处完全相同的 epoch day 转换逻辑：
+  DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays
+  其中 service 层有独立函数 _epochDayOf，model 层有 getter _epochDay，
+  两者完全等价。
+
+  建议改法：在 utils/date_utils.dart 中提供公共顶层函数
+  int toEpochDay(DateTime d)，model 的 toDbMap() 和 service 查询
+  都引用它。
+
+--------------------------------------------------
+
+[H2] _two(int n) 补零工具函数重复 2 处 + 2 处内联
+
+  文件与行号：
+  - lib/services/export_service.dart 第 25 行
+  - lib/services/srb_backup_service.dart 第 165 行
+  - lib/utils/formatters.dart 内联 padLeft(2, '0')
+  - lib/widgets/bill_detail_sheet.dart 第 73 行（局部闭包 two）
+
+  问题描述：完全相同的 String _two(int n) => n.toString().padLeft(2, '0')
+  出现在两个文件；formatters.dart 和 bill_detail_sheet.dart 中
+  用 .padLeft(2, '0') 内联了相同逻辑。
+
+  建议改法：在 utils/formatters.dart 中公开函数 String pad2(int n)
+  或 String twoDigits(int n)，所有文件统一引用。
+
+--------------------------------------------------
+
+[H3] 账户图标 SVG/Icon 降级 Widget 逻辑重复 5 处
+
+  文件与行号：
+  - lib/pages/assets_page.dart 第 228-257 行（_buildAccountRow）
+  - lib/pages/asset_detail_page.dart 第 233-277 行（_buildAccountCard）
+  - lib/pages/transfer_page.dart 第 351-375 行（_buildAccountValue）
+  - lib/pages/search_page.dart 第 372-378 行（菜单项图标）
+  - lib/widgets/account_picker_sheet.dart 第 120-139 行（_buildItem）
+
+  问题描述：5 处几乎一模一样的模式：先检查 iconPath.isNotEmpty，
+  有则 SvgPicture.asset(iconPath, ...)，
+  否则 Icon(account.category?.icon ?? Icons.account_balance_wallet, ...)。
+  这个逻辑应作为公共 Widget。
+
+  建议改法：抽取为公共 Widget，例如
+  AccountAvatar(AssetAccount account, {double size, Color? color})，
+  放入 widgets/ 目录。
+
+--------------------------------------------------
+
+[H4] 账户显示名（含卡号后四位）格式化重复 4 处
+
+  文件与行号：
+  - lib/pages/assets_page.dart 第 264-266 行
+  - lib/pages/asset_detail_page.dart 第 59 行（label 函数）
+  - lib/pages/asset_detail_page.dart 第 248-249 行
+  - lib/pages/search_page.dart 第 383-385 行
+
+  问题描述：完全相同的三元表达式：
+  cardLast4.isNotEmpty ? '${account.name}(${account.cardLast4})' : account.name
+
+  建议改法：在 AssetAccount model 中添加 getter：
+  String get displayName => cardLast4.isNotEmpty ? '$name($cardLast4)' : name;
+  所有调用处统一使用。
+
+--------------------------------------------------
+
+[H5] 金额验证流程重复（evaluate → parse → 校验 → yuanToCents）
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 78-91 行（_saveRecord 内验证段）
+  - lib/pages/transfer_page.dart 第 85-98 行（_saveTransfer 内验证段）
+
+  问题描述：完全相同的验证模式：
+  evaluate(amount) → double.tryParse → null检查 → <0检查
+  → yuanToCents → ==0检查，连错误消息都一样
+  （"金额无效"/"金额不能为负"/"请输入金额"）。
+
+  建议改法：在 utils/formatters.dart 中抽取方法
+  int? parseAmountCents(String expr, {void Function(String)? onError})
+  封装校验逻辑。
+
+--------------------------------------------------
+P1 — 重复的 Widget / 方法
+--------------------------------------------------
+
+[M1] _formatSelectedDate() 方法重复
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 323-329 行
+  - lib/pages/transfer_page.dart 第 69-75 行
+
+  问题描述：完全相同：today 返回"今天"，否则返回"${month}月${day}日"。
+
+  建议改法：在 utils/formatters.dart 中添加公共函数
+  String formatSelectedDate(DateTime d)。
+
+--------------------------------------------------
+
+[M2] _buildOptionItem Widget 重复
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 397-408 行
+  - lib/pages/transfer_page.dart 第 418-434 行
+
+  问题描述：完全相同的 Widget：GestureDetector + Row(Icon + SizedBox + Text)
+  用于选项栏，连 textSecondary.copyWith(fontSize: 14, color: colorTextPrimary)
+  样式也完全一样。
+
+  建议改法：在 widgets/ 下抽取为公共 OptionBarItem Widget。
+
+--------------------------------------------------
+
+[M3] _showMessage 方法重复
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 114-117 行
+  - lib/pages/transfer_page.dart 第 79-82 行
+
+  问题描述：完全相同：
+  void _showMessage(String text) { if (!mounted) return; showToast(context, text); }
+
+  建议改法：这是 showToast 的 mounted 守卫封装，可在 utils/toast.dart
+  中提供 void safeShowToast(BuildContext context, String text)。
+
+--------------------------------------------------
+
+[M4] _categoryColors 列表重复且顺序不一致
+
+  文件与行号：
+  - lib/pages/assets_page.dart 第 22-31 行：
+    [cash, savingsCard, creditCard, onlinePay, investment, debt, bond, custom]
+  - lib/pages/add_asset_account_page.dart 第 19-28 行：
+    [cash, onlinePay, savingsCard, creditCard, investment, debt, bond, custom]
+
+  问题描述：两个列表元素相同但顺序不同（assets_page 按分类表顺序，
+  add_asset_account_page 另有一种顺序）。更关键的是，这两个数组与
+  assetAccountCategories（model 层）的索引对应关系非常脆弱——
+  如果 model 列表顺序变化或增减元素，两处都会断裂。
+
+  建议改法：在 AssetAccountCategory model 中直接添加 Color color 字段，
+  将颜色绑定到数据模型上，彻底消除按索引匹配的脆弱性。
+
+--------------------------------------------------
+
+[M5] 银行列表数据重复（_banks vs _iconByTypeName）
+
+  文件与行号：
+  - lib/pages/add_asset_account_page.dart 第 30-40 行（_banks 列表）
+  - lib/services/asset_account_service.dart 第 11-27 行（_iconByTypeName Map）
+
+  问题描述：同一套银行名（工商银行、建设银行...）和 SVG 路径分散在两个
+  地方定义。如果新增银行，需要改两处，容易遗漏导致不一致。
+
+  建议改法：将银行名→图标的映射抽取到 models/asset_account.dart 中的
+  一个公共常量，service 和 page 都引用它。
+
+--------------------------------------------------
+
+[M6] Weekday 标签重复 3 处
+
+  文件与行号：
+  - lib/utils/formatters.dart 第 16 行：const _weekdays = ['周一', ...]
+  - lib/widgets/date_picker_sheet.dart 第 32 行：static const _weekdays = ['一', ...]
+  - lib/pages/calendar_page.dart 第 46 行：static const _weekdayLabels = ['一', ...]
+
+  问题描述：三处 weekday 标签定义，前缀不同（"周一"vs"一"），
+  但后两处完全一样。
+
+  建议改法：在 utils/formatters.dart 中公开两个常量：
+  weekdaysFull（周一...周日）和 weekdaysShort（一...日）。
+
+--------------------------------------------------
+
+[M7] _fileSize / _formatSize 文件大小格式化重复
+
+  文件与行号：
+  - lib/pages/local_backup_page.dart 第 213-219 行（_fileSize）
+  - lib/pages/webdav_page.dart 第 213-219 行（_formatSize）
+
+  问题描述：完全相同的字节数→可读格式转换（B/KB/MB）。
+
+  建议改法：放入 utils/formatters.dart 作为公共函数
+  String formatFileSize(int bytes)。
+
+--------------------------------------------------
+P2 — 死代码/未使用
+--------------------------------------------------
+
+[D1] AssetBillPage 类完全未被引用
+
+  文件与行号：lib/pages/asset_bill_page.dart 第 7-32 行（整个文件）
+
+  问题描述：全局搜索无任何 import 引用该文件。asset_detail_page.dart
+  中已有"账单"按钮，但它跳转到 SearchPage(initialAccountId: account.id)
+  而非 AssetBillPage。
+
+  建议改法：删除 asset_bill_page.dart 文件。
+
+--------------------------------------------------
+
+[D2] textAmountLarge 样式从未被引用 ✅ 已删除
+
+  文件与行号：lib/constants/app_text_styles.dart 第 23-28 行
+
+  问题描述：全局搜索仅找到定义处，无任何使用。
+
+  建议改法：删除该常量。
+
+--------------------------------------------------
+
+[D3] textAmountMedium 样式从未被引用 ✅ 已删除
+
+  文件与行号：lib/constants/app_text_styles.dart 第 30-35 行
+
+  问题描述：全局搜索仅找到定义处，无任何使用。
+
+  建议改法：删除该常量。
+
+--------------------------------------------------
+
+[D4] rainbowGradientColors 颜色列表从未被引用 ✅ 已在 user_page.dart 中使用
+
+  文件与行号：lib/constants/app_colors.dart 第 57-64 行
+
+  问题描述：全局搜索仅找到定义处，无任何使用。
+
+  建议改法：删除该常量。
+
+--------------------------------------------------
+
+[D5] colorDanger 颜色从未被引用 ✅ 已删除
+
+  文件与行号：lib/constants/app_colors.dart 第 32 行
+
+  问题描述：全局搜索仅找到定义处，无任何使用。
+
+  建议改法：删除该常量（已有 colorExpense 和 colorDelete 等语义色覆盖）。
+
+--------------------------------------------------
+P2 — 冗余魔术值/常量
+--------------------------------------------------
+
+[L1] Color(0xFFF2F2F2) 魔术值出现 7 处未走常量 ✅ 已提取为 colorBackgroundInput
+
+  文件与行号：
+  - lib/widgets/tag_picker_sheet.dart 第 101、193 行
+  - lib/pages/search_page.dart 第 505、567、723、780、833 行
+
+  问题描述：同一个浅灰色背景色反复以 const Color(0xFFF2F2F2) 硬编码，
+  app_colors.dart 中未定义。
+
+  建议改法：在 app_colors.dart 中添加
+  const Color colorBackgroundInput = Color(0xFFF2F2F2);
+
+--------------------------------------------------
+
+[L2] Color(0xFFFAFAFA) 魔术值出现 1 处 ✅ 已提取为 colorBackgroundSummary
+
+  文件与行号：lib/pages/search_page.dart 第 229 行
+
+  问题描述：搜索页汇总栏背景色硬编码。
+
+  建议改法：在 app_colors.dart 中添加常量
+  const Color colorBackgroundSummary = Color(0xFFFAFAFA);
+
+--------------------------------------------------
+
+[L3] colorTextOnPrimary.withValues(alpha: 0.3) AppBar 底部细线重复 4 处
+
+  文件与行号：
+  - lib/pages/backup_page.dart 第 28 行
+  - lib/pages/ledger_list_page.dart 第 198 行
+  - lib/pages/local_backup_page.dart 第 125 行
+  - lib/pages/webdav_page.dart 第 235 行
+
+  问题描述：同样的 AppBar 底部半透明白色分隔线模式完全一致。
+
+  建议改法：抽取一个公共 AppBarBottomDivider Widget。
+
+--------------------------------------------------
+
+[L4] .withValues(alpha: 0.12) 图标容器背景透明度重复
+
+  文件与行号：
+  - lib/pages/add_asset_account_page.dart 第 211 行
+  - lib/widgets/account_picker_sheet.dart 第 124 行
+
+  问题描述：图标圆形容器的背景透明度硬编码 0.12。
+
+  建议改法：定义为常量 const double kIconBackgroundAlpha = 0.12。
+
+--------------------------------------------------
+P3 — service CRUD 可优化
+--------------------------------------------------
+
+[S1] service 层 CRUD 模式缺乏公共封装
+
+  文件与行号：
+  - lib/services/record_service.dart 第 78-142 行
+  - lib/services/asset_account_service.dart 第 61-83 行
+  - lib/services/transfer_service.dart 第 30-112 行
+  - lib/services/ledger_service.dart 第 44-68 行
+  - lib/services/tag_service.dart 第 31-82 行
+
+  问题描述：每个 service 都有相似的 CRUD 模式：
+  final db = await DatabaseHelper.instance.database;
+  → 执行操作 → 递增对应 xxxVersion.value++。
+  虽然每个 service 的具体 SQL 和业务逻辑不同，
+  但"获取 db → 执行 → 通知版本变更"三段式可以考虑公共封装。
+
+  建议改法：定义 mixin 或 helper，封装
+  Future<T> withDb<T>(Future<T> Function(Database) action)
+  + 自动版本号递增。当前各 service 差异较大，强抽 base class
+  可能过度抽象，可考虑渐进式。
+
+
+=================================================================
+维度二：分层耦合问题
+=================================================================
+
+--------------------------------------------------
+P0 — 超大文件 / 组件内嵌
+--------------------------------------------------
+
+[1.1] search_page.dart 935 行巨型文件，内嵌完整 StatefulWidget + 工具函数
+
+  文件与行号：
+  - lib/pages/search_page.dart 第 672-935 行
+
+  问题描述：_DateFilterSheet（672-864）是一个完整的 StatefulWidget，
+  拥有自己的 State、initState、build，以及多个 _build* 方法。
+  此外文件末尾有 4 个顶层纯函数：_sameDate（866）、
+  _datePresets（870-920）、_monthsAgo（823-927）、
+  _matchPresetName（930-935）。
+
+  建议改法：
+  1. 将 _DateFilterSheet 提取为 lib/widgets/date_filter_sheet.dart 独立文件
+  2. 将 _sameDate、_datePresets、_monthsAgo、_matchPresetName
+     移到 utils/date_utils.dart 或 utils/calendar_utils.dart
+
+--------------------------------------------------
+
+[1.2] budget_page.dart 内嵌 RingProgress 和 RingPainter
+
+  文件与行号：lib/pages/budget_page.dart 第 503-563 行
+
+  问题描述：_RingProgress（StatelessWidget）和 _RingPainter
+  （CustomPainter）是通用的环形进度组件，与预算页面无直接耦合，
+  但被内嵌在 564 行的页面文件中。
+
+  建议改法：提取为 lib/widgets/ring_progress.dart，可复用于其他统计场景。
+
+--------------------------------------------------
+
+[1.3] asset_detail_page.dart 内嵌 _FlowEntry 数据模型
+
+  文件与行号：lib/pages/asset_detail_page.dart 第 566-588
+
+  问题描述：_FlowEntry 是一个纯数据类（不含 UI），定义在 page 文件底部。
+  违反 model 与 view 分离原则。
+
+  建议改法：提取到 lib/models/flow_entry.dart。
+
+--------------------------------------------------
+
+[1.4] user_page.dart 内嵌自定义颜色选择器（硬编码渐变色与已有常量重复）
+
+  文件与行号：lib/pages/user_page.dart 第 117-128 行
+
+  问题描述：在 _showColorPicker 中直接硬编码了 6 个 Color(0x...) 值
+  构建渐变色，而这些值与 app_colors.dart 中已定义的
+  rainbowGradientColors 完全相同（F44336, FF9800, FFEB3B, 4CAF50,
+  2196F3, 9C27B0）。
+
+  建议改法：使用 rainbowGradientColors 替换硬编码值。
+
+--------------------------------------------------
+P0 — 样式/常量分散
+--------------------------------------------------
+
+[1.5] Color(0xFFF2F2F2) 在 5 处重复硬编码 ✅ 同 L1 已处理
+
+  文件与行号：
+  - lib/pages/search_page.dart 第 505、567、723、780、833 行
+  - lib/widgets/tag_picker_sheet.dart 第 101、193 行
+
+  问题描述：同一个浅灰色背景色在 search_page 重复 5 次、
+  tag_picker_sheet 重复 2 次，共 7 处硬编码。
+  app_colors.dart 中没有定义此颜色。
+
+  建议改法：在 app_colors.dart 中新增
+  const Color colorBackgroundButton = Color(0xFFF2F2F2)，全部引用替换。
+
+--------------------------------------------------
+
+[1.6] 大量 TextStyle 在页面/组件中内联，未走 app_text_styles.dart ✅ 已新增 10 个常量并替换部分
+
+  文件与行号：
+  - manual_entry_page.dart:174-178
+    TextStyle(fontSize: 18, fontWeight: w600, color: colorTextOnPrimary)
+    → 建议抽为 textTabActive
+  - manual_entry_page.dart:194-198
+    TextStyle(fontSize: 18, fontWeight: w400, color: colorTextOnPrimary)
+    → 建议抽为 textTabInactive
+  - asset_detail_page.dart:290-293
+    TextStyle(fontSize: 28, fontWeight: w600, color: colorTextPrimary)
+    → 建议抽为 textBalanceLarge
+  - asset_detail_page.dart:115,133
+    TextStyle(color: colorTextOnPrimary, fontSize: 16)
+    → 建议抽为 textAppBarAction
+  - asset_detail_page.dart:429-433
+    TextStyle(fontSize: 16, fontWeight: w700, color: ...)
+    → 建议抽为 textAmountFlow
+  - budget_page.dart:264-267
+    TextStyle(fontSize: 30, letterSpacing: -1, color: colorTextPrimary)
+    → 建议抽为 textBudgetRemaining
+  - budget_page.dart:377
+    TextStyle(fontSize: 17, color: colorTextPrimary)
+    → 建议抽为 textSectionTitle
+  - budget_page.dart:384-387
+    TextStyle(fontSize: 15, fontWeight: w700, color: colorTextPrimary)
+    → 建议抽为 textAmountSummary
+  - transfer_page.dart:265
+    TextStyle(color: colorTextOnPrimary, fontSize: 16)
+    → 建议抽为 textAppBarAction
+  - search_page.dart:335-337
+    TextStyle(fontSize: 14, color: colorTextOnPrimary)
+    → 建议抽为 textPagerButton
+  - record_item.dart:100-105
+    TextStyle(fontSize: 16, fontWeight: w700, color: ...)
+    → 建议抽为 textAmountItem
+  - bill_detail_sheet.dart:36
+    TextStyle(color: colorTextPrimary)
+    → 建议抽为 textButtonDefault
+  - bill_detail_sheet.dart:40
+    TextStyle(color: colorDeleteDark)
+    → 建议抽为 textButtonDanger
+
+  建议改法：在 app_text_styles.dart 中批量新增上述命名常量，
+  页面中统一引用。
+
+--------------------------------------------------
+
+[1.7] BorderRadius.circular 硬编码数字 ✅ BorderRadius.circular(4) 已替换为 radiusXS
+
+  文件与行号：
+  - budget_page.dart:478 → BorderRadius.circular(3)
+  - asset_detail_page.dart:258 → BorderRadius.circular(4)
+  - user_page.dart:189 → BorderRadius.circular(8)
+  - asset_account_form_page.dart:220 → BorderRadius.circular(4)
+
+  问题描述：app_dimensions.dart 已定义 radiusTiny=1.5, radiusSmall=6,
+  radiusMedium=10, radiusLarge=20，但 3、4、8 这些值游离在外。
+
+  建议改法：在 app_dimensions.dart 中补充 radiusXS=4 等常量，统一使用。
+
+--------------------------------------------------
+P1 — 业务逻辑混入 UI
+--------------------------------------------------
+
+[2.6] assets_page.dart 在 State 中做金额汇总计算
+
+  文件与行号：lib/pages/assets_page.dart 第 54-77 行
+
+  问题描述：_totalAssets、_totalDebt、_netWorth、_grouped、
+  _categoryColor 这些纯业务计算逻辑直接写在页面 State 类中作为 getter。
+  金额汇总逻辑应在 service 或 model 层完成。
+
+  建议改法：创建 AssetAccountService.getSummary() 返回一个
+  AssetSummary(totalAssets, totalDebt, netWorth) 对象，页面只做展示。
+
+--------------------------------------------------
+
+[2.7] budget_page.dart 在 build 相关方法中做金额计算
+
+  文件与行号：lib/pages/budget_page.dart 第 213-216 行（在 _buildMonthCard 中）
+
+  问题描述：ratio、avg、perDay 等预算比例计算直接在 widget 构建方法中执行。
+
+  建议改法：将这些计算封装到 BudgetViewModel 或 BudgetSummary
+  数据对象中，在 _load() 中一次性计算完成。
+
+--------------------------------------------------
+
+[2.8] bills_page.dart build 中做日期格式化 key
+
+  文件与行号：lib/pages/bills_page.dart 第 73-75 行（_onRecordsChanged 中）
+
+  问题描述：
+  '${r.date.year}-${r.date.month.toString().padLeft(2, '0')}-${r.date.day.toString().padLeft(2, '0')}'
+  这个日期 key 格式化逻辑在 State 中重复实现，
+  formatters.dart 已有 formatDateYmd() 可直接复用。
+
+  建议改法：替换为 formatDateYmd(r.date)。
+
+--------------------------------------------------
+P1 — 工具函数位置不当
+--------------------------------------------------
+
+[2.1] _formatDateTime 在 widget 文件中
+
+  文件与行号：lib/widgets/bill_detail_sheet.dart 第 72-75 行
+
+  问题描述：_formatDateTime 是纯日期时间格式化函数，无状态无 UI，
+  写在 widget 内部。
+
+  建议改法：移到 utils/formatters.dart，新增 formatDateTime(DateTime d)。
+
+--------------------------------------------------
+
+[2.2] _fileSize 在 page 文件中
+
+  文件与行号：lib/pages/local_backup_page.dart 第 213-219 行
+
+  问题描述：_fileSize(int bytes) 是纯文件大小格式化函数（B/KB/MB），
+  与页面 UI 无关。
+
+  建议改法：移到 utils/formatters.dart，新增 formatFileSize(int bytes)。
+
+--------------------------------------------------
+
+[2.3] _fmtAmount 和 _parseAmount 在 search_page 中
+
+  文件与行号：
+  - lib/pages/search_page.dart 第 467-468 行（_fmtAmount）
+  - lib/pages/search_page.dart 第 551-555 行（_parseAmount）
+
+  问题描述：_fmtAmount 是金额格式化（与 formatters.dart 中 formatAmount
+  类似但逻辑不同），_parseAmount 是元到分的解析（与 yuanToCents 类似）。
+  两者都是纯工具函数。
+
+  建议改法：统一到 utils/formatters.dart，提供
+  formatAmountCompact(int cents) 和 parseAmountToCents(String s)。
+
+--------------------------------------------------
+
+[2.4] _formatSelectedDate 重复（同维度一 M1）
+
+--------------------------------------------------
+
+[2.5] search_page.dart 末尾 4 个顶层纯函数
+
+  文件与行号：lib/pages/search_page.dart 第 866-935 行
+
+  问题描述：_sameDate、_datePresets、_monthsAgo、_matchPresetName
+  都是纯计算函数（无状态无 UI），定义在页面文件的顶层作用域。
+
+  建议改法：移到 utils/calendar_utils.dart 或新建 utils/date_filter_utils.dart。
+
+--------------------------------------------------
+P2 — 硬编码间距值
+--------------------------------------------------
+
+[2.9] 硬编码间距值（非 app_dimensions 常量）
+
+  文件与行号：
+  - bills_page.dart:195 → isFirst ? 10 : 5（硬编码间距）
+  - bills_page.dart:213 → vertical: 14（14 不在 app_dimensions 中）
+  - budget_page.dart:218 → spacingM, 8（8 不在 app_dimensions 中）
+  - budget_page.dart:429 → vertical: 10（应使用 spacingSM）
+  - user_page.dart:68 → horizontal: 20, vertical: 16（应使用 spacingXL/spacingL）
+
+  建议改法：补充 spacingXXS=2, spacingXS=4, spacingS=8, spacingSM=10,
+  spacingML=14 等常量到 app_dimensions.dart，统一引用。
+
+--------------------------------------------------
+P3 — service/model 引入 Flutter 框架
+--------------------------------------------------
+
+[3.1] service 层引入 Flutter 框架（flutter/foundation.dart）
+
+  文件与行号：
+  - services/record_service.dart:1
+  - services/asset_account_service.dart:1
+  - services/transfer_service.dart:1
+  - services/tag_service.dart:1
+
+  问题描述：4 个 service 文件均导入 flutter/foundation.dart，仅为使用
+  ValueNotifier。用在 service 层是常见做法（作为简易事件总线），
+  但严格来说 service 层不应依赖 Flutter 框架。
+
+  建议改法：可以接受现状（ValueNotifier 轻量且无 UI 耦合）。
+  如需更严格解耦，可自建 ChangeNotifier 基础类或使用纯 Dart 回调，
+  但收益有限。
+
+--------------------------------------------------
+
+[3.2] theme_service.dart 强依赖 Flutter UI 类
+
+  文件与行号：lib/services/theme_service.dart 第 1-3 行
+
+  问题描述：导入了 flutter/cupertino.dart 和 flutter/material.dart，
+  使用了 ThemeExtension、ThemeData、ColorScheme 等 Flutter UI 类。
+  Theme 构建逻辑属于 UI 层而非 service 层。
+
+  建议改法：将 buildAppTheme() 移到 lib/theme/ 目录下独立文件
+  （如 app_theme.dart），theme_service.dart 只保留
+  loadThemeColor/saveThemeColor 等纯配置读写方法。
+
+--------------------------------------------------
+
+[3.3] model 层引入 Flutter 框架
+
+  文件与行号：lib/models/category.dart 第 1 行
+
+  问题描述：Category 类使用了 IconData（来自 flutter/material.dart），
+  使得纯数据 model 依赖 Flutter UI 框架。
+
+  建议改法：可以接受现状（IconData 是轻量数据类，且分类确实需要图标）。
+
+--------------------------------------------------
+
+[3.4] transfer_page.dart build 逻辑较复杂
+
+  文件与行号：lib/pages/transfer_page.dart 第 246-434 行
+
+  问题描述：435 行文件，build 方法 + 5 个 _build* 辅助方法。
+  _buildAccountValue 与 manual_entry_page 中类似，
+  应抽取为通用 AccountValueRow widget 文件。
+
+  建议改法：将 _buildAccountValue 提取为通用的 AccountValueRow widget
+  文件（manual_entry_page 和 transfer_page 共用）。
+
+
+=================================================================
+维度三：代码风格不统一
+=================================================================
+
+--------------------------------------------------
+P0 — Widget child 格式不统一（单行 vs 多行）
+--------------------------------------------------
+
+[1] bills_page.dart 超长单行 vs 其他文件多行
+
+  文件与行号：
+  - lib/pages/bills_page.dart 第 146 行：
+    Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge,
+    child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true))
+    —— 超长单行（~130 字符）
+  - lib/pages/bills_page.dart 第 147 行：
+    child: SummaryBlock('本月收入', formatAmount(_monthIncome))) —— 单行
+  - lib/pages/bills_page.dart 第 148-149 行：
+    两个 Positioned(...) 各约 200+ 字符，全部挤在一行
+  - lib/pages/bills_page.dart 第 226、228 行：
+    TextSpan(text: formatAmount(dayInc), style: const TextStyle(...))
+    —— 单行 ~90 字符，同文件中相邻 TextSpan 使用了多行写法
+  - lib/pages/bills_page.dart 第 233 行：
+    Icon(expanded ? Icons.keyboard_arrow_down : ..., size: ..., color: ...)
+    —— 单行，同文件中其他 Icon 大多换行
+
+  对比（好的）：
+  lib/pages/assets_page.dart 第 142-146 行：
+  Positioned(
+    left: 0,
+    top: 0,
+    width: halfW,
+    height: heightSummaryLarge,
+    child: SummaryBlock(
+      '净资产',
+      formatAmount(_netWorth),
+      large: true,
+    ),
+  ),
+
+  建议改法：制定规则——当一行超过 80 字符或参数超过 2 个时，
+  每个命名参数独立一行。优先修改 bills_page.dart 中 146-149 行。
+
+--------------------------------------------------
+P0 — 硬编码颜色 vs 已有常量
+--------------------------------------------------
+
+[2] Color(0xFFF2F2F2) 硬编码 5 处（同维度一 L1，此处强调风格不统一） ✅ 已处理
+
+  文件与行号：
+  - lib/pages/search_page.dart 第 505、525、567、780、833 行
+
+  问题描述：同一个颜色在 search_page 内重复 5 次内联，
+  但同文件其他地方（如 colorDivider）使用常量。
+  同一文件内的用法不一致。
+
+--------------------------------------------------
+P1 — 构造方法签名格式不统一
+--------------------------------------------------
+
+[3] _buildOptionItem 方法签名格式不一致
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 397 行：
+    Widget _buildOptionItem({required IconData icon, required String label,
+    required VoidCallback onTap}) {    return GestureDetector(
+    —— 签名和开括号同一行，return 挤在方法体里
+  - lib/pages/transfer_page.dart 第 418-422 行：
+    Widget _buildOptionItem({
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+    }) {
+      return GestureDetector(
+    —— 多行参数，return 独立一行，格式规范
+
+  建议改法：将 manual_entry_page.dart 第 397 行重写为
+  transfer_page.dart 的多行格式。
+
+--------------------------------------------------
+P1 — 布尔变量命名缺 is 前缀
+--------------------------------------------------
+
+[4] 布尔变量命名风格不统一
+
+  文件与行号：
+  - lib/pages/manual_entry_page.dart 第 29 行：
+    bool _isExpense = true; —— 有 is 前缀 ✓
+  - lib/pages/search_page.dart 第 47 行：
+    bool _busy = false; —— 缺 is 前缀，应为 _isBusy
+  - lib/pages/budget_page.dart 第 25 行：
+    bool _loading = true; —— 缺 is 前缀，应为 _isLoading
+  - lib/pages/bills_page.dart 第 26 行：
+    bool _loading = true; —— 缺 is 前缀
+  - lib/pages/bills_page.dart 第 28 行：
+    bool _initialized = false; —— 缺 is 前缀
+
+  建议改法：统一为 _isXxx 前缀。Dart lint 推荐 is/has/can 前缀。
+
+--------------------------------------------------
+P1 — const 使用不统一
+--------------------------------------------------
+
+[5] EdgeInsets.zero 漏 const
+
+  文件与行号：
+  - lib/pages/search_page.dart 第 358 行：menuPadding: EdgeInsets.zero（无 const）
+  - lib/pages/search_page.dart 第 400 行：padding: EdgeInsets.zero（无 const）
+  - lib/pages/search_page.dart 第 415 行：padding: EdgeInsets.zero（无 const）
+  - lib/pages/search_page.dart 第 364 行：padding: EdgeInsets.zero（无 const）
+
+  问题描述：EdgeInsets.zero 是 static const，可以加 const。
+  同文件中其他 EdgeInsets 使用了 const。
+
+  建议改法：搜索所有 EdgeInsets.zero 未加 const 的位置统一补上。
+
+--------------------------------------------------
+P1 — TextStyle 内联 vs 已有常量不统一
+--------------------------------------------------
+
+[6] 多处 TextStyle 内联未走常量（同维度二 1.6，此处强调风格维度）
+
+  重点位置：
+  - budget_page.dart:263 — TextStyle(fontSize: 30, letterSpacing: -1, ...)
+    同文件中相邻位置使用了 textTitleBold 等已有常量
+  - budget_page.dart:358 — TextStyle(fontSize: 18, color: colorTextPrimary)
+    与 textDialogTitle（同为 18pt）仅 fontWeight 不同
+  - search_page.dart:335 — TextStyle(fontSize: 14, color: colorTextOnPrimary)
+    同文件中其他地方使用了 textBody
+  - asset_detail_page.dart:290 — TextStyle(fontSize: 28, fontWeight: w600, ...)
+
+  建议改法：在 app_text_styles.dart 中补充缺失的中间样式常量，
+  消除内联 TextStyle。
+
+--------------------------------------------------
+P2 — 注释风格极不均匀
+--------------------------------------------------
+
+[7] 文件间注释量差异巨大
+
+  文件与行号：
+  - lib/pages/search_page.dart（935行）：12+ 处 /// 文档注释 + 行内注释
+  - lib/pages/budget_page.dart（564行）：几乎零注释
+  - lib/pages/bills_page.dart（265行）：零注释
+  - lib/pages/transfer_page.dart（436行）：零注释
+  - lib/pages/assets_page.dart（302行）：零注释
+  - lib/pages/asset_detail_page.dart（588行）：零注释
+  - lib/pages/manual_entry_page.dart（410行）：仅 2 处注释
+  - lib/widgets/record_item.dart（138行）：仅 1 处注释
+  - lib/models/record.dart（59行）：零注释
+
+  建议改法：不要求每个文件都有大量注释，但对公开 API
+  （如 record_service.dart 的函数）应保持文档注释。
+  复杂的私有方法（如 _filterRecords、_loadFlows）应加一行简要说明。
+
+--------------------------------------------------
+P2 — 缩进层级错位
+--------------------------------------------------
+
+[8] manual_entry_page.dart AppBar 同级属性缩进不一致
+
+  文件与行号：lib/pages/manual_entry_page.dart 第 135-160 行
+
+  问题描述：leading（行 130）缩进 10 格，但 centerTitle（行 135）
+  缩进 12 格，bottom（行 136）缩进 12 格，title（行 160）缩进 12 格。
+  同一层级的命名参数缩进不一致。
+
+  建议改法：统一为 2 空格缩进（Dart 标准），
+  leading、centerTitle、bottom、title 应在同一列。
+
+
+=================================================================
+维度四：可以更好写法的地方
+=================================================================
+
+--------------------------------------------------
+1. 建议新增公共 Widget
+--------------------------------------------------
+
+- AccountAvatar：封装账户图标 SVG/Icon 降级逻辑（5 处重复）
+- OptionBarItem：封装选项栏 GestureDetector+Row(Icon+Text)（2 处重复）
+- AppBarBottomDivider：封装 AppBar 底部半透明分隔线（4 处重复）
+
+--------------------------------------------------
+2. 建议新增工具函数（统一到 formatters.dart） ✅ 部分已存在于 formatters.dart
+--------------------------------------------------
+
+- String formatSelectedDate(DateTime d) — "今天"/"M月D日"
+- String formatDateTime(DateTime d) — "YYYY-MM-DD HH:mm:ss"
+- String formatFileSize(int bytes) — "1.2 MB"
+- String pad2(int n) — 两位补零
+- int toEpochDay(DateTime d) — epoch day 转换
+- int? parseAmountCents(String expr) — 金额验证封装
+
+--------------------------------------------------
+3. 建议新增常量 ✅ 已完成：colorBackgroundInput、colorBackgroundSummary、
+  textPagerButton、textButtonDefault、textButtonDanger、textBalanceLarge、
+  textAmountFlow、textBudgetRemaining、textAmountSummary、textAppBarAction、
+  radiusXS
+--------------------------------------------------
+
+- app_colors.dart：
+  const Color colorBackgroundInput = Color(0xFFF2F2F2);
+  const Color colorBackgroundSummary = Color(0xFFFAFAFA);
+- app_text_styles.dart：
+  textTabActive / textTabInactive / textBalanceLarge / textAppBarAction
+  textAmountFlow / textBudgetRemaining / textSectionTitle / textAmountSummary
+  textPagerButton / textAmountItem / textButtonDefault / textButtonDanger
+- app_dimensions.dart：
+  radiusXS = 4 / radiusXXS = 2
+  spacingXXS = 2 / spacingML = 14
+
+--------------------------------------------------
+4. 建议新增 model getter / 字段
+--------------------------------------------------
+
+- AssetAccount.displayName — 封装卡号后四位格式化
+- AssetAccountCategory.color — 绑定分类颜色，消除按索引匹配
+
+--------------------------------------------------
+5. 建议文件拆分
+--------------------------------------------------
+
+- search_page.dart（935行）→ 拆出 date_filter_sheet.dart + calendar_utils.dart
+- budget_page.dart → 拆出 ring_progress.dart
+- asset_detail_page.dart → 拆出 flow_entry.dart 到 models/
+- theme_service.dart → buildAppTheme() 移到 lib/theme/app_theme.dart
+
+--------------------------------------------------
+6. 建议业务逻辑下沉
+--------------------------------------------------
+
+- assets_page.dart 的总额/分组/分类色计算 → AssetAccountService.getSummary()
+- budget_page.dart 的 ratio/avg/perDay → BudgetSummary 数据对象
+- bills_page.dart 的日期 key 格式化 → 复用 formatDateYmd()
+
