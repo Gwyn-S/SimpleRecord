@@ -299,9 +299,15 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [H5] 金额验证流程封装（parseAmountCents，manual_entry_page + transfer_page）
 ✅ [M2] OptionBarItem 公共 Widget（manual_entry_page + transfer_page）
 
+--------------------------------------------------
+优化进度（2026-08-16 第五轮：Toast 统一 + Weekday 标签）
+--------------------------------------------------
+✅ [M3] _showMessage 统一为 safeShowToast（toast.dart 新增，manual_entry_page + transfer_page）
+✅ [M6] Weekday 标签统一（formatters.dart 新增 weekdaysShort/weekdaysFull，date_picker_sheet + calendar_page）
+
 待做（下一轮）：
-⬜ [M3] _showMessage 统一为 safeShowToast
-⬜ [M4-M6] 其他重复抽取
+⬜ [M4] 颜色列表抽取到 model
+⬜ [M5] 银行列表数据合并
 ⬜ [1.1] search_page.dart 拆分
 ⬜ [1.2] RingProgress 提取
 ⬜ [2.6/2.7/2.8] 业务逻辑下沉
@@ -435,7 +441,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M3] _showMessage 方法重复
+[M3] _showMessage 方法重复 ✅ 已统一为 safeShowToast
 
   文件与行号：
   - lib/pages/manual_entry_page.dart 第 114-117 行
@@ -481,7 +487,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M6] Weekday 标签重复 3 处
+[M6] Weekday 标签重复 3 处 ✅ 已统一为 weekdaysShort/weekdaysFull
 
   文件与行号：
   - lib/utils/formatters.dart 第 16 行：const _weekdays = ['周一', ...]
