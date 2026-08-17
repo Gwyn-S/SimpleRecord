@@ -9,6 +9,7 @@ import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
+import '../widgets/option_bar_item.dart';
 import '../widgets/account_avatar.dart';
 import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
@@ -74,19 +75,9 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Future<bool> _saveTransfer() async {
-    final result = evaluate(_amount);
-    final parsed = double.tryParse(result);
-    if (parsed == null) {
-      _showMessage('金额无效');
-      return false;
-    }
-    if (parsed < 0) {
-      _showMessage('金额不能为负');
-      return false;
-    }
-    final amountCents = yuanToCents(result);
-    if (amountCents == 0) {
-      _showMessage('请输入金额');
+    final (amountCents, amountError) = parseAmountCents(_amount);
+    if (amountError != null) {
+      _showMessage(amountError);
       return false;
     }
     final feeResult = evaluate(_fee);
@@ -377,7 +368,7 @@ class _TransferPageState extends State<TransferPage> {
       padding: const EdgeInsets.symmetric(horizontal: spacingL),
       child: Row(
         children: [
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.calendar_today_outlined,
             label: formatSelectedDate(_selectedDate),
             onTap: () async {
@@ -387,29 +378,11 @@ class _TransferPageState extends State<TransferPage> {
             },
           ),
           const SizedBox(width: spacingXXL),
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.edit_outlined,
             label: _feeLabel,
             onTap: _editFee,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOptionItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: iconSizeMedium, color: colorTextPrimary),
-          const SizedBox(width: spacingXS),
-          Text(label, style: textSecondary.copyWith(fontSize: 14, color: colorTextPrimary)),
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import 'calculator.dart';
+
 /// 金额单位是分（int），格式化时转回元显示。
 String formatAmount(int cents) {
   final sign = cents < 0 ? '-' : '';
@@ -59,4 +61,15 @@ String formatFileSize(int bytes) {
 /// 日期时间格式化：yyyy-MM-dd HH:mm:ss。
 String formatDateTime(DateTime d) {
   return '${d.year}-${pad2(d.month)}-${pad2(d.day)} ${pad2(d.hour)}:${pad2(d.minute)}:${pad2(d.second)}';
+}
+
+/// 解析金额表达式为分，失败返回 (null, 错误信息)。
+(int cents, String? error) parseAmountCents(String expr) {
+  final result = evaluate(expr);
+  final parsed = double.tryParse(result);
+  if (parsed == null) return (0, '金额无效');
+  if (parsed < 0) return (0, '金额不能为负');
+  final cents = yuanToCents(result);
+  if (cents == 0) return (0, '请输入金额');
+  return (cents, null);
 }

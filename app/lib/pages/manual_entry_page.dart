@@ -10,6 +10,7 @@ import '../services/record_service.dart';
 import '../services/asset_account_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
+import '../widgets/option_bar_item.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
@@ -75,19 +76,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   Future<bool> _saveRecord() async {
-    final result = evaluate(_amount);
-    final parsed = double.tryParse(result);
-    if (parsed == null) {
-      _showMessage('金额无效');
-      return false;
-    }
-    if (parsed < 0) {
-      _showMessage('金额不能为负');
-      return false;
-    }
-    final amountCents = yuanToCents(result);
-    if (amountCents == 0) {
-      _showMessage('请输入金额');
+    final (amountCents, amountError) = parseAmountCents(_amount);
+    if (amountError != null) {
+      _showMessage(amountError);
       return false;
     }
     final origin = widget.initialRecord;
@@ -326,7 +317,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       padding: const EdgeInsets.symmetric(horizontal: spacingL),
       child: Row(
         children: [
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.calendar_today_outlined,
             label: formatSelectedDate(_selectedDate),
             onTap: () async {
@@ -336,21 +327,21 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             },
           ),
           const SizedBox(width: spacingXXL),
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.account_balance_wallet_outlined,
             label: _selectedAccount?.name ?? '账户',
             onTap: _pickAccount,
           ),
           const SizedBox(width: spacingXXL),
           // 标签：单标签，选择后回填
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.label_outline,
             label: _selectedTag ?? '标签',
             onTap: _pickTag,
           ),
           const SizedBox(width: spacingXXL),
           // TODO: 接入图片附件功能
-          _buildOptionItem(
+          OptionBarItem(
             icon: Icons.camera_alt_outlined,
             label: '图片',
             onTap: () => showToast(context, '图片附件功能开发中'),
@@ -384,19 +375,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (result is AssetAccount) {
       setState(() => _selectedAccount = result);
     }
-  }
-
-  Widget _buildOptionItem({required IconData icon, required String label, required VoidCallback onTap}) {    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: iconSizeMedium, color: colorTextPrimary),
-          const SizedBox(width: spacingXS),
-          Text(label, style: textSecondary.copyWith(fontSize: 14, color: colorTextPrimary)),
-        ],
-      ),
-    );
   }
 }
 
