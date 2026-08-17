@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../services/webdav_service.dart';
@@ -210,14 +211,6 @@ class _WebDavPageState extends State<WebDavPage> {
     }
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
@@ -395,7 +388,7 @@ class _WebDavPageState extends State<WebDavPage> {
                 return ListTile(
                   title: Text(file.name, style: textBody),
                   subtitle: Text(
-                    _formatSize(file.size),
+                    formatFileSize(file.size),
                     style: textItemSub,
                   ),
                   trailing: Row(

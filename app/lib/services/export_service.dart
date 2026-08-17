@@ -22,8 +22,6 @@ Future<Directory> backupDirectory() async {
   return dir;
 }
 
-String _two(int n) => n.toString().padLeft(2, '0');
-
 /// 导出记录为 CSV，返回导出文件路径。
 /// 不传 [records] 时导出账本全部记录；传入时导出过滤后的结果。
 Future<String> exportCsv({List<Record>? records}) async {
@@ -39,7 +37,7 @@ Future<String> exportCsv({List<Record>? records}) async {
           .toList();
   final now = DateTime.now();
   final stamp =
-      '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}${now.millisecond.toString().padLeft(2, '0')}';
+      '${now.year}${pad2(now.month)}${pad2(now.day)}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}${now.millisecond.toString().padLeft(2, '0')}';
   final dir = await backupDirectory();
   final path = p.join(dir.path, 'export_$stamp.csv');
   await Isolate.run(() {
@@ -48,7 +46,7 @@ Future<String> exportCsv({List<Record>? records}) async {
     for (final r in rows) {
       final fields = [
         _csvEscape(nameById[r.ledgerId] ?? ''),
-        '${r.date.year}-${_two(r.date.month)}-${_two(r.date.day)}',
+        '${r.date.year}-${pad2(r.date.month)}-${pad2(r.date.day)}',
         r.isExpense ? '支出' : '收入',
         _csvEscape(r.categoryName),
         formatAmount(r.amountCents),

@@ -66,14 +66,6 @@ class _TransferPageState extends State<TransferPage> {
     super.dispose();
   }
 
-  String _formatSelectedDate() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    if (selected == today) return '今天';
-    return '${_selectedDate.month}月${_selectedDate.day}日';
-  }
-
   String get _feeLabel => '手续费';
 
   void _showMessage(String text) {
@@ -397,7 +389,7 @@ class _TransferPageState extends State<TransferPage> {
         children: [
           _buildOptionItem(
             icon: Icons.calendar_today_outlined,
-            label: _formatSelectedDate(),
+            label: formatSelectedDate(_selectedDate),
             onTap: () async {
               final picked = await showDatePickerSheet(context, _selectedDate);
               if (picked == null || !mounted) return;

@@ -1,3 +1,5 @@
+import '../utils/formatters.dart';
+
 class Transfer {
   final String id;
   final String fromAccountId;
@@ -23,11 +25,6 @@ class Transfer {
     this.toAccountName,
   });
 
-  static final DateTime _epoch = DateTime.utc(1970);
-
-  int get _epochDay =>
-      DateTime.utc(date.year, date.month, date.day).difference(_epoch).inDays;
-
   Map<String, dynamic> toDbMap() => {
         'id': id,
         'from_account_id': fromAccountId,
@@ -35,7 +32,7 @@ class Transfer {
         'amount_cents': amountCents,
         'fee_cents': feeCents,
         'remark': remark,
-        'date': _epochDay,
+        'date': toEpochDay(date),
         'created_at': createdAt.millisecondsSinceEpoch,
       };
 
@@ -46,7 +43,7 @@ class Transfer {
         amountCents: map['amount_cents'] as int,
         feeCents: map['fee_cents'] as int? ?? 0,
         remark: map['remark'] as String? ?? '',
-        date: _epoch.add(Duration(days: map['date'] as int)),
+        date: fromEpochDay(map['date'] as int),
         createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
         fromAccountName: map['from_account_name'] as String?,
         toAccountName: map['to_account_name'] as String?,

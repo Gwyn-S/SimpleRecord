@@ -1,3 +1,5 @@
+import '../utils/formatters.dart';
+
 class Record {
   final String id;
   final String? ledgerId;
@@ -25,11 +27,6 @@ class Record {
     this.accountName,
   });
 
-  static final DateTime _epoch = DateTime.utc(1970);
-
-  int get _epochDay =>
-      DateTime.utc(date.year, date.month, date.day).difference(_epoch).inDays;
-
   Map<String, dynamic> toDbMap() => {
         'id': id,
         'book_id': ledgerId,
@@ -38,8 +35,7 @@ class Record {
         'category_name': categoryName,
         'amount_cents': amountCents,
         'remark': remark,
-        'tag': tag,
-        'date': _epochDay,
+        'date': toEpochDay(date),
         'created_at': createdAt.millisecondsSinceEpoch,
       };
 
@@ -52,7 +48,7 @@ class Record {
         amountCents: map['amount_cents'] as int,
         remark: map['remark'] as String? ?? '',
         tag: map['tag'] as String?,
-        date: _epoch.add(Duration(days: map['date'] as int)),
+        date: fromEpochDay(map['date'] as int),
         createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
         accountName: map['account_name'] as String?,
       );

@@ -2,14 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/transfer.dart';
+import '../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'database.dart';
 import '../utils/id.dart';
 
 final ValueNotifier<int> transfersVersion = ValueNotifier(0);
-
-int _epochDayOf(DateTime d) =>
-    DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
 
 Future<List<Transfer>> loadTransfersForAccount(String accountId) async {
   final db = await DatabaseHelper.instance.database;
@@ -45,7 +43,7 @@ Future<void> insertTransfer({
       'amount_cents': amountCents,
       'fee_cents': feeCents,
       'remark': remark,
-      'date': _epochDayOf(date ?? now),
+      'date': toEpochDay(date ?? now),
       'created_at': now.millisecondsSinceEpoch,
     });
     await _applyTransfer(txn, fromAccountId, toAccountId, amountCents, feeCents, 1);

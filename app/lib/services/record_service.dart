@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/record.dart';
+import '../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'database.dart';
 import 'settings.dart';
@@ -11,9 +12,6 @@ const _currentLedgerKey = 'currentBookId';
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
 final ValueNotifier<String?> currentLedgerId = ValueNotifier(null);
 final ValueNotifier<DateTime> currentMonth = ValueNotifier(DateTime(DateTime.now().year, DateTime.now().month));
-
-int _epochDayOf(DateTime d) =>
-    DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
 
 Future<void> loadCurrentLedgerId() async {
   currentLedgerId.value = await Settings.getString(_currentLedgerKey);
@@ -39,8 +37,8 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
     args.add(ledgerId);
   }
   if (month != null) {
-    final start = _epochDayOf(month);
-    final end = _epochDayOf(DateTime(month.year, month.month + 1));
+    final start = toEpochDay(month);
+    final end = toEpochDay(DateTime(month.year, month.month + 1));
     where.add('date >= ? AND date < ?');
     args.add(start);
     args.add(end);

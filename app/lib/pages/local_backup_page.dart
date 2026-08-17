@@ -6,6 +6,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/export_service.dart';
+import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
@@ -183,7 +184,7 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
                       return ListTile(
                         title: Text(name,
                             style: textBody),
-                        subtitle: Text(_fileSize(file.lengthSync()),
+                        subtitle: Text(formatFileSize(file.lengthSync()),
                             style: textItemSub),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -208,13 +209,5 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
         ],
       ),
     );
-  }
-
-  String _fileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
   }
 }

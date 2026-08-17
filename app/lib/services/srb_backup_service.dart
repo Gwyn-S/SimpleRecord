@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'database.dart';
 import 'export_service.dart';
@@ -21,7 +22,7 @@ Future<String> createSrbBackup({Directory? dir}) async {
   await DatabaseHelper.instance.vacuum();
   final now = DateTime.now();
   final stamp =
-      '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}${_two(now.second)}';
+      '${now.year}${pad2(now.month)}${pad2(now.day)}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}';
   final targetDir = dir ?? await backupDirectory();
   final metaBytes = utf8.encode(jsonEncode({
     'exportedAt': now.toIso8601String(),
@@ -161,5 +162,3 @@ Future<({String? metaJson, String? error})> _decryptSrbToDb(
     }
   });
 }
-
-String _two(int n) => n.toString().padLeft(2, '0');

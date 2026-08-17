@@ -49,7 +49,7 @@ class BillDetailSheet extends StatelessWidget {
             _detailRow('金额', '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}'),
             _detailRow('账户', record.accountName ?? '未选择'),
             _detailRow('日期', formatDate(record.date)),
-            _detailRow('录入时间', _formatDateTime(record.createdAt)),
+            _detailRow('录入时间', formatDateTime(record.createdAt)),
           ],
         ),
       ),
@@ -67,10 +67,5 @@ class BillDetailSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatDateTime(DateTime d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}:${two(d.second)}';
   }
 }
