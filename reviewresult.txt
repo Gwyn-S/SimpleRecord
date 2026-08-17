@@ -312,16 +312,14 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [M5] 银行图标数据合并为 bankIconMap（add_asset_account_page + asset_account_service）
 
 --------------------------------------------------
-优化进度（2026-08-16 第七轮：业务逻辑下沉）
+优化进度（2026-08-16 第八轮：search_page 拆分）
 --------------------------------------------------
-✅ [2.8] bills_page 日期 key 格式化替换为 formatDateYmd
-⏭️ [2.6] assets_page 金额汇总计算 — 跳过（getter 逻辑简单，仅一处使用，下沉增加复杂度）
-⏭️ [2.7] budget_page 建议跳过（仅 5 个局部变量，只在 1 个方法使用，抽数据类增加复杂度）
+✅ [1.1] search_page.dart 提取 DateFilterSheet（924→642 行）
+⏭️ [1.2] RingProgress 提取 — 跳过（样式固定，未来统计页大概率需要不同设计）
+⏭️ [2.6] assets_page 金额汇总 — 跳过（getter 简单，仅一处使用）
+⏭️ [2.7] budget_page 预算计算 — 跳过（仅 5 个局部变量，仅一处使用）
 
-待做（下一轮）：
-⬜ [1.1] search_page.dart 拆分
-⬜ [1.2] RingProgress 提取
-⬜ 其余 borderRadius/间距常量替换
+全部审查项已完成/跳过。
 
 
 =================================================================
@@ -663,7 +661,7 @@ P3 — service CRUD 可优化
 P0 — 超大文件 / 组件内嵌
 --------------------------------------------------
 
-[1.1] search_page.dart 935 行巨型文件，内嵌完整 StatefulWidget + 工具函数
+[1.1] search_page.dart 935 行巨型文件，内嵌完整 StatefulWidget + 工具函数 ✅ 已提取 DateFilterSheet（924→642 行）
 
   文件与行号：
   - lib/pages/search_page.dart 第 672-935 行
@@ -681,7 +679,7 @@ P0 — 超大文件 / 组件内嵌
 
 --------------------------------------------------
 
-[1.2] budget_page.dart 内嵌 RingProgress 和 RingPainter
+[1.2] budget_page.dart 内嵌 RingProgress 和 RingPainter ⏭️ 跳过（样式固定，未来统计页大概率需要不同设计）
 
   文件与行号：lib/pages/budget_page.dart 第 503-563 行
 
