@@ -267,6 +267,25 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ⬜ [2.6/2.7/2.8] 业务逻辑下沉
 ⬜ 其余 borderRadius/间距常量替换
 
+--------------------------------------------------
+优化进度（2026-08-16 第二轮：重复工具函数统一）
+--------------------------------------------------
+✅ [H1] epochDay → toEpochDay/fromEpochDay（record_service、transfer_service、record.dart、transfer.dart）
+✅ [H2] _two() → pad2（export_service、srb_backup_service）
+✅ [M1] _formatSelectedDate → formatSelectedDate（manual_entry_page、transfer_page）
+✅ [M7] _fileSize/_formatSize → formatFileSize（local_backup_page、webdav_page）
+✅ bill_detail_sheet _formatDateTime → formatDateTime
+
+待做（下一轮）：
+⬜ [H3] 账户图标降级抽公共 Widget
+⬜ [H4] AssetAccount.displayName getter
+⬜ [H5] 金额验证流程封装
+⬜ [M2-M6] 重复方法/Widget 抽取
+⬜ [1.1] search_page.dart 拆分
+⬜ [1.2] RingProgress 提取
+⬜ [2.6/2.7/2.8] 业务逻辑下沉
+⬜ 其余 borderRadius/间距常量替换
+
 
 =================================================================
 维度一：冗余代码（重复逻辑）
@@ -276,7 +295,7 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 P0 — 重复的核心逻辑
 --------------------------------------------------
 
-[H1] _epochDay / _epochDayOf 日期转换逻辑重复 4 处
+[H1] _epochDay / _epochDayOf 日期转换逻辑重复 4 处 ✅ 已统一到 toEpochDay/fromEpochDay
 
   文件与行号：
   - lib/services/record_service.dart 第 15-16 行
@@ -295,7 +314,7 @@ P0 — 重复的核心逻辑
 
 --------------------------------------------------
 
-[H2] _two(int n) 补零工具函数重复 2 处 + 2 处内联
+[H2] _two(int n) 补零工具函数重复 2 处 + 2 处内联 ✅ 已统一到 pad2
 
   文件与行号：
   - lib/services/export_service.dart 第 25 行
@@ -368,7 +387,7 @@ P0 — 重复的核心逻辑
 P1 — 重复的 Widget / 方法
 --------------------------------------------------
 
-[M1] _formatSelectedDate() 方法重复
+[M1] _formatSelectedDate() 方法重复 ✅ 已统一到 formatSelectedDate
 
   文件与行号：
   - lib/pages/manual_entry_page.dart 第 323-329 行
@@ -456,7 +475,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M7] _fileSize / _formatSize 文件大小格式化重复
+[M7] _fileSize / _formatSize 文件大小格式化重复 ✅ 已统一到 formatFileSize
 
   文件与行号：
   - lib/pages/local_backup_page.dart 第 213-219 行（_fileSize）
@@ -782,7 +801,7 @@ P1 — 业务逻辑混入 UI
 P1 — 工具函数位置不当
 --------------------------------------------------
 
-[2.1] _formatDateTime 在 widget 文件中
+[2.1] _formatDateTime 在 widget 文件中 ✅ 已统一到 formatDateTime
 
   文件与行号：lib/widgets/bill_detail_sheet.dart 第 72-75 行
 
@@ -793,7 +812,7 @@ P1 — 工具函数位置不当
 
 --------------------------------------------------
 
-[2.2] _fileSize 在 page 文件中
+[2.2] _fileSize 在 page 文件中 ✅ 已统一到 formatFileSize
 
   文件与行号：lib/pages/local_backup_page.dart 第 213-219 行
 
@@ -819,7 +838,7 @@ P1 — 工具函数位置不当
 
 --------------------------------------------------
 
-[2.4] _formatSelectedDate 重复（同维度一 M1）
+[2.4] _formatSelectedDate 重复（同维度一 M1） ✅ 已统一到 formatSelectedDate
 
 --------------------------------------------------
 
