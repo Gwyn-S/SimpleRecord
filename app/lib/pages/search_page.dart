@@ -226,7 +226,7 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ),
           Container(
-            color: const Color(0xFFFAFAFA),
+            color: colorBackgroundSummary,
             padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -332,10 +332,7 @@ class _SearchPageState extends State<SearchPage> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 14,
-            color: colorTextOnPrimary,
-          ),
+          style: textPagerButton,
         ),
       ),
     );
@@ -502,7 +499,7 @@ class _SearchPageState extends State<SearchPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: spacingM, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2F2F2),
+                        color: colorBackgroundInput,
                         borderRadius: BorderRadius.circular(radiusSmall),
                       ),
                       child: const Text(
@@ -564,7 +561,7 @@ class _SearchPageState extends State<SearchPage> {
             height: 36,
             padding: const EdgeInsets.symmetric(horizontal: spacingS),
             decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F2),
+              color: colorBackgroundInput,
               borderRadius: BorderRadius.circular(radiusMedium),
             ),
             child: TextField(
@@ -720,7 +717,7 @@ class _DateFilterSheetState extends State<_DateFilterSheet> {
               children: [
                 _actionButton(
                   '不限',
-                  const Color(0xFFF2F2F2),
+                  colorBackgroundInput,
                   colorTextPrimary,
                   () => Navigator.pop(context, (null, null)),
                 ),
@@ -777,7 +774,7 @@ class _DateFilterSheetState extends State<_DateFilterSheet> {
         height: 36,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? themeColor : const Color(0xFFF2F2F2),
+          color: selected ? themeColor : colorBackgroundInput,
           borderRadius: BorderRadius.circular(radiusSmall),
         ),
         child: Text(
@@ -830,7 +827,7 @@ class _DateFilterSheetState extends State<_DateFilterSheet> {
         height: 36,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F2),
+          color: colorBackgroundInput,
           borderRadius: BorderRadius.circular(radiusMedium),
         ),
         child: Text(

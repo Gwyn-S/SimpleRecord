@@ -98,7 +98,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: spacingS),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF2F2F2),
+                    color: colorBackgroundInput,
                     borderRadius: BorderRadius.circular(radiusMedium),
                   ),
                   child: Row(
@@ -190,7 +190,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? themeColor : const Color(0xFFF2F2F2),
+          color: selected ? themeColor : colorBackgroundInput,
           borderRadius: BorderRadius.circular(radiusSmall),
         ),
         child: Text(

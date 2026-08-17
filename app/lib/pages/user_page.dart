@@ -114,17 +114,10 @@ class UserPage extends StatelessWidget {
                   child: Container(
                     width: sizeIconContainer,
                     height: sizeIconContainer,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [
-                          Color(0xFFF44336),
-                          Color(0xFFFF9800),
-                          Color(0xFFFFEB3B),
-                          Color(0xFF4CAF50),
-                          Color(0xFF2196F3),
-                          Color(0xFF9C27B0),
-                        ],
+                        colors: rainbowGradientColors,
                       ),
                     ),
                     child: currentColor != themeColorPalette.first && !themeColorPalette.contains(currentColor)
