@@ -27,3 +27,36 @@ String formatDateYmd(DateTime d) {
 String formatMonthLabel(DateTime d) {
   return '${d.year}-${d.month.toString().padLeft(2, '0')}';
 }
+
+/// 两位补零。
+String pad2(int n) => n.toString().padLeft(2, '0');
+
+/// DateTime → epoch day（用于 SQLite 整型日期存储）。
+int toEpochDay(DateTime d) =>
+    DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1970)).inDays;
+
+/// epoch day → DateTime（toEpochDay 的逆运算）。
+DateTime fromEpochDay(int day) => DateTime.utc(1970).add(Duration(days: day));
+
+/// 日期选择器显示："今天" 或 "M月D日"。
+String formatSelectedDate(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final selected = DateTime(d.year, d.month, d.day);
+  if (selected == today) return '今天';
+  return '${d.month}月${d.day}日';
+}
+
+/// 文件大小格式化：B / KB / MB。
+String formatFileSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+}
+
+/// 日期时间格式化：yyyy-MM-dd HH:mm:ss。
+String formatDateTime(DateTime d) {
+  return '${d.year}-${pad2(d.month)}-${pad2(d.day)} ${pad2(d.hour)}:${pad2(d.minute)}:${pad2(d.second)}';
+}
