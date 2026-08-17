@@ -286,6 +286,21 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ⬜ [2.6/2.7/2.8] 业务逻辑下沉
 ⬜ 其余 borderRadius/间距常量替换
 
+--------------------------------------------------
+优化进度（2026-08-16 第三轮：公共 Widget + Model Getter）
+--------------------------------------------------
+✅ [H3] AccountAvatar 公共 Widget（assets_page、asset_detail_page、transfer_page、search_page）
+✅ [H4] AssetAccount.displayName getter（assets_page、asset_detail_page、search_page）
+   account_picker_sheet 保持不动（圆形容器+colorFilter 染色，用法不同）
+
+待做（下一轮）：
+⬜ [H5] 金额验证流程封装
+⬜ [M2-M6] 重复方法/Widget 抽取
+⬜ [1.1] search_page.dart 拆分
+⬜ [1.2] RingProgress 提取
+⬜ [2.6/2.7/2.8] 业务逻辑下沉
+⬜ 其余 borderRadius/间距常量替换
+
 
 =================================================================
 维度一：冗余代码（重复逻辑）
@@ -331,7 +346,7 @@ P0 — 重复的核心逻辑
 
 --------------------------------------------------
 
-[H3] 账户图标 SVG/Icon 降级 Widget 逻辑重复 5 处
+[H3] 账户图标 SVG/Icon 降级 Widget 逻辑重复 5 处 ✅ 已抽取为 AccountAvatar（4处替换，account_picker_sheet 保持）
 
   文件与行号：
   - lib/pages/assets_page.dart 第 228-257 行（_buildAccountRow）
@@ -351,7 +366,7 @@ P0 — 重复的核心逻辑
 
 --------------------------------------------------
 
-[H4] 账户显示名（含卡号后四位）格式化重复 4 处
+[H4] 账户显示名（含卡号后四位）格式化重复 4 处 ✅ 已统一到 AssetAccount.displayName
 
   文件与行号：
   - lib/pages/assets_page.dart 第 264-266 行
