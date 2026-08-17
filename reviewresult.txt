@@ -314,8 +314,8 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 --------------------------------------------------
 优化进度（2026-08-16 第七轮：业务逻辑下沉）
 --------------------------------------------------
-✅ [2.6] assets_page 业务逻辑下沉为 AssetSummary + computeSummary
 ✅ [2.8] bills_page 日期 key 格式化替换为 formatDateYmd
+⏭️ [2.6] assets_page 金额汇总计算 — 跳过（getter 逻辑简单，仅一处使用，下沉增加复杂度）
 ⏭️ [2.7] budget_page 建议跳过（仅 5 个局部变量，只在 1 个方法使用，抽数据类增加复杂度）
 
 待做（下一轮）：
@@ -799,7 +799,7 @@ P0 — 样式/常量分散
 P1 — 业务逻辑混入 UI
 --------------------------------------------------
 
-[2.6] assets_page.dart 在 State 中做金额汇总计算 ✅ 已下沉为 AssetSummary + computeSummary
+[2.6] assets_page.dart 在 State 中做金额汇总计算 ⏭️ 跳过（getter 逻辑简单，仅一处使用，下沉增加复杂度）
 
   文件与行号：lib/pages/assets_page.dart 第 54-77 行
 
