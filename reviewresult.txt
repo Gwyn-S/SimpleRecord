@@ -78,7 +78,7 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 
 
 =================================================
-待修（⬜，按优先级）
+待修（⬜，按优先级）→ 全部完成/跳过
 =================================================
 
 （当前待修项已清零）
@@ -255,17 +255,13 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [1.7] BorderRadius.circular(4) → radiusXS（asset_account_form_page、asset_detail_page）
 ✅ [H1] app_dimensions.dart 新增 radiusXS = 4
 
-待做（下一轮）：
-⬜ [H1] epochDay 统一到公共函数
-⬜ [H2] _two() 补零统一到 formatters.dart
-⬜ [H3] 账户图标降级抽公共 Widget
-⬜ [H4] AssetAccount.displayName getter
-⬜ [H5] 金额验证流程封装
-⬜ [M1-M7] 重复方法/Widget 抽取
-⬜ [1.1] search_page.dart 拆分
-⬜ [1.2] RingProgress 提取
-⬜ [2.6/2.7/2.8] 业务逻辑下沉
-⬜ 其余 borderRadius/间距常量替换
+全部审查项已完成/跳过：
+✅ [H1-H5] 高优先级重复消除
+✅ [M1-M7] 中优先级重复抽取
+✅ [1.1] search_page.dart 拆分
+⏭️ [1.2] RingProgress 提取（样式固定）
+⏭️ [2.6/2.7/2.8] 业务逻辑下沉（过度工程化）
+⏭️ 其余 borderRadius/间距常量替换（剩余零散，非必要）
 
 --------------------------------------------------
 优化进度（2026-08-16 第二轮：重复工具函数统一）
@@ -276,15 +272,11 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [M7] _fileSize/_formatSize → formatFileSize（local_backup_page、webdav_page）
 ✅ bill_detail_sheet _formatDateTime → formatDateTime
 
-待做（下一轮）：
-⬜ [H3] 账户图标降级抽公共 Widget
-⬜ [H4] AssetAccount.displayName getter
-⬜ [H5] 金额验证流程封装
-⬜ [M2-M6] 重复方法/Widget 抽取
-⬜ [1.1] search_page.dart 拆分
-⬜ [1.2] RingProgress 提取
-⬜ [2.6/2.7/2.8] 业务逻辑下沉
-⬜ 其余 borderRadius/间距常量替换
+全部审查项已完成/跳过：
+✅ [H3-H5] 账户图标/显示名/金额验证
+✅ [M2-M6] OptionBarItem/safeShowToast/weekday/categoryColor/bankIconMap
+✅ [1.1] search_page.dart 拆分
+⏭️ [1.2/2.6/2.7/2.8] 跳过（过度工程化或样式固定）
 
 --------------------------------------------------
 优化进度（2026-08-16 第三轮：公共 Widget + Model Getter）
