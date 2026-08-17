@@ -48,6 +48,8 @@ class AssetAccount {
 
   bool get isDebtAccount => _debtCategoryNames.contains(categoryName);
 
+  String get displayName => cardLast4.isNotEmpty ? '$name($cardLast4)' : name;
+
   Map<String, dynamic> toDbMap() => {
         'id': id,
         'category_name': categoryName,

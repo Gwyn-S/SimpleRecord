@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -7,6 +6,7 @@ import '../services/theme_service.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/account_avatar.dart';
 import '../widgets/summary_block.dart';
 import 'asset_detail_page.dart';
 import 'user_page.dart';
@@ -225,9 +225,6 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   Widget _buildAccountRow(AssetAccount account, Color color) {
-    final iconPath = account.iconPath.isNotEmpty
-        ? account.iconPath
-        : account.category?.iconPath ?? '';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.push(
@@ -243,27 +240,14 @@ class _AssetsPageState extends State<AssetsPage> {
         ),
         child: Row(
           children: [
-            iconPath.isNotEmpty
-                ? SvgPicture.asset(
-                    iconPath,
-                    width: iconSizeDefault,
-                    height: iconSizeDefault,
-                    fit: BoxFit.contain,
-                  )
-                : Icon(
-                    account.category?.icon ?? Icons.account_balance_wallet,
-                    size: iconSizeDefault,
-                    color: color,
-                  ),
+            AccountAvatar(account: account, size: iconSizeDefault, color: color),
             const SizedBox(width: spacingM),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    account.cardLast4.isNotEmpty
-                        ? '${account.name}(${account.cardLast4})'
-                        : account.name,
+                    account.displayName,
                     style: textListItem,
                   ),
                   if (account.remark.isNotEmpty) ...[

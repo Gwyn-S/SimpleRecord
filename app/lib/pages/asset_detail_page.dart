@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -9,6 +8,7 @@ import '../services/theme_service.dart';
 import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/account_avatar.dart';
 import 'asset_account_form_page.dart';
 import 'asset_trend_page.dart';
 import 'search_page.dart';
@@ -56,7 +56,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     for (final t in transfers) {
       String label(AssetAccount? a, String? fallback) {
         if (a == null) return fallback ?? '';
-        return a.cardLast4.isNotEmpty ? '${a.name}(${a.cardLast4})' : a.name;
+        return a.displayName;
       }
 
       final isIn = t.toAccountId == account.id;
@@ -230,9 +230,6 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   }
 
   Widget _buildAccountCard(Color themeColor) {
-    final iconPath = account.iconPath.isNotEmpty
-        ? account.iconPath
-        : account.category?.iconPath ?? '';
     return Container(
       padding: const EdgeInsets.all(spacingL),
       decoration: BoxDecoration(
@@ -245,9 +242,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           Row(
             children: [
               Text(
-                account.cardLast4.isNotEmpty
-                    ? '${account.name}(${account.cardLast4})'
-                    : account.name,
+                account.displayName,
                 style: textListItem.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: spacingXS),
@@ -263,18 +258,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 ),
               ),
               const Spacer(),
-              iconPath.isNotEmpty
-                  ? SvgPicture.asset(
-                      iconPath,
-                      width: iconSizeLarge,
-                      height: iconSizeLarge,
-                      fit: BoxFit.contain,
-                    )
-                  : Icon(
-                      account.category?.icon ?? Icons.account_balance_wallet,
-                      size: iconSizeLarge,
-                      color: themeColor,
-                    ),
+              AccountAvatar(account: account, size: iconSizeLarge, color: themeColor),
             ],
           ),
           const SizedBox(height: spacingM),

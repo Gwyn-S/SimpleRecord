@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -11,6 +10,7 @@ import '../services/record_service.dart';
 import '../services/theme_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
+import '../widgets/account_avatar.dart';
 import '../utils/navigation.dart';
 import '../utils/toast.dart';
 import '../widgets/date_picker_sheet.dart';
@@ -366,20 +366,12 @@ class _SearchPageState extends State<SearchPage> {
                   SizedBox(
                     width: 20,
                     height: 20,
-                    child: a.iconPath.isNotEmpty
-                        ? SvgPicture.asset(a.iconPath, fit: BoxFit.contain)
-                        : Icon(
-                            a.category?.icon ?? Icons.account_balance_wallet,
-                            size: 18,
-                            color: colorTextSecondary,
-                          ),
+                    child: AccountAvatar(account: a, size: 18, color: colorTextSecondary),
                   ),
                   const SizedBox(width: spacingS),
                   Expanded(
                     child: Text(
-                      a.cardLast4.isNotEmpty
-                          ? '${a.name}(${a.cardLast4})'
-                          : a.name,
+                      a.displayName,
                       style: textBody,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
