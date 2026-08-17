@@ -311,10 +311,16 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [M4] 颜色列表抽取到 AssetAccountCategory.color（assets_page + add_asset_account_page）
 ✅ [M5] 银行图标数据合并为 bankIconMap（add_asset_account_page + asset_account_service）
 
+--------------------------------------------------
+优化进度（2026-08-16 第七轮：业务逻辑下沉）
+--------------------------------------------------
+✅ [2.6] assets_page 业务逻辑下沉为 AssetSummary + computeSummary
+✅ [2.8] bills_page 日期 key 格式化替换为 formatDateYmd
+⏭️ [2.7] budget_page 建议跳过（仅 5 个局部变量，只在 1 个方法使用，抽数据类增加复杂度）
+
 待做（下一轮）：
 ⬜ [1.1] search_page.dart 拆分
 ⬜ [1.2] RingProgress 提取
-⬜ [2.6/2.7/2.8] 业务逻辑下沉
 ⬜ 其余 borderRadius/间距常量替换
 
 
@@ -793,7 +799,7 @@ P0 — 样式/常量分散
 P1 — 业务逻辑混入 UI
 --------------------------------------------------
 
-[2.6] assets_page.dart 在 State 中做金额汇总计算
+[2.6] assets_page.dart 在 State 中做金额汇总计算 ✅ 已下沉为 AssetSummary + computeSummary
 
   文件与行号：lib/pages/assets_page.dart 第 54-77 行
 
@@ -817,7 +823,7 @@ P1 — 业务逻辑混入 UI
 
 --------------------------------------------------
 
-[2.8] bills_page.dart build 中做日期格式化 key
+[2.8] bills_page.dart build 中做日期格式化 key ✅ 已替换为 formatDateYmd
 
   文件与行号：lib/pages/bills_page.dart 第 73-75 行（_onRecordsChanged 中）
 
