@@ -19,17 +19,6 @@ class AssetsPage extends StatefulWidget {
 }
 
 class _AssetsPageState extends State<AssetsPage> {
-  static const _categoryColors = [
-    colorAssetCash,
-    colorAssetSavingsCard,
-    colorAssetCreditCard,
-    colorAssetOnlinePay,
-    colorAssetInvestment,
-    colorAssetDebt,
-    colorAssetBond,
-    colorAssetCustom,
-  ];
-
   List<AssetAccount> _accounts = [];
 
   @override
@@ -70,10 +59,8 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   Color _categoryColor(String categoryName) {
-    final idx = assetAccountCategories.indexWhere(
-      (c) => c.name == categoryName,
-    );
-    return idx >= 0 ? _categoryColors[idx] : colorAssetCustom;
+    final cat = assetAccountCategories.where((c) => c.name == categoryName);
+    return cat.isNotEmpty ? cat.first.color : colorAssetCustom;
   }
 
   @override

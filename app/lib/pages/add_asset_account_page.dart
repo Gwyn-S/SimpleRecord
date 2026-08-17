@@ -16,29 +16,6 @@ class AddAssetAccountPage extends StatefulWidget {
 }
 
 class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
-  static const _categoryColors = [
-    colorAssetCash,
-    colorAssetOnlinePay,
-    colorAssetSavingsCard,
-    colorAssetCreditCard,
-    colorAssetInvestment,
-    colorAssetDebt,
-    colorAssetBond,
-    colorAssetCustom,
-  ];
-
-  static const _banks = <(String, String)>[
-    ('工商银行', 'assets/icons/icbc.svg'),
-    ('建设银行', 'assets/icons/ccb.svg'),
-    ('农业银行', 'assets/icons/abc.svg'),
-    ('中国银行', 'assets/icons/boc.svg'),
-    ('招商银行', 'assets/icons/cmb.svg'),
-    ('交通银行', 'assets/icons/comm_bank.svg'),
-    ('中信银行', 'assets/icons/citic.svg'),
-    ('浦发银行', 'assets/icons/spdb.svg'),
-    ('广发银行', 'assets/icons/cgb.svg'),
-  ];
-
   Widget _buildEntry(int index) {
     switch (index) {
       case 0:
@@ -56,8 +33,8 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
           nameLabel: '所在银行',
           showCardField: true,
           options: [
-            for (final (name, iconPath) in _banks)
-              AssetCategoryOption(name: name, iconPath: iconPath),
+            for (final e in bankIconMap.entries)
+              AssetCategoryOption(name: e.key, iconPath: e.value),
             const AssetCategoryOption(
               name: '其他银行',
               iconPath: 'assets/icons/savings_card.svg',
@@ -79,8 +56,8 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
               name: '京东白条',
               iconPath: 'assets/icons/jd_baitiao.svg',
             ),
-            for (final (name, iconPath) in _banks)
-              AssetCategoryOption(name: name, iconPath: iconPath),
+            for (final e in bankIconMap.entries)
+              AssetCategoryOption(name: e.key, iconPath: e.value),
             const AssetCategoryOption(
               name: '其他银行',
               iconPath: 'assets/icons/credit_card.svg',
@@ -190,7 +167,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
         separatorBuilder: (_, _) => Container(height: 1, color: colorDivider),
         itemBuilder: (context, index) {
           final cat = assetAccountCategories[index];
-          final color = _categoryColors[index % _categoryColors.length];
+          final color = cat.color;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.push(
