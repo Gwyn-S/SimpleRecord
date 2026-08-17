@@ -305,9 +305,13 @@ Lint 零告警、mounted/_loadSeq 防护成对、数据库事务正确、
 ✅ [M3] _showMessage 统一为 safeShowToast（toast.dart 新增，manual_entry_page + transfer_page）
 ✅ [M6] Weekday 标签统一（formatters.dart 新增 weekdaysShort/weekdaysFull，date_picker_sheet + calendar_page）
 
+--------------------------------------------------
+优化进度（2026-08-16 第六轮：Model 字段 + 银行数据合并）
+--------------------------------------------------
+✅ [M4] 颜色列表抽取到 AssetAccountCategory.color（assets_page + add_asset_account_page）
+✅ [M5] 银行图标数据合并为 bankIconMap（add_asset_account_page + asset_account_service）
+
 待做（下一轮）：
-⬜ [M4] 颜色列表抽取到 model
-⬜ [M5] 银行列表数据合并
 ⬜ [1.1] search_page.dart 拆分
 ⬜ [1.2] RingProgress 提取
 ⬜ [2.6/2.7/2.8] 业务逻辑下沉
@@ -455,7 +459,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M4] _categoryColors 列表重复且顺序不一致
+[M4] _categoryColors 列表重复且顺序不一致 ✅ 已抽取到 AssetAccountCategory.color
 
   文件与行号：
   - lib/pages/assets_page.dart 第 22-31 行：
@@ -473,7 +477,7 @@ P1 — 重复的 Widget / 方法
 
 --------------------------------------------------
 
-[M5] 银行列表数据重复（_banks vs _iconByTypeName）
+[M5] 银行列表数据重复（_banks vs _iconByTypeName） ✅ 已合并为 bankIconMap
 
   文件与行号：
   - lib/pages/add_asset_account_page.dart 第 30-40 行（_banks 列表）
