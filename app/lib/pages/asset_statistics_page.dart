@@ -229,20 +229,9 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     }
     return _CardContainer(
       title: title,
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: SizedBox(
-              height: 160,
-              child: _AssetPieChart(data: data, total: total),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: _PieLegend(data: data, total: total),
-          ),
-        ],
+      child: SizedBox(
+        height: 220,
+        child: _AssetPieChart(data: data, total: total),
       ),
     );
   }
@@ -495,79 +484,142 @@ class _AssetPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PieChart(
-      PieChartData(
-        sectionsSpace: 1,
-        centerSpaceRadius: 32,
-        sections: data.map((item) {
-          final pct = total > 0 ? item.amount / total * 100 : 0.0;
-          return PieChartSectionData(
-            value: item.amount.toDouble(),
-            color: item.color,
-            title: '${pct.toStringAsFixed(1)}%',
-            titleStyle: textChartLabel.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorTextOnPrimary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final centerX = w / 2;
+        final centerY = h / 2;
+        final radius = h * 0.38;
+
+        return Stack(
+          children: [
+            PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: radius * 0.65,
+                sections: data.map((item) {
+                  return PieChartSectionData(
+                    value: item.amount.toDouble(),
+                    color: item.color,
+                    title: '',
+                    radius: radius,
+                  );
+                }).toList(),
+                pieTouchData: PieTouchData(
+                  touchCallback: (FlTouchEvent event, pieTouchResponse) {},
+                ),
+              ),
             ),
-            radius: 60,
-          );
-        }).toList(),
-        pieTouchData: PieTouchData(
-          touchCallback: (FlTouchEvent event, pieTouchResponse) {},
-        ),
-      ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _PieLeaderPainter(
+                  data: data,
+                  total: total,
+                  center: Offset(centerX, centerY),
+                  radius: radius,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-/// 饼图右侧图例
-class _PieLegend extends StatelessWidget {
+class _PieLeaderPainter extends CustomPainter {
   final List<_CategorySummary> data;
   final int total;
+  final Offset center;
+  final double radius;
 
-  const _PieLegend({required this.data, required this.total});
+  _PieLeaderPainter({
+    required this.data,
+    required this.total,
+    required this.center,
+    required this.radius,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: spacingS),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: data.map((item) {
-          final pct = total > 0 ? item.amount / total * 100 : 0.0;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: item.color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: spacingXXS),
-                Expanded(
-                  child: Text(
-                    item.name,
-                    style: textChartLabel,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${pct.toStringAsFixed(1)}%',
-                  style: textChartLabel.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty || total == 0) return;
+
+    double startAngle = -pi / 2;
+    final extendLength = 15.0;
+
+    for (final item in data) {
+      final sweepAngle = (item.amount / total) * 2 * pi;
+      final midAngle = startAngle + sweepAngle / 2;
+
+      // 引线起点（色块圆弧中点）
+      final startX = center.dx + radius * cos(midAngle);
+      final startY = center.dy + radius * sin(midAngle);
+
+      // 斜线终点（沿径向向外延伸）
+      final breakX = center.dx + (radius + extendLength) * cos(midAngle);
+      final breakY = center.dy + (radius + extendLength) * sin(midAngle);
+
+      // 水平线方向（向左或向右）
+      final isRight = breakX > center.dx;
+      final endX = isRight ? breakX + 50 : breakX - 50;
+
+      // 绘制引线
+      final linePaint = Paint()
+        ..color = colorDivider
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke;
+
+      // 斜线（从圆弧沿径向向外）
+      canvas.drawLine(
+        Offset(startX, startY),
+        Offset(breakX, breakY),
+        linePaint,
+      );
+
+      // 水平线
+      canvas.drawLine(
+        Offset(breakX, breakY),
+        Offset(endX, breakY),
+        linePaint,
+      );
+
+      // 绘制文字
+      final pct = (item.amount / total * 100).toStringAsFixed(1);
+      final textPainter = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: item.name,
+              style: TextStyle(
+                fontSize: 10,
+                color: colorTextPrimary,
+              ),
             ),
-          );
-        }).toList(),
-      ),
-    );
+            TextSpan(
+              text: ' $pct%',
+              style: TextStyle(
+                fontSize: 10,
+                color: colorTextSecondary,
+              ),
+            ),
+          ],
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(isRight ? endX + 4 : endX - textPainter.width - 4, breakY - textPainter.height / 2),
+      );
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PieLeaderPainter oldDelegate) {
+    return oldDelegate.total != total || oldDelegate.data != data;
   }
 }
 
