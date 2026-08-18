@@ -24,6 +24,12 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
   int _selectedType = 0; // 0=资产, 1=负债, 2=净资产
   int _selectedYear = DateTime.now().year; // 选中的年份
 
+  // 预算缓存，避免 build 时重复计算
+  List<AssetAccount> _filteredAccounts = [];
+  List<_CategorySummary> _filteredByCategory = [];
+  List<AssetAccount> _filteredRanking = [];
+  int _filteredTotal = 0;
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +46,38 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
   Future<void> _loadAccounts() async {
     final accounts = await loadAssetAccounts();
     if (!mounted) return;
-    setState(() => _accounts = accounts);
+    _accounts = accounts;
+    _recompute();
+    setState(() {});
+  }
+
+  void _recompute() {
+    switch (_selectedType) {
+      case 0:
+        _filteredAccounts = _accounts.where((a) => !a.isDebtAccount).toList();
+      case 1:
+        _filteredAccounts = _accounts.where((a) => a.isDebtAccount).toList();
+      default:
+        _filteredAccounts = _accounts;
+    }
+
+    final map = <String, int>{};
+    for (final a in _filteredAccounts) {
+      map[a.categoryName] = (map[a.categoryName] ?? 0) + a.balanceCents;
+    }
+    _filteredByCategory = map.entries
+        .map((e) => _CategorySummary(
+              name: e.key,
+              amount: e.value.abs(),
+              color: categoryColorByName(e.key),
+            ))
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+
+    _filteredRanking = List<AssetAccount>.from(_filteredAccounts)
+      ..sort((a, b) => b.balanceCents.abs().compareTo(a.balanceCents.abs()));
+
+    _filteredTotal = _filteredAccounts.fold(0, (s, a) => s + a.balanceCents.abs());
   }
 
   @override
@@ -78,52 +115,6 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     );
   }
 
-  // ======================== 过滤后的数据 ========================
-
-  /// 根据选中类型过滤后的账户列表
-  List<AssetAccount> get _filteredAccounts {
-    switch (_selectedType) {
-      case 0: // 资产
-        return _accounts.where((a) => !a.isDebtAccount).toList();
-      case 1: // 负债
-        return _accounts.where((a) => a.isDebtAccount).toList();
-      default: // 净资产 - 全部
-        return _accounts;
-    }
-  }
-
-  /// 是否有数据
-  bool get _hasData => _filteredAccounts.isNotEmpty;
-
-  /// 根据选中类型过滤后的饼图数据
-  List<_CategorySummary> get _filteredByCategory {
-    final map = <String, int>{};
-    for (final a in _filteredAccounts) {
-      map[a.categoryName] = (map[a.categoryName] ?? 0) + a.balanceCents;
-    }
-    final list = map.entries
-        .map((e) => _CategorySummary(
-              name: e.key,
-              amount: e.value.abs(),
-              color: categoryColorByName(e.key),
-            ))
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
-    return list;
-  }
-
-  /// 根据选中类型过滤后的排行榜
-  List<AssetAccount> get _filteredRanking {
-    final sorted = List<AssetAccount>.from(_filteredAccounts)
-      ..sort((a, b) => b.balanceCents.abs().compareTo(a.balanceCents.abs()));
-    return sorted;
-  }
-
-  /// 根据选中类型过滤后的总金额
-  int get _filteredTotal {
-    return _filteredAccounts.fold(0, (s, a) => s + a.balanceCents.abs());
-  }
-
   // ======================== 顶部概览：资产 / 负债 / 净资产 ========================
 
   Widget _buildSummarySection() {
@@ -148,7 +139,13 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final isSelected = _selectedType == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedType = index),
+        onTap: () {
+          if (_selectedType == index) return;
+          setState(() {
+            _selectedType = index;
+            _recompute();
+          });
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           color: isSelected ? themeColor : Colors.transparent,
@@ -204,7 +201,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
             : _TrendLineChart(
                 accounts: _filteredAccounts,
                 themeColor: themeColor,
-                showFlatZero: !_hasData,
+                showFlatZero: _filteredAccounts.isEmpty,
               ),
       ),
     );

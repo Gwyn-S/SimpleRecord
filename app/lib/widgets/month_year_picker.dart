@@ -22,6 +22,59 @@ Future<DateTime?> showYearPicker(BuildContext context, DateTime initial, {int? m
   );
 }
 
+Widget _buildCancelConfirmBar(
+  BuildContext context, {
+  required VoidCallback onCancel,
+  required VoidCallback onConfirm,
+}) {
+  final primary = Theme.of(context).extension<AppThemeColors>()!.primary;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: spacingS),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        GestureDetector(
+          onTap: onCancel,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(spacingM),
+            child: Text(
+              '取消',
+              style: TextStyle(fontSize: 16, color: colorTextSecondary),
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: onConfirm,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(spacingM),
+            child: Text(
+              '确认',
+              style: TextStyle(fontSize: 16, color: primary),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildSelectionIndicator(Color primary) {
+  return IgnorePointer(
+    child: Container(
+      width: double.infinity,
+      height: 38,
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: primary, width: 1),
+          bottom: BorderSide(color: primary, width: 1),
+        ),
+      ),
+    ),
+  );
+}
+
 class _YearPickerSheet extends StatefulWidget {
   const _YearPickerSheet({required this.initial, this.maxYear});
 
@@ -66,35 +119,10 @@ class _YearPickerSheetState extends State<_YearPickerSheet> {
         height: 200,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingS),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(spacingM),
-                      child: Text(
-                        '取消',
-                        style: TextStyle(fontSize: 16, color: colorTextSecondary),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _confirm,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(spacingM),
-                      child: Text(
-                        '确认',
-                        style: TextStyle(fontSize: 16, color: primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _buildCancelConfirmBar(
+              context,
+              onCancel: () => Navigator.pop(context),
+              onConfirm: _confirm,
             ),
             const Divider(height: 1, color: colorDivider),
             Expanded(
@@ -118,18 +146,7 @@ class _YearPickerSheetState extends State<_YearPickerSheet> {
                       ),
                     ),
                   ),
-                  IgnorePointer(
-                    child: Container(
-                      width: double.infinity,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: primary, width: 1),
-                          bottom: BorderSide(color: primary, width: 1),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildSelectionIndicator(primary),
                 ],
               ),
             ),
@@ -188,35 +205,10 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
         height: 200,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingS),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(spacingM),
-                      child: Text(
-                        '取消',
-                        style: TextStyle(fontSize: 16, color: colorTextSecondary),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _confirm,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(spacingM),
-                      child: Text(
-                        '确认',
-                        style: TextStyle(fontSize: 16, color: primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _buildCancelConfirmBar(
+              context,
+              onCancel: () => Navigator.pop(context),
+              onConfirm: _confirm,
             ),
             const Divider(height: 1, color: colorDivider),
             Expanded(
@@ -242,18 +234,7 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
                       ),
                     ],
                   ),
-                  IgnorePointer(
-                    child: Container(
-                      width: double.infinity,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: primary, width: 1),
-                          bottom: BorderSide(color: primary, width: 1),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildSelectionIndicator(primary),
                 ],
               ),
             ),
