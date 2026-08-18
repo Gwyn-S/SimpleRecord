@@ -59,11 +59,6 @@ class _AssetsPageState extends State<AssetsPage> {
     return map;
   }
 
-  Color _categoryColor(String categoryName) {
-    final cat = assetAccountCategories.where((c) => c.name == categoryName);
-    return cat.isNotEmpty ? cat.first.color : colorAssetCustom;
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
@@ -181,7 +176,7 @@ class _AssetsPageState extends State<AssetsPage> {
         final entry = grouped.entries.elementAt(index);
         final catName = entry.key;
         final accounts = entry.value;
-        final color = _categoryColor(catName);
+        final color = categoryColorByName(catName);
         final total = accounts.fold(0, (s, a) => s + a.balanceCents);
         return Container(
           margin: const EdgeInsets.only(bottom: spacingM),

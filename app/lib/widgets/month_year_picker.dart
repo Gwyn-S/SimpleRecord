@@ -33,7 +33,7 @@ class _YearPickerSheet extends StatefulWidget {
 }
 
 class _YearPickerSheetState extends State<_YearPickerSheet> {
-  static const int _minYear = 1900;
+  static const int _minYear = 2000;
   late final int _maxYear;
   late int _year;
   late final FixedExtentScrollController _yearController;
@@ -150,7 +150,7 @@ class _MonthYearPickerSheet extends StatefulWidget {
 }
 
 class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
-  static const int _minYear = 1900;
+  static const int _minYear = 2000;
   static const int _maxYear = 2100;
 
   late int _year;

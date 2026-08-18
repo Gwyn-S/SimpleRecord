@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -9,6 +8,7 @@ import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/account_avatar.dart';
 import '../widgets/month_year_picker.dart';
 
 /// 资产统计页面：资产/负债/净资产概览 + 走势图 + 余额占比 + 排行榜
@@ -41,11 +41,6 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final accounts = await loadAssetAccounts();
     if (!mounted) return;
     setState(() => _accounts = accounts);
-  }
-
-  Color _categoryColor(String categoryName) {
-    final cat = assetAccountCategories.where((c) => c.name == categoryName);
-    return cat.isNotEmpty ? cat.first.color : colorAssetCustom;
   }
 
   @override
@@ -110,7 +105,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
         .map((e) => _CategorySummary(
               name: e.key,
               amount: e.value.abs(),
-              color: _categoryColor(e.key),
+              color: categoryColorByName(e.key),
             ))
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
@@ -386,6 +381,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       final net = total - debt;
 
       // 生成数据（到当前月）
+      // TODO: 接入真实历史月度余额快照数据，当前为占位随机值
       final rand = Random(42);
       spots = [];
       for (var i = 0; i < currentMonth - 1; i++) {
@@ -456,7 +452,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
         lineTouchData: LineTouchData(
           enabled: true,
           handleBuiltInTouches: false,
-          touchSpotThreshold: 1000,
+          touchSpotThreshold: 40,
           distanceCalculator: (touchPoint, spotPixelCoordinates) =>
               (touchPoint.dx - spotPixelCoordinates.dx).abs(),
           touchCallback: (event, response) {
@@ -615,22 +611,7 @@ class _RankingRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (account.iconPath.isNotEmpty)
-                SvgPicture.asset(
-                  account.iconPath,
-                  width: iconSizeSmall,
-                  height: iconSizeSmall,
-                  fit: BoxFit.contain,
-                )
-              else
-                Container(
-                  width: iconSizeSmall,
-                  height: iconSizeSmall,
-                  decoration: BoxDecoration(
-                    color: themeColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                ),
+              AccountAvatar(account: account, size: iconSizeSmall, color: themeColor),
               const SizedBox(width: spacingS),
               Expanded(
                 child: Text(account.displayName, style: textListItem.copyWith(fontSize: 14)),

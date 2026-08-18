@@ -1,4 +1,5 @@
 import 'dart:ui';
+import '../constants/app_colors.dart';
 
 class AssetAccountCategory {
   final dynamic icon;
@@ -35,6 +36,11 @@ final assetAccountCategories = [
   const AssetAccountCategory(iconPath: 'assets/icons/bonds.svg', name: '债券', color: Color(0xFF66BB6A)),
   const AssetAccountCategory(iconPath: 'assets/icons/assets.svg', name: '自定义资产', color: Color(0xFF546E7A)),
 ];
+
+Color categoryColorByName(String categoryName) {
+  final cat = assetAccountCategories.where((c) => c.name == categoryName);
+  return cat.isNotEmpty ? cat.first.color : colorAssetCustom;
+}
 
 class AssetAccount {
   final String id;
