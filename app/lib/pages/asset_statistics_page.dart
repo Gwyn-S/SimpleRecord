@@ -147,16 +147,12 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: spacingM),
           color: isSelected ? themeColor : Colors.transparent,
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? Colors.white : Colors.black,
-            ),
+            style: isSelected ? textFilterActive : textFilterInactive,
           ),
         ),
       ),
@@ -179,18 +175,14 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       trailing: GestureDetector(
         onTap: _showYearPicker,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
           decoration: BoxDecoration(
             color: colorDivider,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(radiusSmall),
           ),
           child: Text(
             _yearLabel,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
-            ),
+            style: textTagSmall,
           ),
         ),
       ),
@@ -405,7 +397,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                 if (month >= 1 && month <= currentMonth) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text('$month月', style: textItemSub.copyWith(fontSize: 10)),
+                    child: Text('$month月', style: textChartLabel),
                   );
                 }
                 return const SizedBox.shrink();
@@ -431,7 +423,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
           LineChartBarData(
             spots: spots,
             isCurved: false,
-            color: Colors.black,
+            color: colorTextPrimary,
             barWidth: 1.5,
             isStrokeCapRound: true,
             dotData: FlDotData(
@@ -439,8 +431,8 @@ class _TrendLineChartState extends State<_TrendLineChart> {
               getDotPainter: (spot, percent, barData, index) =>
                   FlDotCirclePainter(
                 radius: 4,
-                color: Colors.white,
-                strokeColor: Colors.black,
+                color: colorTextOnPrimary,
+                strokeColor: colorTextPrimary,
                 strokeWidth: 1.5,
               ),
             ),
@@ -464,16 +456,12 @@ class _TrendLineChartState extends State<_TrendLineChart> {
             }
           },
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (touchedSpot) => Colors.black,
+            getTooltipColor: (touchedSpot) => colorTextPrimary,
             getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
               final month = spot.x.toInt() + 1;
               return LineTooltipItem(
                 '$month月\n${formatAmount(spot.y.toInt())}',
-                const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+                textChartTooltip,
               );
             }).toList(),
           ),
@@ -517,10 +505,9 @@ class _AssetPieChart extends StatelessWidget {
             value: item.amount.toDouble(),
             color: item.color,
             title: '${pct.toStringAsFixed(1)}%',
-            titleStyle: TextStyle(
-              fontSize: 10,
+            titleStyle: textChartLabel.copyWith(
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: colorTextOnPrimary,
             ),
             radius: 60,
           );
@@ -565,14 +552,13 @@ class _PieLegend extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.name,
-                    style: textItemSub.copyWith(fontSize: 11),
+                    style: textChartLabel,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   '${pct.toStringAsFixed(1)}%',
-                  style: textItemSub.copyWith(
-                    fontSize: 11,
+                  style: textChartLabel.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -611,22 +597,22 @@ class _RankingRow extends StatelessWidget {
               AccountAvatar(account: account, size: iconSizeSmall, color: themeColor),
               const SizedBox(width: spacingS),
               Expanded(
-                child: Text(account.displayName, style: textListItem.copyWith(fontSize: 14)),
+                child: Text(account.displayName, style: textBody),
               ),
               Text(
                 '$percent%',
-                style: textItemSub.copyWith(fontSize: 12),
+                style: textItemSub,
               ),
               const SizedBox(width: spacingS),
               Text(
                 formatAmount(account.balanceCents),
-                style: textAccountAmount.copyWith(fontSize: 14),
+                style: textAccountAmount,
               ),
             ],
           ),
           const SizedBox(height: 4),
           ClipRRect(
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(radiusTiny),
             child: LinearProgressIndicator(
               value: ratio,
               backgroundColor: colorDivider,
