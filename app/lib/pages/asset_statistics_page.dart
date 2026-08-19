@@ -1,5 +1,3 @@
-import 'dart:math';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
@@ -232,7 +230,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       title: title,
       child: SizedBox(
         height: 220,
-        child: _AssetPieChart(data: data, total: total),
+        child: _AssetPieChart(key: const ValueKey('pie'), data: data, total: total),
       ),
     );
   }
@@ -316,10 +314,10 @@ class _CardContainer extends StatelessWidget {
 }
 
 // ======================================================================
-//  走势图（fl_chart LineChart）
+//  走势图（syncfusion SfCartesianChart + LineSeries）
 // ======================================================================
 
-class _TrendLineChart extends StatefulWidget {
+class _TrendLineChart extends StatelessWidget {
   final List<AssetAccount> accounts;
   final Color themeColor;
   final bool showFlatZero;
@@ -331,24 +329,15 @@ class _TrendLineChart extends StatefulWidget {
   });
 
   @override
-  State<_TrendLineChart> createState() => _TrendLineChartState();
-}
-
-class _TrendLineChartState extends State<_TrendLineChart> {
-  int? _touchedIndex;
-
-  @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final currentMonth = now.month;
-    final accounts = widget.accounts;
 
-    List<FlSpot> spots;
-    if (widget.showFlatZero || accounts.isEmpty) {
-      // 无数据时绘制平线
-      spots = List.generate(
+    List<_TrendPoint> points;
+    if (showFlatZero || accounts.isEmpty) {
+      points = List.generate(
         currentMonth,
-        (i) => FlSpot(i.toDouble(), 0),
+        (i) => _TrendPoint(month: i + 1, value: 0),
       );
     } else {
       final total = accounts
@@ -359,117 +348,92 @@ class _TrendLineChartState extends State<_TrendLineChart> {
           .fold(0, (s, a) => s + a.balanceCents.abs());
       final net = total - debt;
 
-      // 生成数据（到当前月）
       // TODO: 接入真实历史月度余额快照数据，当前为占位随机值
-      final rand = Random(42);
-      spots = [];
+      final rand = _SimpleRandom(42);
+      points = [];
       for (var i = 0; i < currentMonth - 1; i++) {
         final value = net * (0.8 + rand.nextDouble() * 0.4);
-        spots.add(FlSpot(i.toDouble(), value));
+        points.add(_TrendPoint(month: i + 1, value: value.toInt()));
       }
-      spots.add(FlSpot((currentMonth - 1).toDouble(), net.toDouble()));
+      points.add(_TrendPoint(month: currentMonth, value: net));
     }
 
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: false),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 24,
-              interval: 1,
-              getTitlesWidget: (value, meta) {
-                final month = value.toInt() + 1;
-                if (month >= 1 && month <= currentMonth) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text('$month月', style: textChartLabel),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: (currentMonth - 1).toDouble(),
-        minY: _minY(spots),
-        maxY: _maxY(spots),
-        showingTooltipIndicators: _touchedIndex != null
-            ? [ShowingTooltipIndicators([
-                LineBarSpot(
-                  LineChartBarData(spots: spots),
-                  0,
-                  spots[_touchedIndex!],
-                ),
-              ])]
-            : [],
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: false,
-            color: colorTextPrimary,
-            barWidth: 1.5,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) =>
-                  FlDotCirclePainter(
-                radius: 4,
-                color: colorTextOnPrimary,
-                strokeColor: colorTextPrimary,
-                strokeWidth: 1.5,
-              ),
-            ),
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          enabled: true,
-          handleBuiltInTouches: false,
-          touchSpotThreshold: 40,
-          distanceCalculator: (touchPoint, spotPixelCoordinates) =>
-              (touchPoint.dx - spotPixelCoordinates.dx).abs(),
-          touchCallback: (event, response) {
-            if (event is FlTapUpEvent || event is FlLongPressEnd) {
-              if (response?.lineBarSpots != null &&
-                  response!.lineBarSpots!.isNotEmpty) {
-                final idx = response.lineBarSpots!.first.spotIndex;
-                setState(() {
-                  _touchedIndex = _touchedIndex == idx ? null : idx;
-                });
-              }
-            }
-          },
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (touchedSpot) => colorTextPrimary,
-            getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
-              final month = spot.x.toInt() + 1;
-              return LineTooltipItem(
-                '$month月\n${formatAmount(spot.y.toInt())}',
-                textChartTooltip,
-              );
-            }).toList(),
-          ),
-        ),
+    final values = points.map((p) => p.value.toDouble()).toList();
+    final minY = values.isEmpty
+        ? -1.0
+        : (values.reduce((a, b) => a < b ? a : b) == 0
+            ? -1.0
+            : values.reduce((a, b) => a < b ? a : b) * 0.9);
+    final maxY = values.isEmpty
+        ? 1.0
+        : (values.reduce((a, b) => a > b ? a : b) == 0
+            ? 1.0
+            : values.reduce((a, b) => a > b ? a : b) * 1.1);
+
+    return SfCartesianChart(
+      margin: const EdgeInsets.all(0),
+      plotAreaBorderWidth: 0,
+      primaryXAxis: NumericAxis(
+        minimum: 0,
+        maximum: (currentMonth - 1).toDouble(),
+        interval: 1,
+        majorGridLines: const MajorGridLines(width: 0),
+        axisLine: const AxisLine(width: 0),
+        labelStyle: textChartLabel,
+        axisLabelFormatter: (details) {
+          final month = (double.tryParse(details.text) ?? 0).toInt() + 1;
+          return ChartAxisLabel('$month月', details.textStyle);
+        },
       ),
+      primaryYAxis: NumericAxis(
+        minimum: minY,
+        maximum: maxY,
+        isVisible: false,
+      ),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        duration: 2000,
+        header: '',
+        format: 'point.x月\npoint.y',
+        textStyle: textChartTooltip,
+        color: colorTextPrimary,
+      ),
+      series: <LineSeries<_TrendPoint, num>>[
+        LineSeries<_TrendPoint, num>(
+          dataSource: points,
+          xValueMapper: (point, _) => point.month - 1,
+          yValueMapper: (point, _) => point.value,
+          color: colorTextPrimary,
+          width: 1.5,
+          markerSettings: MarkerSettings(
+            isVisible: true,
+            shape: DataMarkerType.circle,
+            height: 8,
+            width: 8,
+            borderWidth: 1.5,
+            borderColor: colorTextPrimary,
+            color: colorTextOnPrimary,
+          ),
+          animationDuration: 0,
+        ),
+      ],
     );
   }
+}
 
-  double _minY(List<FlSpot> spots) {
-    if (spots.isEmpty) return 0;
-    final minV = spots.map((s) => s.y).reduce(min);
-    return minV == 0 ? -1 : minV * 0.9;
-  }
+class _TrendPoint {
+  final int month;
+  final int value;
+  const _TrendPoint({required this.month, required this.value});
+}
 
-  double _maxY(List<FlSpot> spots) {
-    if (spots.isEmpty) return 1;
-    final maxV = spots.map((s) => s.y).reduce(max);
-    return maxV == 0 ? 1 : maxV * 1.1;
+/// 简单伪随机数生成器（不依赖 dart:math）
+class _SimpleRandom {
+  int _seed;
+  _SimpleRandom(this._seed);
+  double nextDouble() {
+    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
+    return _seed / 0x7fffffff;
   }
 }
 
@@ -481,13 +445,15 @@ class _AssetPieChart extends StatelessWidget {
   final List<_CategorySummary> data;
   final int total;
 
-  const _AssetPieChart({required this.data, required this.total});
+  const _AssetPieChart({super.key, required this.data, required this.total});
 
   @override
   Widget build(BuildContext context) {
     return SfCircularChart(
+      margin: EdgeInsets.zero,
       series: <DoughnutSeries<_CategorySummary, String>>[
         DoughnutSeries<_CategorySummary, String>(
+          animationDuration: 0,
           dataSource: data,
           xValueMapper: (_CategorySummary item, _) => item.name,
           yValueMapper: (_CategorySummary item, _) => item.amount,
@@ -502,7 +468,7 @@ class _AssetPieChart extends StatelessWidget {
             isVisible: true,
             labelPosition: ChartDataLabelPosition.outside,
             connectorLineSettings: ConnectorLineSettings(
-              type: ConnectorType.curve,
+              type: ConnectorType.line,
               length: '15%',
             ),
           ),
