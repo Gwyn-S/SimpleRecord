@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -473,7 +474,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
 }
 
 // ======================================================================
-//  饼图（fl_chart PieChart）
+//  饼图（syncfusion DoughnutSeries + 引线）
 // ======================================================================
 
 class _AssetPieChart extends StatelessWidget {
@@ -484,146 +485,31 @@ class _AssetPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        final centerX = w / 2;
-        final centerY = h / 2;
-        final radius = h * 0.38;
-
-        return Stack(
-          children: [
-            PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: radius * 0.65,
-                sections: data.map((item) {
-                  return PieChartSectionData(
-                    value: item.amount.toDouble(),
-                    color: item.color,
-                    title: '',
-                    radius: radius,
-                  );
-                }).toList(),
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {},
-                ),
-              ),
+    return SfCircularChart(
+      series: <DoughnutSeries<_CategorySummary, String>>[
+        DoughnutSeries<_CategorySummary, String>(
+          dataSource: data,
+          xValueMapper: (_CategorySummary item, _) => item.name,
+          yValueMapper: (_CategorySummary item, _) => item.amount,
+          pointColorMapper: (_CategorySummary item, _) => item.color,
+          radius: '70%',
+          innerRadius: '50%',
+          dataLabelMapper: (_CategorySummary item, _) {
+            final pct = total > 0 ? (item.amount / total * 100).toStringAsFixed(1) : '0.0';
+            return '${item.name} $pct%';
+          },
+          dataLabelSettings: const DataLabelSettings(
+            isVisible: true,
+            labelPosition: ChartDataLabelPosition.outside,
+            connectorLineSettings: ConnectorLineSettings(
+              type: ConnectorType.curve,
+              length: '15%',
             ),
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _PieLeaderPainter(
-                  data: data,
-                  total: total,
-                  center: Offset(centerX, centerY),
-                  radius: radius,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _PieLeaderPainter extends CustomPainter {
-  final List<_CategorySummary> data;
-  final int total;
-  final Offset center;
-  final double radius;
-
-  _PieLeaderPainter({
-    required this.data,
-    required this.total,
-    required this.center,
-    required this.radius,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty || total == 0) return;
-
-    double startAngle = -pi / 2;
-    final extendLength = 15.0;
-
-    for (final item in data) {
-      final sweepAngle = (item.amount / total) * 2 * pi;
-      final midAngle = startAngle + sweepAngle / 2;
-
-      // 引线起点（色块圆弧中点）
-      final startX = center.dx + radius * cos(midAngle);
-      final startY = center.dy + radius * sin(midAngle);
-
-      // 斜线终点（沿径向向外延伸）
-      final breakX = center.dx + (radius + extendLength) * cos(midAngle);
-      final breakY = center.dy + (radius + extendLength) * sin(midAngle);
-
-      // 水平线方向（向左或向右）
-      final isRight = breakX > center.dx;
-      final endX = isRight ? breakX + 50 : breakX - 50;
-
-      // 绘制引线
-      final linePaint = Paint()
-        ..color = colorDivider
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-
-      // 斜线（从圆弧沿径向向外）
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(breakX, breakY),
-        linePaint,
-      );
-
-      // 水平线
-      canvas.drawLine(
-        Offset(breakX, breakY),
-        Offset(endX, breakY),
-        linePaint,
-      );
-
-      // 绘制文字
-      final pct = (item.amount / total * 100).toStringAsFixed(1);
-      final textPainter = TextPainter(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: item.name,
-              style: textChartLabel,
-            ),
-            TextSpan(
-              text: ' $pct%',
-              style: textChartLabel.copyWith(
-                color: colorTextSecondary,
-              ),
-            ),
-          ],
+          ),
         ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(isRight ? endX + 4 : endX - textPainter.width - 4, breakY - textPainter.height / 2),
-      );
-
-      startAngle += sweepAngle;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PieLeaderPainter oldDelegate) {
-    if (oldDelegate.total != total) return true;
-    if (oldDelegate.data.length != data.length) return true;
-    for (var i = 0; i < data.length; i++) {
-      if (oldDelegate.data[i].amount != data[i].amount ||
-          oldDelegate.data[i].name != data[i].name) {
-        return true;
-      }
-    }
-    return false;
+      ],
+      tooltipBehavior: TooltipBehavior(enable: true),
+    );
   }
 }
 

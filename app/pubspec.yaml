@@ -39,6 +39,7 @@ dependencies:
 
   flutter_svg: ^2.0.10
   fl_chart: ^0.70.2
+  syncfusion_flutter_charts: ^34.2.4
   sqflite: ^2.4.1
   sqflite_common_ffi: ^2.3.4
   sqlite3_flutter_libs: ^0.5.24
