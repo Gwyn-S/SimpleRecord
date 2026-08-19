@@ -591,15 +591,11 @@ class _PieLeaderPainter extends CustomPainter {
           children: [
             TextSpan(
               text: item.name,
-              style: TextStyle(
-                fontSize: 10,
-                color: colorTextPrimary,
-              ),
+              style: textChartLabel,
             ),
             TextSpan(
               text: ' $pct%',
-              style: TextStyle(
-                fontSize: 10,
+              style: textChartLabel.copyWith(
                 color: colorTextSecondary,
               ),
             ),
@@ -619,7 +615,15 @@ class _PieLeaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PieLeaderPainter oldDelegate) {
-    return oldDelegate.total != total || oldDelegate.data != data;
+    if (oldDelegate.total != total) return true;
+    if (oldDelegate.data.length != data.length) return true;
+    for (var i = 0; i < data.length; i++) {
+      if (oldDelegate.data[i].amount != data[i].amount ||
+          oldDelegate.data[i].name != data[i].name) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
