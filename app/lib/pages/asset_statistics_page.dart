@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
@@ -60,15 +61,12 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
         _filteredAccounts = _accounts;
     }
 
-    final map = <String, int>{};
-    for (final a in _filteredAccounts) {
-      map[a.categoryName] = (map[a.categoryName] ?? 0) + a.balanceCents;
-    }
-    _filteredByCategory = map.entries
-        .map((e) => _CategorySummary(
-              name: e.key,
-              amount: e.value.abs(),
-              color: categoryColorByName(e.key),
+    _filteredByCategory = _filteredAccounts
+        .where((a) => a.balanceCents != 0)
+        .map((a) => _CategorySummary(
+              name: a.displayName,
+              amount: a.balanceCents.abs(),
+              color: categoryColorByName(a.categoryName),
             ))
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
@@ -95,11 +93,9 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
         ),
       ),
       backgroundColor: colorBackgroundPage,
-      body: _accounts.isEmpty
-          ? const Center(child: Text('暂无资产数据', style: textHint))
-          : ListView(
+      body: ListView(
               padding: const EdgeInsets.all(spacingM),
-              children: [
+              children: _accounts.isEmpty ? [] : [
                 _buildSummarySection(),
                 const SizedBox(height: spacingM),
                 _buildTrendCard(themeColor),
@@ -188,7 +184,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       child: SizedBox(
         height: 180,
         child: _accounts.isEmpty
-            ? const Center(child: Text('暂无数据', style: textHint))
+            ? const SizedBox.shrink()
             : _TrendLineChart(
                 accounts: _filteredAccounts,
                 themeColor: themeColor,
@@ -314,7 +310,7 @@ class _CardContainer extends StatelessWidget {
 }
 
 // ======================================================================
-//  走势图（syncfusion SfCartesianChart + LineSeries）
+//  走势图（syncfusion SfCartesianChart + LineSeries + 点击节点显示信息）
 // ======================================================================
 
 class _TrendLineChart extends StatelessWidget {
@@ -370,6 +366,27 @@ class _TrendLineChart extends StatelessWidget {
             ? 1.0
             : values.reduce((a, b) => a > b ? a : b) * 1.1);
 
+    final tooltip = TooltipBehavior(
+      enable: true,
+      activationMode: ActivationMode.singleTap,
+      tooltipPosition: TooltipPosition.pointer,
+      animationDuration: 0,
+      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
+        final p = points[pointIndex];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '${p.month}月 ${formatAmount(p.value)}',
+            style: const TextStyle(fontSize: 11, color: Colors.white),
+          ),
+        );
+      },
+    );
+
     return SfCartesianChart(
       margin: const EdgeInsets.all(0),
       plotAreaBorderWidth: 0,
@@ -390,15 +407,7 @@ class _TrendLineChart extends StatelessWidget {
         maximum: maxY,
         isVisible: false,
       ),
-      tooltipBehavior: TooltipBehavior(
-        enable: true,
-        duration: 2000,
-        animationDuration: 0,
-        header: '',
-        format: 'point.x月\npoint.y',
-        textStyle: textChartTooltip,
-        color: colorTextPrimary,
-      ),
+      tooltipBehavior: tooltip,
       series: <LineSeries<_TrendPoint, num>>[
         LineSeries<_TrendPoint, num>(
           dataSource: points,
@@ -409,8 +418,8 @@ class _TrendLineChart extends StatelessWidget {
           markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
-            height: 8,
-            width: 8,
+            height: 12,
+            width: 12,
             borderWidth: 1.5,
             borderColor: colorTextPrimary,
             color: colorTextOnPrimary,
@@ -439,45 +448,154 @@ class _SimpleRandom {
 }
 
 // ======================================================================
-//  饼图（syncfusion DoughnutSeries + 引线）
+//  饼图（syncfusion DoughnutSeries + 旋转 + 不旋转引线标签）
 // ======================================================================
 
-class _AssetPieChart extends StatelessWidget {
+class _AssetPieChart extends StatefulWidget {
   final List<_CategorySummary> data;
   final int total;
 
   const _AssetPieChart({super.key, required this.data, required this.total});
 
   @override
+  State<_AssetPieChart> createState() => _AssetPieChartState();
+}
+
+class _AssetPieChartState extends State<_AssetPieChart> {
+  double _rotation = 0;
+  double _lastAngle = 0;
+
+  double _getAngle(Offset center, Offset point) {
+    return (point - center).direction;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SfCircularChart(
-      margin: EdgeInsets.zero,
-      series: <DoughnutSeries<_CategorySummary, String>>[
-        DoughnutSeries<_CategorySummary, String>(
-          animationDuration: 0,
-          dataSource: data,
-          xValueMapper: (_CategorySummary item, _) => item.name,
-          yValueMapper: (_CategorySummary item, _) => item.amount,
-          pointColorMapper: (_CategorySummary item, _) => item.color,
-          radius: '70%',
-          innerRadius: '50%',
-          dataLabelMapper: (_CategorySummary item, _) {
-            final pct = total > 0 ? (item.amount / total * 100).toStringAsFixed(1) : '0.0';
-            return '${item.name} $pct%';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final center = Offset(w / 2, h / 2);
+        final radius = h * 0.35;
+        return GestureDetector(
+          onPanStart: (details) {
+            _lastAngle = _getAngle(center, details.localPosition);
           },
-          dataLabelSettings: const DataLabelSettings(
-            isVisible: true,
-            labelPosition: ChartDataLabelPosition.outside,
-            connectorLineSettings: ConnectorLineSettings(
-              type: ConnectorType.line,
-              length: '15%',
-            ),
+          onPanUpdate: (details) {
+            final currentAngle = _getAngle(center, details.localPosition);
+            final delta = currentAngle - _lastAngle;
+            setState(() {
+              _rotation += delta;
+            });
+            _lastAngle = currentAngle;
+          },
+          child: Stack(
+            children: [
+              // 旋转的饼图
+              Positioned.fill(
+                child: Transform.rotate(
+                  angle: _rotation,
+                  child: SfCircularChart(
+                    margin: EdgeInsets.zero,
+                    series: <DoughnutSeries<_CategorySummary, String>>[
+                      DoughnutSeries<_CategorySummary, String>(
+                        animationDuration: 0,
+                        dataSource: widget.data,
+                        xValueMapper: (_CategorySummary item, _) => item.name,
+                        yValueMapper: (_CategorySummary item, _) => item.amount,
+                        pointColorMapper: (_CategorySummary item, _) => item.color,
+                        radius: '70%',
+                        innerRadius: '50%',
+                        dataLabelSettings: const DataLabelSettings(isVisible: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 不旋转的引线+标签
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _PieLeaderPainter(
+                    data: widget.data,
+                    total: widget.total,
+                    center: center,
+                    radius: radius,
+                    rotation: _rotation,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
-      tooltipBehavior: TooltipBehavior(enable: false),
+        );
+      },
     );
   }
+}
+
+// ======================================================================
+//  引线绘制（不旋转）
+// ======================================================================
+
+class _PieLeaderPainter extends CustomPainter {
+  final List<_CategorySummary> data;
+  final int total;
+  final Offset center;
+  final double radius;
+  final double rotation;
+
+  _PieLeaderPainter({
+    required this.data,
+    required this.total,
+    required this.center,
+    required this.radius,
+    required this.rotation,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty || total == 0) return;
+
+    final linePaint = Paint()
+      ..color = colorDivider
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final extendLength = radius * 0.25;
+    double startAngle = -pi / 2 + rotation;
+
+    for (final item in data) {
+      final sweepAngle = (item.amount / total) * 2 * pi;
+      final midAngle = startAngle + sweepAngle / 2;
+
+      final startX = center.dx + radius * cos(midAngle);
+      final startY = center.dy + radius * sin(midAngle);
+      final breakX = center.dx + (radius + extendLength) * cos(midAngle);
+      final breakY = center.dy + (radius + extendLength) * sin(midAngle);
+      final isRight = breakX > center.dx;
+      final endX = isRight ? breakX + 35 : breakX - 35;
+
+      canvas.drawLine(Offset(startX, startY), Offset(breakX, breakY), linePaint);
+      canvas.drawLine(Offset(breakX, breakY), Offset(endX, breakY), linePaint);
+
+      final pct = (item.amount / total * 100).toStringAsFixed(1);
+      final textPainter = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(text: item.name, style: const TextStyle(fontSize: 10, color: colorTextPrimary)),
+            TextSpan(text: ' $pct%', style: const TextStyle(fontSize: 10, color: colorTextSecondary)),
+          ],
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(isRight ? endX + 4 : endX - textPainter.width - 4, breakY - textPainter.height / 2));
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PieLeaderPainter old) => rotation != old.rotation;
 }
 
 // ======================================================================
