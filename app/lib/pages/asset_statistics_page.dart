@@ -393,6 +393,7 @@ class _TrendLineChart extends StatelessWidget {
       tooltipBehavior: TooltipBehavior(
         enable: true,
         duration: 2000,
+        animationDuration: 0,
         header: '',
         format: 'point.x月\npoint.y',
         textStyle: textChartTooltip,
