@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../constants/app_text_styles.dart';
 
 // TODO: Phase 4 - 统计图表功能
 // - 饼图：本月各分类支出占比
@@ -11,8 +10,6 @@ class StatsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('暂无数据', style: textPlaceholder),
-    );
+    return const SizedBox.shrink();
   }
 }

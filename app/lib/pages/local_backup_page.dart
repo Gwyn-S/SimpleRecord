@@ -169,10 +169,7 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
           ),
           Expanded(
             child: _files.isEmpty
-                ? const Center(
-                    child: Text('暂无备份，点击上方立即备份',
-                        style: textPlaceholder),
-                  )
+                ? const SizedBox.shrink()
                 : ListView.separated(
                     itemCount: _files.length,
                     separatorBuilder: (_, _) =>

@@ -160,7 +160,7 @@ class _AssetsPageState extends State<AssetsPage> {
         ),
         Expanded(
           child: _accounts.isEmpty
-              ? const Center(child: Text('点击 + 添加资产账户', style: textHint))
+              ? const SizedBox.shrink()
               : _buildCategoryList(),
         ),
       ],

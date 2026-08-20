@@ -207,7 +207,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
         ),
       ),
       body: _ledgers.isEmpty
-          ? const Center(child: Text('暂无账本，点击右上角 + 新建', style: TextStyle(color: colorTextPlaceholder)))
+          ? const SizedBox.shrink()
           : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: _ledgers.length,

@@ -74,12 +74,7 @@ class _AccountPickerSheet extends StatelessWidget {
                     onTap: () => Navigator.pop(context, noAccountSelection),
                   ),
                   if (accounts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(spacingXL),
-                      child: Center(
-                        child: Text('暂无账户，请到「资产」页添加', style: textHint),
-                      ),
-                    )
+                    const SizedBox.shrink()
                   else
                     ...accounts.map(
                       (a) => _buildItem(

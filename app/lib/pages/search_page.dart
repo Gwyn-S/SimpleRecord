@@ -245,14 +245,7 @@ class _SearchPageState extends State<SearchPage> {
             child: Container(
               color: colorBackgroundPage,
               child: _filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        _searchController.text.trim().isEmpty
-                            ? '暂无记录'
-                            : '暂无结果',
-                        style: textHint,
-                      ),
-                    )
+                  ? const SizedBox.shrink()
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
                         horizontal: spacingL,

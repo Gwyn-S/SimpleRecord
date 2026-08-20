@@ -373,10 +373,7 @@ class _WebDavPageState extends State<WebDavPage> {
             ),
           )
         else if (_files.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(spacingXL),
-            child: Center(child: Text('云端暂无备份，点击上方立即备份上传', style: textPlaceholder)),
-          )
+          const SizedBox.shrink()
         else
           Expanded(
             child: ListView.separated(

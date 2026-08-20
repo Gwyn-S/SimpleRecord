@@ -169,9 +169,6 @@ class _BillsPageState extends State<BillsPage> {
     if (records.isEmpty) {
       return const SizedBox(
         height: 200,
-        child: Center(
-          child: Text('暂无记录', style: textHint),
-        ),
       );
     }
     if (_sortedKeys.isNotEmpty && !_initialized) {

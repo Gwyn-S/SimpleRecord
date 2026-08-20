@@ -142,9 +142,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
           SizedBox(
             height: 320,
             child: filtered.isEmpty && q.isEmpty
-                ? const Center(
-                    child: Text('暂无标签', style: textHint),
-                  )
+                ? const SizedBox.shrink()
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final cellWidth =
