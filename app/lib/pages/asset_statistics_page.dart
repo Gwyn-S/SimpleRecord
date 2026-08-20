@@ -475,7 +475,7 @@ class _AssetPieChart extends StatelessWidget {
           ),
         ),
       ],
-      tooltipBehavior: TooltipBehavior(enable: true),
+      tooltipBehavior: TooltipBehavior(enable: false),
     );
   }
 }
