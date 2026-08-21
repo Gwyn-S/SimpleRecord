@@ -6,6 +6,7 @@ import '../constants/app_dimensions.dart';
 import '../models/asset_account.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/card_container.dart';
 import '../widgets/month_year_picker.dart';
 
 class AssetTrendPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+    final dailyPoints = _generateDailyPoints();
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.account.name} 趋势'),
@@ -48,9 +50,9 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
         children: [
           _buildMonthPicker(),
           const SizedBox(height: spacingM),
-          _buildTrendCard(),
+          _buildTrendCard(dailyPoints),
           const SizedBox(height: spacingM),
-          _buildDetailCard(),
+          _buildDetailCard(dailyPoints),
         ],
       ),
     );
@@ -68,7 +70,7 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
             borderRadius: BorderRadius.circular(radiusSmall),
           ),
           child: Text(
-            '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}',
+            formatMonthLabel(_selectedMonth),
             style: textTagSmall,
           ),
         ),
@@ -86,9 +88,8 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     }
   }
 
-  Widget _buildTrendCard() {
-    final points = _generateDailyPoints();
-    return _CardContainer(
+  Widget _buildTrendCard(List<_DailyPoint> points) {
+    return CardContainer(
       title: '余额走势图',
       child: SizedBox(
         height: 160,
@@ -97,9 +98,8 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     );
   }
 
-  Widget _buildDetailCard() {
-    final points = _generateDailyPoints();
-    return _CardContainer(
+  Widget _buildDetailCard(List<_DailyPoint> points) {
+    return CardContainer(
       title: '余额详情',
       child: SizedBox(
         height: 300,
@@ -131,7 +131,7 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     final balance = widget.account.balanceCents;
 
     // TODO: 接入真实每日余额快照数据，当前为占位随机值
-    final rand = _SimpleRandom(widget.account.id.hashCode & 0x7fffffff);
+    final rand = SimpleRandom(widget.account.id.hashCode & 0x7fffffff);
     final points = <_DailyPoint>[];
     for (var i = daysInMonth; i >= 1; i--) {
       final value = (i == daysInMonth)
@@ -156,16 +156,7 @@ class _DailyTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final values = points.map((p) => p.value.toDouble()).toList();
-    final minY = values.isEmpty
-        ? -1.0
-        : (values.reduce((a, b) => a < b ? a : b) == 0
-            ? -1.0
-            : values.reduce((a, b) => a < b ? a : b) * 0.9);
-    final maxY = values.isEmpty
-        ? 1.0
-        : (values.reduce((a, b) => a > b ? a : b) == 0
-            ? 1.0
-            : values.reduce((a, b) => a > b ? a : b) * 1.1);
+    final (minY, maxY) = computeYRange(values);
 
     final tooltip = TooltipBehavior(
       enable: true,
@@ -175,14 +166,14 @@ class _DailyTrendChart extends StatelessWidget {
       builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
         final p = points[pointIndex];
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
           decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(4),
+            color: colorTextPrimary,
+            borderRadius: BorderRadius.circular(radiusTiny),
           ),
           child: Text(
             '${p.date.month}/${p.date.day} ${formatAmount(p.value)}',
-            style: const TextStyle(fontSize: 11, color: Colors.white),
+            style: textChartTooltip,
           ),
         );
       },
@@ -214,7 +205,7 @@ class _DailyTrendChart extends StatelessWidget {
       series: <LineSeries<_DailyPoint, num>>[
         LineSeries<_DailyPoint, num>(
           dataSource: points,
-          xValueMapper: (point, _) => points.indexOf(point),
+          xValueMapper: (_, index) => index,
           yValueMapper: (point, _) => point.value,
           color: colorTextPrimary,
           width: 1.5,
@@ -242,44 +233,5 @@ class _DailyPoint {
   final DateTime date;
   final int value;
   const _DailyPoint({required this.date, required this.value});
-  String get dateStr => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-}
-
-class _SimpleRandom {
-  int _seed;
-  _SimpleRandom(this._seed);
-  double nextDouble() {
-    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-    return _seed / 0x7fffffff;
-  }
-}
-
-// ======================================================================
-//  卡片容器
-// ======================================================================
-
-class _CardContainer extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _CardContainer({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(spacingL),
-      decoration: BoxDecoration(
-        color: colorBackgroundCard,
-        borderRadius: BorderRadius.circular(radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: textTitleBold.copyWith(fontWeight: FontWeight.w500)),
-          const SizedBox(height: spacingM),
-          child,
-        ],
-      ),
-    );
-  }
+  String get dateStr => formatDateYmd(date);
 }
