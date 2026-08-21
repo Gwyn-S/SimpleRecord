@@ -75,3 +75,23 @@ String formatDateTime(DateTime d) {
   if (cents == 0) return (0, '请输入金额');
   return (cents, null);
 }
+
+/// 计算图表 Y 轴范围，返回 (minY, maxY)。
+(double, double) computeYRange(List<double> values) {
+  if (values.isEmpty) return (-1.0, 1.0);
+  final minVal = values.reduce((a, b) => a < b ? a : b);
+  final maxVal = values.reduce((a, b) => a > b ? a : b);
+  final minY = minVal == 0 ? -1.0 : minVal * 0.9;
+  final maxY = maxVal == 0 ? 1.0 : maxVal * 1.1;
+  return (minY, maxY);
+}
+
+/// 简单伪随机数生成器（不依赖 dart:math）。
+class SimpleRandom {
+  int _seed;
+  SimpleRandom(this._seed);
+  double nextDouble() {
+    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
+    return _seed / 0x7fffffff;
+  }
+}
