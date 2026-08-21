@@ -16,6 +16,7 @@ import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
 import '../widgets/calc_keyboard.dart';
 import '../widgets/date_picker_sheet.dart';
+import '../widgets/tab_switcher_app_bar.dart';
 import '../widgets/tag_picker_sheet.dart';
 
 class ManualEntryPage extends StatefulWidget {
@@ -107,89 +108,20 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     final categories = _isExpense ? expenseCategories : incomeCategories;
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          backgroundColor: themeColor,
-          foregroundColor: colorTextOnPrimary,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: '',
-            onPressed: () => Navigator.pop(context),
-          ),
-            centerTitle: true,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(4),
-              child: SizedBox(
-                width: 144,
-                height: 4,
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      left: _isExpense ? 0.0 : 72.0,
-                      top: 0,
-                      child: Container(
-                        width: 72,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: colorTextOnPrimary,
-                          borderRadius: BorderRadius.circular(radiusTiny),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _isExpense = true;
-                    _selectedCategory = 0;
-                  }),
-                  child: SizedBox(
-                    width: 72,
-                    height: 36,
-                    child: Center(
-                      child: Text(
-                        '支出',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: _isExpense ? FontWeight.w600 : FontWeight.w400,
-                          color: colorTextOnPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _isExpense = false;
-                    _selectedCategory = 0;
-                  }),
-                  child: SizedBox(
-                    width: 72,
-                    height: 36,
-                    child: Center(
-                      child: Text(
-                        '收入',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: !_isExpense ? FontWeight.w600 : FontWeight.w400,
-                          color: colorTextOnPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+      appBar: TabSwitcherAppBar(
+        tabs: const ['支出', '收入'],
+        selectedIndex: _isExpense ? 0 : 1,
+        onChanged: (i) => setState(() {
+          _isExpense = i == 0;
+          _selectedCategory = 0;
+        }),
+        backgroundColor: themeColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '',
+          onPressed: () => Navigator.pop(context),
         ),
+      ),
       body: Column(
         children: [
           Expanded(

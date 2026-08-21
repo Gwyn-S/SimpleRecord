@@ -11,6 +11,7 @@ import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
 import '../widgets/card_container.dart';
 import '../widgets/month_year_picker.dart';
+import '../widgets/tab_bar.dart';
 
 /// 资产统计页面：资产/负债/净资产概览 + 走势图 + 余额占比 + 排行榜
 class AssetStatisticsPage extends StatefulWidget {
@@ -114,43 +115,21 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
   // ======================== 顶部概览：资产 / 负债 / 净资产 ========================
 
   Widget _buildSummarySection() {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Container(
       decoration: BoxDecoration(
         color: colorBackgroundCard,
         borderRadius: BorderRadius.circular(radiusMedium),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: [
-          _buildTab('资产', 0, themeColor),
-          _buildTab('负债', 1, themeColor),
-          _buildTab('净资产', 2, themeColor),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTab(String label, int index, Color themeColor) {
-    final isSelected = _selectedType == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (_selectedType == index) return;
+      child: FilterTabBar(
+        tabs: const ['资产', '负债', '净资产'],
+        selectedIndex: _selectedType,
+        onChanged: (i) {
           setState(() {
-            _selectedType = index;
+            _selectedType = i;
             _recompute();
           });
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: spacingM),
-          color: isSelected ? themeColor : Colors.transparent,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: isSelected ? textFilterActive : textFilterInactive,
-          ),
-        ),
       ),
     );
   }
