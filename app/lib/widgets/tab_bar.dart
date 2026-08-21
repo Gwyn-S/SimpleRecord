@@ -28,7 +28,7 @@ class FilterTabBar extends StatelessWidget {
               onChanged(i);
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: spacingM),
+              padding: const EdgeInsets.symmetric(vertical: spacingS),
               color: isSelected ? themeColor : Colors.transparent,
               child: Text(
                 tabs[i],
