@@ -9,6 +9,7 @@ import '../services/asset_account_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
+import '../widgets/card_container.dart';
 import '../widgets/month_year_picker.dart';
 
 /// 资产统计页面：资产/负债/净资产概览 + 走势图 + 余额占比 + 排行榜
@@ -165,7 +166,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
   }
 
   Widget _buildTrendCard(Color themeColor) {
-    return _CardContainer(
+    return CardContainer(
       title: '资产走势图',
       trailing: GestureDetector(
         onTap: _showYearPicker,
@@ -183,13 +184,10 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       ),
       child: SizedBox(
         height: 180,
-        child: _accounts.isEmpty
-            ? const SizedBox.shrink()
-            : _TrendLineChart(
-                accounts: _filteredAccounts,
-                themeColor: themeColor,
-                showFlatZero: _filteredAccounts.isEmpty,
-              ),
+        child: _TrendLineChart(
+          accounts: _filteredAccounts,
+          showFlatZero: _filteredAccounts.isEmpty,
+        ),
       ),
     );
   }
@@ -217,12 +215,12 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
             ? '负债余额占比'
             : '净资产占比';
     if (data.isEmpty) {
-      return _CardContainer(
+      return CardContainer(
         title: title,
         child: const SizedBox.shrink(),
       );
     }
-    return _CardContainer(
+    return CardContainer(
       title: title,
       child: SizedBox(
         height: 220,
@@ -241,13 +239,13 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
             ? '负债排行榜'
             : '净资产排行榜';
     if (ranking.isEmpty) {
-      return _CardContainer(
+      return CardContainer(
         title: title,
         child: const SizedBox.shrink(),
       );
     }
     final totalAmount = _filteredTotal;
-    return _CardContainer(
+    return CardContainer(
       title: title,
       child: Column(
         children: ranking.asMap().entries.map((entry) {
@@ -266,61 +264,15 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 }
 
 // ======================================================================
-//  子组件
-// ======================================================================
-
-/// 卡片容器
-class _CardContainer extends StatelessWidget {
-  final String title;
-  final Widget child;
-  final Widget? trailing;
-
-  const _CardContainer({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(spacingL),
-      decoration: BoxDecoration(
-        color: colorBackgroundCard,
-        borderRadius: BorderRadius.circular(radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(title, style: textTitleBold.copyWith(fontWeight: FontWeight.w500)),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing!,
-              ],
-            ],
-          ),
-          const SizedBox(height: spacingM),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-// ======================================================================
 //  走势图（syncfusion SfCartesianChart + LineSeries + 点击节点显示信息）
 // ======================================================================
 
 class _TrendLineChart extends StatelessWidget {
   final List<AssetAccount> accounts;
-  final Color themeColor;
   final bool showFlatZero;
 
   const _TrendLineChart({
     required this.accounts,
-    required this.themeColor,
     this.showFlatZero = false,
   });
 
@@ -345,7 +297,7 @@ class _TrendLineChart extends StatelessWidget {
       final net = total - debt;
 
       // TODO: 接入真实历史月度余额快照数据，当前为占位随机值
-      final rand = _SimpleRandom(42);
+      final rand = SimpleRandom(42);
       points = [];
       for (var i = 0; i < currentMonth - 1; i++) {
         final value = net * (0.8 + rand.nextDouble() * 0.4);
@@ -355,16 +307,7 @@ class _TrendLineChart extends StatelessWidget {
     }
 
     final values = points.map((p) => p.value.toDouble()).toList();
-    final minY = values.isEmpty
-        ? -1.0
-        : (values.reduce((a, b) => a < b ? a : b) == 0
-            ? -1.0
-            : values.reduce((a, b) => a < b ? a : b) * 0.9);
-    final maxY = values.isEmpty
-        ? 1.0
-        : (values.reduce((a, b) => a > b ? a : b) == 0
-            ? 1.0
-            : values.reduce((a, b) => a > b ? a : b) * 1.1);
+    final (minY, maxY) = computeYRange(values);
 
     final tooltip = TooltipBehavior(
       enable: true,
@@ -374,14 +317,14 @@ class _TrendLineChart extends StatelessWidget {
       builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
         final p = points[pointIndex];
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
           decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(4),
+            color: colorTextPrimary,
+            borderRadius: BorderRadius.circular(radiusTiny),
           ),
           child: Text(
             '${p.month}月 ${formatAmount(p.value)}',
-            style: const TextStyle(fontSize: 11, color: Colors.white),
+            style: textChartTooltip,
           ),
         );
       },
@@ -435,16 +378,6 @@ class _TrendPoint {
   final int month;
   final int value;
   const _TrendPoint({required this.month, required this.value});
-}
-
-/// 简单伪随机数生成器（不依赖 dart:math）
-class _SimpleRandom {
-  int _seed;
-  _SimpleRandom(this._seed);
-  double nextDouble() {
-    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-    return _seed / 0x7fffffff;
-  }
 }
 
 // ======================================================================
@@ -595,7 +528,12 @@ class _PieLeaderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PieLeaderPainter old) => rotation != old.rotation;
+  bool shouldRepaint(_PieLeaderPainter old) =>
+      rotation != old.rotation ||
+      data != old.data ||
+      total != old.total ||
+      center != old.center ||
+      radius != old.radius;
 }
 
 // ======================================================================
