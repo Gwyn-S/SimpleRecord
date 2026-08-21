@@ -167,9 +167,7 @@ class _BillsPageState extends State<BillsPage> {
     }
     final records = _records;
     if (records.isEmpty) {
-      return const SizedBox(
-        height: 200,
-      );
+      return const SizedBox.shrink();
     }
     if (_sortedKeys.isNotEmpty && !_initialized) {
       _expandedDays.add(_sortedKeys.first);
