@@ -86,7 +86,7 @@ Future<List<Record>> loadRecordsByDateRange({
 }
 
 /// 按日期范围查询并按分类聚合（支出）
-Future<List<({String categoryName, int amountCents})>> loadExpenseByCategory({
+Future<List<({String categoryName, int amountCents, int count})>> loadExpenseByCategory({
   String? ledgerId,
   required DateTime start,
   required DateTime end,
@@ -104,7 +104,7 @@ Future<List<({String categoryName, int amountCents})>> loadExpenseByCategory({
   args.add(startEpoch);
   args.add(endEpoch);
   final rows = await db.rawQuery(
-    'SELECT category_name, SUM(amount_cents) AS total '
+    'SELECT category_name, SUM(amount_cents) AS total, COUNT(*) AS cnt '
     'FROM records '
     'WHERE ${where.join(' AND ')} '
     'GROUP BY category_name '
@@ -114,6 +114,7 @@ Future<List<({String categoryName, int amountCents})>> loadExpenseByCategory({
   return rows.map((r) => (
     categoryName: r['category_name'] as String,
     amountCents: r['total'] as int,
+    count: r['cnt'] as int,
   )).toList();
 }
 
