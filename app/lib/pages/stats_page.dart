@@ -14,6 +14,7 @@ import '../widgets/donut_pie_chart.dart';
 import '../widgets/month_year_picker.dart';
 import '../widgets/tab_bar.dart';
 import '../widgets/tab_switcher_app_bar.dart';
+import 'stats_detail_page.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -67,7 +68,7 @@ class _StatsPageState extends State<StatsPage> {
     });
   }
 
-  void _scrollToEnd() {
+void _scrollToEnd() {
     try {
       if (_scrollController.hasClients &&
           _scrollController.position.hasContentDimensions &&
@@ -88,17 +89,18 @@ class _StatsPageState extends State<StatsPage> {
     });
   }
 
-  /// 根据当前选中的 tab 和 index 计算日期范围
   ({DateTime start, DateTime end})? _getDateRange() {
     final now = DateTime.now();
     switch (_selectedRange) {
       case 0: // 周
-        final startOfYear = DateTime(now.year, 1, 1);
-        final currentWeek = ((now.difference(startOfYear).inDays + startOfYear.weekday) / 7).ceil();
+        final jan1 = DateTime(now.year, 1, 1);
+        final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
+        final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+        final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
         final totalItems = _items.length;
         final weekOffset = totalItems - 1 - _selectedIndex;
         final targetWeek = currentWeek - weekOffset;
-        final weekStart = startOfYear.add(Duration(days: (targetWeek - 1) * 7));
+        final weekStart = jan1Monday.add(Duration(days: (targetWeek - 1) * 7));
         final weekEnd = weekStart.add(const Duration(days: 7));
         return (start: weekStart, end: weekEnd);
       case 1: // 月
@@ -192,9 +194,6 @@ class _StatsPageState extends State<StatsPage> {
         monthSummary: monthSummaryData,
         yearSummary: yearSummaryData,
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToEnd();
-      });
     } catch (e) {
       // 加载失败，保持当前状态
     }
@@ -288,12 +287,15 @@ class _StatsPageState extends State<StatsPage> {
 
   List<({String label, int amountCents})> _buildWeekSummaryData(List<Record> records) {
     final now = DateTime.now();
-    final startOfYear = DateTime(now.year, 1, 1);
-    final currentWeek = ((now.difference(startOfYear).inDays) / 7).floor() + 1;
+    final jan1 = DateTime(now.year, 1, 1);
+    final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
+    final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+    final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
     final weeklyExpense = List.filled(currentWeek, 0);
     for (final r in records) {
       if (!r.isExpense) continue;
-      final weekIndex = ((r.date.difference(startOfYear).inDays) / 7).floor();
+      final rMonday = DateTime(r.date.year, r.date.month, r.date.day).subtract(Duration(days: r.date.weekday - 1));
+      final weekIndex = ((rMonday.difference(jan1Monday).inDays) / 7).floor();
       if (weekIndex >= 0 && weekIndex < currentWeek) {
         weeklyExpense[weekIndex] += r.amountCents;
       }
@@ -352,9 +354,12 @@ class _StatsPageState extends State<StatsPage> {
   List<String> get _items {
     final now = DateTime.now();
     switch (_selectedRange) {
-      case 0: // 周：1周 2周 3周... 上周 本周
-        final startOfYear = DateTime(now.year, 1, 1);
-        final currentWeek = ((now.difference(startOfYear).inDays + startOfYear.weekday) / 7).ceil();
+      case 0: // 周：按周一~周日计算
+        final thisMonday = DateTime(now.year, 1, 1);
+        // 找到1月1日所在周的周一
+        final jan1Monday = thisMonday.subtract(Duration(days: thisMonday.weekday - 1));
+        final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+        final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
         return [
           for (var i = 1; i <= currentWeek - 1; i++) '$i周',
           '上周',
@@ -469,9 +474,6 @@ class _StatsPageState extends State<StatsPage> {
                     _yearSummaryData = cached.yearSummary;
                   }
                 });
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _scrollToEnd();
-                });
                 _loadData();
               },
             ),
@@ -565,6 +567,17 @@ class _StatsPageState extends State<StatsPage> {
 
   // ======================== 收支统计卡片 ========================
 
+  void _openDetail() {
+    final range = _getDateRange();
+    if (range == null) return;
+    final title = '${formatDateYmd(range.start)}~${formatDateYmd(range.end)}';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StatsDetailPage(start: range.start, end: range.end, title: title),
+      ),
+    );
+  }
+
   Widget _buildSummaryCard() {
     final balance = _totalIncome - _totalExpense;
     final range = _getDateRange();
@@ -576,7 +589,7 @@ class _StatsPageState extends State<StatsPage> {
     
     return CardContainer(
       title: '收支统计',
-      trailing: _buildTrailingButton('详情'),
+      trailing: _buildTrailingButton('详情', onTap: _openDetail),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: spacingS),
         child: Column(
@@ -615,9 +628,9 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _buildTrailingButton(String label) {
+  Widget _buildTrailingButton(String label, {VoidCallback? onTap}) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap ?? () {},
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
         decoration: BoxDecoration(
@@ -635,7 +648,7 @@ class _StatsPageState extends State<StatsPage> {
     if (_periodData.isEmpty) {
       return CardContainer(
         title: '支出统计图',
-        trailing: _buildTrailingButton('详情'),
+        trailing: _buildTrailingButton('详情', onTap: _openDetail),
         child: const SizedBox(
           height: 160,
           child: Center(
@@ -680,7 +693,7 @@ class _StatsPageState extends State<StatsPage> {
 
     return CardContainer(
       title: '支出统计图',
-      trailing: _buildTrailingButton('详情'),
+      trailing: _buildTrailingButton('详情', onTap: _openDetail),
       child: SizedBox(
         height: 160,
         child: SfCartesianChart(
@@ -708,10 +721,10 @@ class _StatsPageState extends State<StatsPage> {
               color: colorTextPrimary,
               width: 1.5,
               markerSettings: MarkerSettings(
-                isVisible: true,
+                isVisible: _selectedRange != 2,
                 shape: DataMarkerType.circle,
-                height: 8,
-                width: 8,
+                height: 3,
+                width: 3,
                 borderWidth: 1.5,
                 borderColor: colorTextPrimary,
                 color: colorTextOnPrimary,
@@ -913,8 +926,8 @@ class _StatsPageState extends State<StatsPage> {
           markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
-            height: 8,
-            width: 8,
+            height: 3,
+            width: 3,
             borderWidth: 1.5,
             borderColor: colorTextPrimary,
             color: colorTextOnPrimary,
