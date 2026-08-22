@@ -3,12 +3,14 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/category.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/card_container.dart';
 import '../widgets/date_filter_sheet.dart';
+import '../widgets/donut_pie_chart.dart';
 import '../widgets/month_year_picker.dart';
 import '../widgets/tab_bar.dart';
 import '../widgets/tab_switcher_app_bar.dart';
@@ -34,9 +36,12 @@ class _StatsPageState extends State<StatsPage> {
   // 数据状态
   int _totalExpense = 0;
   int _totalIncome = 0;
-  List<({String categoryName, int amountCents})> _expenseByCategory = [];
+  List<({String categoryName, int amountCents, int count})> _expenseByCategory = [];
   List<({String label, int amountCents})> _periodData = [];
-  final Map<String, ({int expense, int income, List<({String categoryName, int amountCents})> categories, List<({String label, int amountCents})> period})> _dataCache = {};
+  List<({String label, int amountCents})> _weekSummaryData = [];
+  List<({String label, int amountCents})> _monthSummaryData = [];
+  List<({String label, int amountCents})> _yearSummaryData = [];
+  final Map<String, ({int expense, int income, List<({String categoryName, int amountCents, int count})> categories, List<({String label, int amountCents})> period, List<({String label, int amountCents})> weekSummary, List<({String label, int amountCents})> monthSummary, List<({String label, int amountCents})> yearSummary})> _dataCache = {};
 
   List<String> get _rangeLabels => ['周', '月', '年', '自定义'];
 
@@ -64,14 +69,23 @@ class _StatsPageState extends State<StatsPage> {
 
   void _scrollToEnd() {
     try {
-      if (_scrollController.hasClients && 
+      if (_scrollController.hasClients &&
           _scrollController.position.hasContentDimensions &&
           _scrollController.position.maxScrollExtent > 0) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        return;
       }
-    } catch (e) {
-      // ScrollController可能已分离，忽略错误
-    }
+    } catch (_) {}
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        if (mounted &&
+            _scrollController.hasClients &&
+            _scrollController.position.hasContentDimensions &&
+            _scrollController.position.maxScrollExtent > 0) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      } catch (_) {}
+    });
   }
 
   /// 根据当前选中的 tab 和 index 计算日期范围
@@ -114,23 +128,35 @@ class _StatsPageState extends State<StatsPage> {
     if (ledgerId == null) return;
     
     try {
+      // 周/月 tab 需要全年数据来计算汇总
+      final loadStart = (_selectedRange == 0 || _selectedRange == 1)
+          ? DateTime(_selectedYear, 1, 1)
+          : _selectedRange == 2
+              ? DateTime(_selectedYear - 5, 1, 1)
+              : range.start;
+      final loadEnd = (_selectedRange == 0 || _selectedRange == 1)
+          ? DateTime(_selectedYear + 1, 1, 1)
+          : _selectedRange == 2
+              ? DateTime(_selectedYear + 1, 1, 1)
+              : range.end;
+
       final results = await Future.wait([
         loadRecordsByDateRange(
           ledgerId: ledgerId,
-          start: range.start,
-          end: range.end,
+          start: loadStart,
+          end: loadEnd,
         ),
         loadExpenseByCategory(
           ledgerId: ledgerId,
-          start: range.start,
-          end: range.end,
+          start: _selectedRange == 0 ? range.start : range.start,
+          end: _selectedRange == 0 ? range.end : range.end,
         ),
       ]);
       
       if (!mounted) return;
       
       final records = results[0] as List<Record>;
-      final expenseByCategory = results[1] as List<({String categoryName, int amountCents})>;
+      final expenseByCategory = results[1] as List<({String categoryName, int amountCents, int count})>;
       
       int totalExpense = 0;
       int totalIncome = 0;
@@ -143,12 +169,18 @@ class _StatsPageState extends State<StatsPage> {
       }
       
       final periodData = _buildPeriodData(records);
+      final weekSummaryData = _buildWeekSummaryData(records);
+      final monthSummaryData = _buildMonthSummaryData(records);
+      final yearSummaryData = _buildYearSummaryData(records);
       
       setState(() {
         _totalExpense = totalExpense;
         _totalIncome = totalIncome;
         _expenseByCategory = expenseByCategory;
         _periodData = periodData;
+        _weekSummaryData = weekSummaryData;
+        _monthSummaryData = monthSummaryData;
+        _yearSummaryData = yearSummaryData;
       });
       final cacheKey = '$_selectedRange-$_selectedIndex';
       _dataCache[cacheKey] = (
@@ -156,6 +188,9 @@ class _StatsPageState extends State<StatsPage> {
         income: totalIncome,
         categories: expenseByCategory,
         period: periodData,
+        weekSummary: weekSummaryData,
+        monthSummary: monthSummaryData,
+        yearSummary: yearSummaryData,
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToEnd();
@@ -167,7 +202,7 @@ class _StatsPageState extends State<StatsPage> {
 
   List<({String label, int amountCents})> _buildPeriodData(List<Record> records) {
     switch (_selectedRange) {
-      case 0: // 周：显示本周每天的支出
+      case 0: // 周：显示本周每天的支出（供支出统计图）
         final range = _getDateRange();
         if (range == null) return [];
         final days = range.end.difference(range.start).inDays;
@@ -249,6 +284,63 @@ class _StatsPageState extends State<StatsPage> {
       default:
         return [];
     }
+  }
+
+  List<({String label, int amountCents})> _buildWeekSummaryData(List<Record> records) {
+    final now = DateTime.now();
+    final startOfYear = DateTime(now.year, 1, 1);
+    final currentWeek = ((now.difference(startOfYear).inDays) / 7).floor() + 1;
+    final weeklyExpense = List.filled(currentWeek, 0);
+    for (final r in records) {
+      if (!r.isExpense) continue;
+      final weekIndex = ((r.date.difference(startOfYear).inDays) / 7).floor();
+      if (weekIndex >= 0 && weekIndex < currentWeek) {
+        weeklyExpense[weekIndex] += r.amountCents;
+      }
+    }
+    return List.generate(currentWeek, (i) {
+      final isLastWeek = i == currentWeek - 2;
+      final isThisWeek = i == currentWeek - 1;
+      final label = isThisWeek ? '本周' : isLastWeek ? '上周' : '${i + 1}周';
+      return (label: label, amountCents: weeklyExpense[i]);
+    });
+  }
+
+  List<({String label, int amountCents})> _buildMonthSummaryData(List<Record> records) {
+    final now = DateTime.now();
+    final monthlyExpense = List.filled(now.month, 0);
+    for (final r in records) {
+      if (!r.isExpense) continue;
+      final monthIndex = r.date.month - 1;
+      if (monthIndex >= 0 && monthIndex < now.month) {
+        monthlyExpense[monthIndex] += r.amountCents;
+      }
+    }
+    return List.generate(now.month, (i) {
+      final isLastMonth = i == now.month - 2;
+      final isThisMonth = i == now.month - 1;
+      final label = isThisMonth ? '本月' : isLastMonth ? '上月' : '${i + 1}月';
+      return (label: label, amountCents: monthlyExpense[i]);
+    });
+  }
+
+  List<({String label, int amountCents})> _buildYearSummaryData(List<Record> records) {
+    final now = DateTime.now();
+    final startYear = now.year - 5;
+    final yearCount = 6;
+    final yearlyExpense = List.filled(yearCount, 0);
+    for (final r in records) {
+      if (!r.isExpense) continue;
+      final yearIndex = r.date.year - startYear;
+      if (yearIndex >= 0 && yearIndex < yearCount) {
+        yearlyExpense[yearIndex] += r.amountCents;
+      }
+    }
+    return List.generate(yearCount, (i) {
+      final year = startYear + i;
+      final label = year == now.year ? '今年' : year == now.year - 1 ? '去年' : year == now.year - 2 ? '前年' : '$year';
+      return (label: label, amountCents: yearlyExpense[i]);
+    });
   }
 
   @override
@@ -372,6 +464,9 @@ class _StatsPageState extends State<StatsPage> {
                     _totalIncome = cached.income;
                     _expenseByCategory = cached.categories;
                     _periodData = cached.period;
+                    _weekSummaryData = cached.weekSummary;
+                    _monthSummaryData = cached.monthSummary;
+                    _yearSummaryData = cached.yearSummary;
                   }
                 });
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -454,7 +549,6 @@ class _StatsPageState extends State<StatsPage> {
               ],
             ),
           ),
-          const SizedBox(height: spacingM),
           _buildSummaryCard(),
           const SizedBox(height: spacingM),
           _buildTrendChart(),
@@ -643,39 +737,23 @@ class _StatsPageState extends State<StatsPage> {
     }
 
     final total = _expenseByCategory.fold(0, (s, e) => s + e.amountCents);
-    final colors = [colorExpense, colorIncome, colorTextSecondary, colorDivider, colorTextPlaceholder];
+    final colors = themeColorPalette;
 
     return CardContainer(
       title: '支出占比',
-      child: Column(
-        children: List.generate(_expenseByCategory.length, (i) {
-          final item = _expenseByCategory[i];
-          final ratio = item.amountCents / total;
-          final color = colors[i % colors.length];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: spacingXS),
-            child: Row(
-              children: [
-                Container(width: 12, height: 12, color: color),
-                const SizedBox(width: spacingS),
-                SizedBox(width: 50, child: Text(item.categoryName, style: textBody)),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(radiusTiny),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 12,
-                      backgroundColor: colorDivider,
-                      valueColor: AlwaysStoppedAnimation(color),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: spacingS),
-                Text('${(ratio * 100).toStringAsFixed(1)}%', style: textItemSub),
-              ],
-            ),
-          );
-        }),
+      child: SizedBox(
+        height: 220,
+        child: DonutPieChart(
+          data: List.generate(_expenseByCategory.length, (i) {
+            final item = _expenseByCategory[i];
+            return PieSectorData(
+              name: item.categoryName,
+              amount: item.amountCents,
+              color: colors[i % colors.length],
+            );
+          }),
+          total: total,
+        ),
       ),
     );
   }
@@ -692,29 +770,66 @@ class _StatsPageState extends State<StatsPage> {
       );
     }
 
-    final icons = {
-      '餐饮': Icons.restaurant,
-      '购物': Icons.shopping_bag,
-      '交通': Icons.directions_car,
-      '娱乐': Icons.sports_esports,
-    };
+    final totalExpense = _expenseByCategory.fold(0, (s, e) => s + e.amountCents);
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
 
     return CardContainer(
       title: '支出排行',
       child: Column(
         children: List.generate(_expenseByCategory.length, (i) {
           final item = _expenseByCategory[i];
-          final icon = icons[item.categoryName] ?? Icons.category;
+          final ratio = totalExpense > 0 ? (item.amountCents / totalExpense).clamp(0.0, 1.0) : 0.0;
+          final percent = (ratio * 100).toStringAsFixed(2);
+          final category = expenseCategories.firstWhere(
+            (c) => c.name == item.categoryName,
+            orElse: () => Category(icon: Icons.category, name: item.categoryName),
+          );
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: spacingXS),
+            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
             child: Row(
               children: [
-                Text('${i + 1}', style: textBody),
+                Container(
+                  width: sizeCategoryCircle,
+                  height: sizeCategoryCircle,
+                  decoration: const BoxDecoration(
+                    color: colorIconLightBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    category.icon,
+                    size: iconSizeXLarge,
+                    color: colorIconGray,
+                  ),
+                ),
                 const SizedBox(width: spacingM),
-                Icon(icon, size: iconSizeSmall, color: colorTextSecondary),
-                const SizedBox(width: spacingM),
-                Expanded(child: Text(item.categoryName, style: textBody)),
-                Text(formatAmount(item.amountCents), style: textAmountFlow),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(item.categoryName, style: textBody),
+                          const SizedBox(width: spacingM),
+                          Text('$percent%', style: textBody.copyWith(color: colorTextPrimary)),
+                          const Spacer(),
+                          Text('(共${item.count}笔)', style: textItemSub.copyWith(color: colorTextHint)),
+                          const SizedBox(width: spacingXS),
+                          Text(formatAmount(item.amountCents), style: textAmountFlow),
+                        ],
+                      ),
+                      const SizedBox(height: spacingS),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: ratio,
+                          minHeight: 6,
+                          backgroundColor: colorDivider,
+                          valueColor: AlwaysStoppedAnimation(themeColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -727,57 +842,86 @@ class _StatsPageState extends State<StatsPage> {
 
   String get _periodTitle {
     switch (_selectedRange) {
-      case 0: return '本周支出';
-      case 1: return '$_selectedYear年${_items[_selectedIndex]}支出';
-      case 2: return '$_selectedYear年月支出汇总';
-      case 3: return '自定义支出';
-      default: return '支出汇总';
+      case 0: return '$_selectedYear年周支出汇总';
+      case 1: return '$_selectedYear年月支出汇总';
+      case 2: return '$_selectedYear年年支出汇总';
+      default: return '';
     }
   }
 
   Widget _buildPeriodSummary() {
-    if (_periodData.isEmpty) {
+    if (_selectedRange == 3) return const SizedBox.shrink();
+
+    List<({String label, int amountCents})> summaryData;
+    switch (_selectedRange) {
+      case 0: summaryData = _weekSummaryData; break;
+      case 1: summaryData = _monthSummaryData; break;
+      case 2: summaryData = _yearSummaryData; break;
+      default: return const SizedBox.shrink();
+    }
+
+    if (summaryData.isEmpty) {
       return CardContainer(
         title: _periodTitle,
-        trailing: _buildTrailingButton('详情'),
         child: const Center(
           child: Text('暂无数据', style: textHint),
         ),
       );
     }
 
-    final maxVal = _periodData.map((e) => e.amountCents).reduce((a, b) => a > b ? a : b).toDouble();
-
     return CardContainer(
       title: _periodTitle,
-      trailing: _buildTrailingButton('详情'),
-      child: Column(
-        children: _periodData.map((item) {
-          final ratio = maxVal > 0 ? item.amountCents / maxVal : 0.0;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: spacingXS),
-            child: Row(
-              children: [
-                SizedBox(width: 50, child: Text(item.label, style: textBody)),
-                const SizedBox(width: spacingM),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(radiusTiny),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 12,
-                      backgroundColor: colorDivider,
-                      valueColor: AlwaysStoppedAnimation(colorExpense),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: spacingS),
-                Text(formatAmount(item.amountCents), style: textItemSub),
-              ],
-            ),
-          );
-        }).toList(),
+      child: SizedBox(
+        height: 160,
+        child: _buildLineChart(summaryData),
       ),
+    );
+  }
+
+  Widget _buildLineChart(List<({String label, int amountCents})> data) {
+    final points = data.map((e) => _TrendPoint(label: e.label, value: e.amountCents)).toList();
+    final values = points.map((p) => p.value.toDouble()).toList();
+    final minY = values.isEmpty ? 0.0 : values.reduce((a, b) => a < b ? a : b);
+    final maxY = values.isEmpty ? 1.0 : values.reduce((a, b) => a > b ? a : b);
+    final tooltip = TooltipBehavior(enable: true, animationDuration: 0, header: '', canShowMarker: false);
+    final interval = points.length > 31 ? (points.length / 10).ceil() : 1;
+
+    return SfCartesianChart(
+      margin: const EdgeInsets.all(0),
+      plotAreaBorderWidth: 0,
+      primaryXAxis: CategoryAxis(
+        majorGridLines: const MajorGridLines(width: 0),
+        majorTickLines: const MajorTickLines(size: 0),
+        axisLine: const AxisLine(width: 0),
+        labelStyle: textChartLabel,
+        labelRotation: points.length > 12 ? -45 : 0,
+        interval: interval.toDouble(),
+      ),
+      primaryYAxis: NumericAxis(
+        minimum: minY,
+        maximum: maxY,
+        isVisible: false,
+      ),
+      tooltipBehavior: tooltip,
+      series: <LineSeries<_TrendPoint, String>>[
+        LineSeries<_TrendPoint, String>(
+          dataSource: points,
+          xValueMapper: (point, _) => point.label,
+          yValueMapper: (point, _) => point.value,
+          color: colorTextPrimary,
+          width: 1.5,
+          markerSettings: MarkerSettings(
+            isVisible: true,
+            shape: DataMarkerType.circle,
+            height: 8,
+            width: 8,
+            borderWidth: 1.5,
+            borderColor: colorTextPrimary,
+            color: colorTextOnPrimary,
+          ),
+          animationDuration: 0,
+        ),
+      ],
     );
   }
 }
