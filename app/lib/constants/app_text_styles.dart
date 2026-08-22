@@ -78,5 +78,5 @@ const TextStyle textButtonDanger = TextStyle(fontSize: 15, color: colorDeleteDar
 const TextStyle textFilterActive = TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorTextOnPrimary);
 const TextStyle textFilterInactive = TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colorTextPrimary);
 const TextStyle textTagSmall = TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorTextPrimary);
-const TextStyle textChartLabel = TextStyle(fontSize: 10, color: colorTextSecondary);
+const TextStyle textChartLabel = TextStyle(fontSize: 10, color: colorTextPrimary);
 const TextStyle textChartTooltip = TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorTextOnPrimary);

@@ -187,6 +187,7 @@ class _DailyTrendChart extends StatelessWidget {
         maximum: (points.length - 1).toDouble(),
         interval: points.length > 10 ? (points.length / 5).ceilToDouble() : 1,
         majorGridLines: const MajorGridLines(width: 0),
+        majorTickLines: const MajorTickLines(size: 0),
         axisLine: const AxisLine(width: 0),
         labelStyle: textChartLabel,
         axisLabelFormatter: (details) {

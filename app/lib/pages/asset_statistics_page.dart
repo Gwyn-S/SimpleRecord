@@ -317,6 +317,7 @@ class _TrendLineChart extends StatelessWidget {
         maximum: (currentMonth - 1).toDouble(),
         interval: 1,
         majorGridLines: const MajorGridLines(width: 0),
+        majorTickLines: const MajorTickLines(size: 0),
         axisLine: const AxisLine(width: 0),
         labelStyle: textChartLabel,
         axisLabelFormatter: (details) {
