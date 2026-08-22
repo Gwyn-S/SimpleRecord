@@ -117,7 +117,7 @@ class _PieLeaderPainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    final extendLength = radius * 0.25;
+    final extendLength = radius * 0.1;
     double startAngle = -pi / 2 + rotation;
 
     for (final item in data) {
@@ -129,7 +129,7 @@ class _PieLeaderPainter extends CustomPainter {
       final breakX = center.dx + (radius + extendLength) * cos(midAngle);
       final breakY = center.dy + (radius + extendLength) * sin(midAngle);
       final isRight = breakX > center.dx;
-      final endX = isRight ? breakX + 35 : breakX - 35;
+      final endX = isRight ? breakX + 18 : breakX - 18;
 
       linePaint.color = item.color;
       canvas.drawLine(Offset(startX, startY), Offset(breakX, breakY), linePaint);
