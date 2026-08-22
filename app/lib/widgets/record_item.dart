@@ -13,12 +13,14 @@ class RecordItem extends StatelessWidget {
   final Record record;
   final VoidCallback? onEdit;
   final bool showDate;
+  final bool readonly;
 
   const RecordItem({
     super.key,
     required this.record,
     this.onEdit,
     this.showDate = false,
+    this.readonly = false,
   });
 
   @override
@@ -33,7 +35,7 @@ class RecordItem extends StatelessWidget {
     }
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _showActions(context),
+      onTap: readonly ? null : () => _showActions(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
         child: Row(
