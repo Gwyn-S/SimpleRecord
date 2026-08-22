@@ -56,6 +56,67 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
   return rows.map(Record.fromDbMap).toList();
 }
 
+/// 按日期范围查询记录（含 start，不含 end）
+Future<List<Record>> loadRecordsByDateRange({
+  String? ledgerId,
+  required DateTime start,
+  required DateTime end,
+}) async {
+  final db = await DatabaseHelper.instance.database;
+  final where = <String>[];
+  final args = <Object>[];
+  if (ledgerId != null) {
+    where.add('book_id = ?');
+    args.add(ledgerId);
+  }
+  final startEpoch = toEpochDay(start);
+  final endEpoch = toEpochDay(end);
+  where.add('date >= ? AND date < ?');
+  args.add(startEpoch);
+  args.add(endEpoch);
+  final sql = StringBuffer(
+    'SELECT records.*, asset_accounts.name AS account_name '
+    'FROM records LEFT JOIN asset_accounts '
+    'ON records.account_id = asset_accounts.id',
+  );
+  sql.write(' WHERE ${where.join(' AND ')}');
+  sql.write(' ORDER BY date DESC, created_at DESC');
+  final rows = await db.rawQuery(sql.toString(), args);
+  return rows.map(Record.fromDbMap).toList();
+}
+
+/// 按日期范围查询并按分类聚合（支出）
+Future<List<({String categoryName, int amountCents})>> loadExpenseByCategory({
+  String? ledgerId,
+  required DateTime start,
+  required DateTime end,
+}) async {
+  final db = await DatabaseHelper.instance.database;
+  final where = <String>['is_expense = 1'];
+  final args = <Object>[];
+  if (ledgerId != null) {
+    where.add('book_id = ?');
+    args.add(ledgerId);
+  }
+  final startEpoch = toEpochDay(start);
+  final endEpoch = toEpochDay(end);
+  where.add('date >= ? AND date < ?');
+  args.add(startEpoch);
+  args.add(endEpoch);
+  final rows = await db.rawQuery(
+    'SELECT category_name, SUM(amount_cents) AS total '
+    'FROM records '
+    'WHERE ${where.join(' AND ')} '
+    'GROUP BY category_name '
+    'ORDER BY total DESC',
+    args,
+  );
+  return rows.map((r) => (
+    categoryName: r['category_name'] as String,
+    amountCents: r['total'] as int,
+  )).toList();
+}
+
 /// 同步账户余额：sign=1 应用记录影响，sign=-1 撤销。
 /// 支出减余额、收入加余额；未关联账户（accountId 为空）时跳过。
 Future<void> _applyBalance(
