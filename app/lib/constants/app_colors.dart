@@ -31,6 +31,7 @@ const Color colorBorderKeyboard = Color(0xFFE0E0E0);
 
 // ===================== 语义色 =====================
 const Color colorExpense = Color(0xFFC62828);
+const Color colorIncome = Color(0xFF2E7D32);
 const Color colorDelete = Colors.red;
 const Color colorDeleteDark = Color(0xFFC62828);
 
