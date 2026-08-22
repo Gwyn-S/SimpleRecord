@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/record.dart';
 import '../services/record_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
@@ -20,20 +22,21 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   bool _isExpense = true;
-  int _selectedRange = 1; // 0=周 1=月 2=年 3=自定义
+  int _selectedRange = 0; // 0=周 1=月 2=年 3=自定义
   late int _selectedIndex;
   int _selectedYear = DateTime.now().year;
   final ScrollController _scrollController = ScrollController();
   final Map<int, int> _selectedIndexMap = {};
   String _customPreset = '最近30天';
-  DateTime? _customStart;
-  DateTime? _customEnd;
+  late DateTime _customStart = DateTime.now().subtract(const Duration(days: 30));
+  late DateTime _customEnd = DateTime.now();
 
   // 数据状态
   int _totalExpense = 0;
   int _totalIncome = 0;
   List<({String categoryName, int amountCents})> _expenseByCategory = [];
   List<({String label, int amountCents})> _periodData = [];
+  final Map<String, ({int expense, int income, List<({String categoryName, int amountCents})> categories, List<({String label, int amountCents})> period})> _dataCache = {};
 
   List<String> get _rangeLabels => ['周', '月', '年', '自定义'];
 
@@ -53,19 +56,21 @@ class _StatsPageState extends State<StatsPage> {
     _selectedIndex = _lastIndex;
     _selectedIndexMap[_selectedRange] = _selectedIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _scrollToEnd();
       _loadData();
     });
   }
 
   void _scrollToEnd() {
-    if (_scrollController.hasClients) {
-      // 等待布局完成后再滚动
-      Future.delayed(Duration.zero, () {
-        if (_scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
+    try {
+      if (_scrollController.hasClients && 
+          _scrollController.position.hasContentDimensions &&
+          _scrollController.position.maxScrollExtent > 0) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    } catch (e) {
+      // ScrollController可能已分离，忽略错误
     }
   }
 
@@ -87,7 +92,7 @@ class _StatsPageState extends State<StatsPage> {
         final targetMonth = now.month - monthOffset;
         final targetYear = _selectedYear;
         final start = DateTime(targetYear, targetMonth, 1);
-        final end = DateTime(targetYear, targetMonth + 1, 1);
+        final end = DateTime(targetYear, targetMonth + 1, 0); // 月末
         return (start: start, end: end);
       case 2: // 年
         final yearOffset = _items.length - 1 - _selectedIndex;
@@ -96,10 +101,7 @@ class _StatsPageState extends State<StatsPage> {
         final end = DateTime(targetYear + 1, 1, 1);
         return (start: start, end: end);
       case 3: // 自定义
-        if (_customStart != null && _customEnd != null) {
-          return (start: _customStart!, end: _customEnd!);
-        }
-        return null;
+        return (start: _customStart, end: _customEnd);
       default:
         return null;
     }
@@ -109,132 +111,140 @@ class _StatsPageState extends State<StatsPage> {
     final range = _getDateRange();
     if (range == null) return;
     final ledgerId = currentLedgerId.value;
+    if (ledgerId == null) return;
     
-    final records = await loadRecordsByDateRange(
-      ledgerId: ledgerId,
-      start: range.start,
-      end: range.end,
-    );
-    
-    final expenseByCategory = await loadExpenseByCategory(
-      ledgerId: ledgerId,
-      start: range.start,
-      end: range.end,
-    );
-    
-    if (!mounted) return;
-    
-    int totalExpense = 0;
-    int totalIncome = 0;
-    for (final r in records) {
-      if (r.isExpense) {
-        totalExpense += r.amountCents;
-      } else {
-        totalIncome += r.amountCents;
+    try {
+      final results = await Future.wait([
+        loadRecordsByDateRange(
+          ledgerId: ledgerId,
+          start: range.start,
+          end: range.end,
+        ),
+        loadExpenseByCategory(
+          ledgerId: ledgerId,
+          start: range.start,
+          end: range.end,
+        ),
+      ]);
+      
+      if (!mounted) return;
+      
+      final records = results[0] as List<Record>;
+      final expenseByCategory = results[1] as List<({String categoryName, int amountCents})>;
+      
+      int totalExpense = 0;
+      int totalIncome = 0;
+      for (final r in records) {
+        if (r.isExpense) {
+          totalExpense += r.amountCents;
+        } else {
+          totalIncome += r.amountCents;
+        }
       }
+      
+      final periodData = _buildPeriodData(records);
+      
+      setState(() {
+        _totalExpense = totalExpense;
+        _totalIncome = totalIncome;
+        _expenseByCategory = expenseByCategory;
+        _periodData = periodData;
+      });
+      final cacheKey = '$_selectedRange-$_selectedIndex';
+      _dataCache[cacheKey] = (
+        expense: totalExpense,
+        income: totalIncome,
+        categories: expenseByCategory,
+        period: periodData,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToEnd();
+      });
+    } catch (e) {
+      // 加载失败，保持当前状态
     }
-    
-    // 加载周期数据
-    final periodData = await _loadPeriodData();
-    
-    setState(() {
-      _totalExpense = totalExpense;
-      _totalIncome = totalIncome;
-      _expenseByCategory = expenseByCategory;
-      _periodData = periodData;
-    });
   }
 
-  Future<List<({String label, int amountCents})>> _loadPeriodData() async {
-    final ledgerId = currentLedgerId.value;
-    
+  List<({String label, int amountCents})> _buildPeriodData(List<Record> records) {
     switch (_selectedRange) {
       case 0: // 周：显示本周每天的支出
         final range = _getDateRange();
         if (range == null) return [];
-        final records = await loadRecordsByDateRange(
-          ledgerId: ledgerId,
-          start: range.start,
-          end: range.end,
-        );
-        final dailyExpense = List.filled(7, 0);
-        final dayLabels = ['一', '二', '三', '四', '五', '六', '日'];
-        for (final r in records) {
-          if (!r.isExpense) continue;
-          final dayIndex = (r.date.weekday - 1) % 7;
-          dailyExpense[dayIndex] += r.amountCents;
-        }
-        return List.generate(7, (i) => (
-          label: dayLabels[i],
-          amountCents: dailyExpense[i],
-        ));
-      
-      case 1: // 月：显示本月每周的支出
-        final range = _getDateRange();
-        if (range == null) return [];
-        final records = await loadRecordsByDateRange(
-          ledgerId: ledgerId,
-          start: range.start,
-          end: range.end,
-        );
-        // 计算本月有几周
-        final firstDay = range.start;
-        final lastDay = range.end.subtract(const Duration(days: 1));
-        final firstWeekStart = firstDay.subtract(Duration(days: firstDay.weekday - 1));
-        final lastWeekEnd = lastDay.add(Duration(days: 7 - lastDay.weekday));
-        final totalWeeks = ((lastWeekEnd.difference(firstWeekStart).inDays) / 7).ceil();
-        final weeklyExpense = List.filled(totalWeeks, 0);
-        for (final r in records) {
-          if (!r.isExpense) continue;
-          final weekIndex = ((r.date.difference(firstWeekStart).inDays) / 7).floor();
-          if (weekIndex >= 0 && weekIndex < totalWeeks) {
-            weeklyExpense[weekIndex] += r.amountCents;
-          }
-        }
-        return List.generate(totalWeeks, (i) => (
-          label: '第${i + 1}周',
-          amountCents: weeklyExpense[i],
-        ));
-      
-      case 2: // 年：显示今年每月的支出
-        final year = _selectedYear;
-        final monthlyExpense = List.filled(12, 0);
-        final allRecords = await loadRecordsByDateRange(
-          ledgerId: ledgerId,
-          start: DateTime(year, 1, 1),
-          end: DateTime(year + 1, 1, 1),
-        );
-        for (final r in allRecords) {
-          if (!r.isExpense) continue;
-          final monthIndex = r.date.month - 1;
-          monthlyExpense[monthIndex] += r.amountCents;
-        }
-        return List.generate(12, (i) => (
-          label: '${i + 1}月',
-          amountCents: monthlyExpense[i],
-        ));
-      
-      case 3: // 自定义：显示每天的支出
-        if (_customStart == null || _customEnd == null) return [];
-        final records = await loadRecordsByDateRange(
-          ledgerId: ledgerId,
-          start: _customStart!,
-          end: _customEnd!,
-        );
-        final days = _customEnd!.difference(_customStart!).inDays;
-        if (days <= 0) return [];
+        final days = range.end.difference(range.start).inDays;
         final dailyExpense = List.filled(days, 0);
         for (final r in records) {
           if (!r.isExpense) continue;
-          final dayIndex = r.date.difference(_customStart!).inDays;
+          final dayIndex = r.date.difference(range.start).inDays;
           if (dayIndex >= 0 && dayIndex < days) {
             dailyExpense[dayIndex] += r.amountCents;
           }
         }
-        return List.generate(days, (i) => (
-          label: '第${i + 1}天',
-          amountCents: dailyExpense[i],
-        ));
+        return List.generate(days, (i) {
+          final date = range.start.add(Duration(days: i));
+          return (
+            label: '${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}',
+            amountCents: dailyExpense[i],
+          );
+        });
+      
+      case 1: // 月：显示本月每天的支出
+        final range = _getDateRange();
+        if (range == null) return [];
+        final days = range.end.difference(range.start).inDays + 1;
+        final dailyExpense = List.filled(days, 0);
+        for (final r in records) {
+          if (!r.isExpense) continue;
+          final dayIndex = r.date.difference(range.start).inDays;
+          if (dayIndex >= 0 && dayIndex < days) {
+            dailyExpense[dayIndex] += r.amountCents;
+          }
+        }
+        return List.generate(days, (i) {
+          final date = range.start.add(Duration(days: i));
+          return (
+            label: date.day.toString().padLeft(2, '0'),
+            amountCents: dailyExpense[i],
+          );
+        });
+      
+      case 2: // 年：显示今年每天的支出
+        final range = _getDateRange();
+        if (range == null) return [];
+        final days = range.end.difference(range.start).inDays;
+        final dailyExpense = List.filled(days, 0);
+        for (final r in records) {
+          if (!r.isExpense) continue;
+          final dayIndex = r.date.difference(range.start).inDays;
+          if (dayIndex >= 0 && dayIndex < days) {
+            dailyExpense[dayIndex] += r.amountCents;
+          }
+        }
+        return List.generate(days, (i) {
+          final date = range.start.add(Duration(days: i));
+          return (
+            label: '${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}',
+            amountCents: dailyExpense[i],
+          );
+        });
+      
+      case 3: // 自定义：显示每天的支出
+        final days = _customEnd.difference(_customStart).inDays;
+        if (days <= 0) return [];
+        final dailyExpense = List.filled(days, 0);
+        for (final r in records) {
+          if (!r.isExpense) continue;
+          final dayIndex = r.date.difference(_customStart).inDays;
+          if (dayIndex >= 0 && dayIndex < days) {
+            dailyExpense[dayIndex] += r.amountCents;
+          }
+        }
+        return List.generate(days, (i) {
+          final date = _customStart.add(Duration(days: i));
+          return (
+            label: '${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}',
+            amountCents: dailyExpense[i],
+          );
+        });
       
       default:
         return [];
@@ -260,7 +270,7 @@ class _StatsPageState extends State<StatsPage> {
         ];
       case 1: // 月：1月 2月... 上月 本月
         return [
-          for (var i = 1; i <= now.month - 1; i++) '$i月',
+          for (var i = 1; i <= now.month - 2; i++) '$i月',
           '上月',
           '本月',
         ];
@@ -304,11 +314,14 @@ class _StatsPageState extends State<StatsPage> {
     );
     if (result != null && mounted) {
       setState(() {
-        _customStart = result.$1;
-        _customEnd = result.$2;
-        if (result.$1 == null && result.$2 == null) {
-          _customPreset = '日期不限';
-        } else if (result.$1 != null && result.$2 != null) {
+        if (result.$1 == null || result.$2 == null) {
+          // 用户选择"不限"，保持默认最近30天
+          _customStart = DateTime.now().subtract(const Duration(days: 30));
+          _customEnd = DateTime.now();
+          _customPreset = '最近30天';
+        } else {
+          _customStart = result.$1!;
+          _customEnd = result.$2!;
           final presetName = matchPresetName(result.$1!, result.$2!);
           if (presetName != null) {
             _customPreset = presetName;
@@ -347,17 +360,24 @@ class _StatsPageState extends State<StatsPage> {
               tabs: _rangeLabels,
               selectedIndex: _selectedRange,
               onChanged: (i) {
-                // 保存当前tab的选择
                 _selectedIndexMap[_selectedRange] = _selectedIndex;
+                _selectedRange = i;
+                _selectedIndex = _selectedIndexMap[i] ?? _lastIndex;
+                // 立即用缓存数据渲染
+                final cacheKey = '$_selectedRange-$_selectedIndex';
+                final cached = _dataCache[cacheKey];
                 setState(() {
-                  _selectedRange = i;
-                  // 恢复目标tab的选择，如果没有则选最后一项
-                  _selectedIndex = _selectedIndexMap[i] ?? _lastIndex;
+                  if (cached != null) {
+                    _totalExpense = cached.expense;
+                    _totalIncome = cached.income;
+                    _expenseByCategory = cached.categories;
+                    _periodData = cached.period;
+                  }
                 });
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToEnd();
-                  _loadData();
+                  if (mounted) _scrollToEnd();
                 });
+                _loadData();
               },
             ),
           ),
@@ -518,42 +538,93 @@ class _StatsPageState extends State<StatsPage> {
   // ======================== 支出统计图 ========================
 
   Widget _buildTrendChart() {
-    // TODO: 假数据，后续替换为真实柱状图
-    final fakeData = [3200, 2800, 4100, 3600, 2900, 3800, 2580];
-    final labels = ['一', '二', '三', '四', '五', '六', '日'];
-    final maxVal = fakeData.reduce((a, b) => a > b ? a : b).toDouble();
+    if (_periodData.isEmpty) {
+      return CardContainer(
+        title: '支出统计图',
+        trailing: _buildTrailingButton('详情'),
+        child: const SizedBox(
+          height: 160,
+          child: Center(
+            child: Text('暂无数据', style: textHint),
+          ),
+        ),
+      );
+    }
+
+    final points = _periodData.map((e) => _TrendPoint(
+      label: e.label,
+      value: e.amountCents,
+    )).toList();
+
+    final values = _periodData.map((e) => e.amountCents.toDouble()).toList();
+    final minY = values.isEmpty ? -1.0 : values.reduce((a, b) => a < b ? a : b) * 0.9;
+    final maxY = values.isEmpty ? 1.0 : values.reduce((a, b) => a > b ? a : b) * 1.1;
+
+    final tooltip = TooltipBehavior(
+      enable: true,
+      activationMode: ActivationMode.singleTap,
+      tooltipPosition: TooltipPosition.pointer,
+      animationDuration: 0,
+      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
+        final p = points[pointIndex];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '${p.label} ${formatAmount(p.value)}',
+            style: const TextStyle(fontSize: 11, color: Colors.white),
+          ),
+        );
+      },
+    );
+
+    // 根据数据量决定X轴标签显示间隔
+    final interval = points.length > 31 ? (points.length / 10).ceil() : 1;
 
     return CardContainer(
-      title: '支出统计',
+      title: '支出统计图',
       trailing: _buildTrailingButton('详情'),
       child: SizedBox(
         height: 160,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: List.generate(fakeData.length, (i) {
-            final ratio = fakeData[i] / maxVal;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: spacingXXS),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(formatAmount(fakeData[i]), style: textChartLabel),
-                    const SizedBox(height: spacingXXS),
-                    Container(
-                      height: 100 * ratio,
-                      decoration: BoxDecoration(
-                        color: colorExpense,
-                        borderRadius: BorderRadius.circular(radiusTiny),
-                      ),
-                    ),
-                    const SizedBox(height: spacingXXS),
-                    Text(labels[i], style: textChartLabel),
-                  ],
-                ),
+        child: SfCartesianChart(
+          margin: const EdgeInsets.all(0),
+          plotAreaBorderWidth: 0,
+          primaryXAxis: CategoryAxis(
+            majorGridLines: const MajorGridLines(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            axisLine: const AxisLine(width: 0),
+            labelStyle: textChartLabel,
+            labelRotation: points.length > 31 ? -45 : 0,
+            interval: interval.toDouble(),
+          ),
+          primaryYAxis: NumericAxis(
+            minimum: minY,
+            maximum: maxY,
+            isVisible: false,
+          ),
+          tooltipBehavior: tooltip,
+          series: <LineSeries<_TrendPoint, String>>[
+            LineSeries<_TrendPoint, String>(
+              dataSource: points,
+              xValueMapper: (point, _) => point.label,
+              yValueMapper: (point, _) => point.value,
+              color: colorTextPrimary,
+              width: 1.5,
+              markerSettings: MarkerSettings(
+                isVisible: true,
+                shape: DataMarkerType.circle,
+                height: 8,
+                width: 8,
+                borderWidth: 1.5,
+                borderColor: colorTextPrimary,
+                color: colorTextOnPrimary,
               ),
-            );
-          }),
+              animationDuration: 0,
+            ),
+          ],
         ),
       ),
     );
@@ -709,4 +780,10 @@ class _StatsPageState extends State<StatsPage> {
       ),
     );
   }
+}
+
+class _TrendPoint {
+  final String label;
+  final int value;
+  const _TrendPoint({required this.label, required this.value});
 }
