@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../constants/app_colors.dart';
@@ -10,6 +9,7 @@ import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
 import '../widgets/card_container.dart';
+import '../widgets/donut_pie_chart.dart';
 import '../widgets/month_year_picker.dart';
 import '../widgets/tab_bar.dart';
 
@@ -201,9 +201,13 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     }
     return CardContainer(
       title: title,
-      child: SizedBox(
+        child: SizedBox(
         height: 220,
-        child: _AssetPieChart(key: const ValueKey('pie'), data: data, total: total),
+        child: DonutPieChart(
+          key: const ValueKey('pie'),
+          data: data.map((s) => PieSectorData(name: s.name, amount: s.amount, color: s.color)).toList(),
+          total: total,
+        ),
       ),
     );
   }
@@ -358,162 +362,6 @@ class _TrendPoint {
   final int month;
   final int value;
   const _TrendPoint({required this.month, required this.value});
-}
-
-// ======================================================================
-//  饼图（syncfusion DoughnutSeries + 旋转 + 不旋转引线标签）
-// ======================================================================
-
-class _AssetPieChart extends StatefulWidget {
-  final List<_CategorySummary> data;
-  final int total;
-
-  const _AssetPieChart({super.key, required this.data, required this.total});
-
-  @override
-  State<_AssetPieChart> createState() => _AssetPieChartState();
-}
-
-class _AssetPieChartState extends State<_AssetPieChart> {
-  double _rotation = 0;
-  double _lastAngle = 0;
-
-  double _getAngle(Offset center, Offset point) {
-    return (point - center).direction;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        final center = Offset(w / 2, h / 2);
-        final radius = h * 0.35;
-        return GestureDetector(
-          onPanStart: (details) {
-            _lastAngle = _getAngle(center, details.localPosition);
-          },
-          onPanUpdate: (details) {
-            final currentAngle = _getAngle(center, details.localPosition);
-            final delta = currentAngle - _lastAngle;
-            setState(() {
-              _rotation += delta;
-            });
-            _lastAngle = currentAngle;
-          },
-          child: Stack(
-            children: [
-              // 旋转的饼图
-              Positioned.fill(
-                child: Transform.rotate(
-                  angle: _rotation,
-                  child: SfCircularChart(
-                    margin: EdgeInsets.zero,
-                    series: <DoughnutSeries<_CategorySummary, String>>[
-                      DoughnutSeries<_CategorySummary, String>(
-                        animationDuration: 0,
-                        dataSource: widget.data,
-                        xValueMapper: (_CategorySummary item, _) => item.name,
-                        yValueMapper: (_CategorySummary item, _) => item.amount,
-                        pointColorMapper: (_CategorySummary item, _) => item.color,
-                        radius: '70%',
-                        innerRadius: '50%',
-                        dataLabelSettings: const DataLabelSettings(isVisible: false),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // 不旋转的引线+标签
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _PieLeaderPainter(
-                    data: widget.data,
-                    total: widget.total,
-                    center: center,
-                    radius: radius,
-                    rotation: _rotation,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ======================================================================
-//  引线绘制（不旋转）
-// ======================================================================
-
-class _PieLeaderPainter extends CustomPainter {
-  final List<_CategorySummary> data;
-  final int total;
-  final Offset center;
-  final double radius;
-  final double rotation;
-
-  _PieLeaderPainter({
-    required this.data,
-    required this.total,
-    required this.center,
-    required this.radius,
-    required this.rotation,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty || total == 0) return;
-
-    final linePaint = Paint()
-      ..color = colorDivider
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    final extendLength = radius * 0.25;
-    double startAngle = -pi / 2 + rotation;
-
-    for (final item in data) {
-      final sweepAngle = (item.amount / total) * 2 * pi;
-      final midAngle = startAngle + sweepAngle / 2;
-
-      final startX = center.dx + radius * cos(midAngle);
-      final startY = center.dy + radius * sin(midAngle);
-      final breakX = center.dx + (radius + extendLength) * cos(midAngle);
-      final breakY = center.dy + (radius + extendLength) * sin(midAngle);
-      final isRight = breakX > center.dx;
-      final endX = isRight ? breakX + 35 : breakX - 35;
-
-      canvas.drawLine(Offset(startX, startY), Offset(breakX, breakY), linePaint);
-      canvas.drawLine(Offset(breakX, breakY), Offset(endX, breakY), linePaint);
-
-      final pct = (item.amount / total * 100).toStringAsFixed(1);
-      final textPainter = TextPainter(
-        text: TextSpan(
-          children: [
-            TextSpan(text: item.name, style: const TextStyle(fontSize: 10, color: colorTextPrimary)),
-            TextSpan(text: ' $pct%', style: const TextStyle(fontSize: 10, color: colorTextSecondary)),
-          ],
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(isRight ? endX + 4 : endX - textPainter.width - 4, breakY - textPainter.height / 2));
-
-      startAngle += sweepAngle;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PieLeaderPainter old) =>
-      rotation != old.rotation ||
-      data != old.data ||
-      total != old.total ||
-      center != old.center ||
-      radius != old.radius;
 }
 
 // ======================================================================
