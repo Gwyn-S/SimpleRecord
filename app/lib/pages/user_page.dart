@@ -4,6 +4,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../utils/navigation.dart';
+import 'ai_bookkeeping_page.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});
@@ -28,9 +29,9 @@ class UserPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
+      backgroundColor: colorBackgroundPage,
       body: ListView(
         children: [
-          const SizedBox(height: spacingXL),
           _settingsItem(
             title: '预算中心',
             onTap: () => openBudget(context),
@@ -38,6 +39,13 @@ class UserPage extends StatelessWidget {
           _settingsItem(
             title: '标签管理',
             onTap: () => openTagManage(context),
+          ),
+          _settingsItem(
+            title: 'AI 记账',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AiBookkeepingPage()),
+            ),
           ),
           _settingsItem(
             title: '主题颜色',
@@ -65,6 +73,7 @@ class UserPage extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
+        color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [

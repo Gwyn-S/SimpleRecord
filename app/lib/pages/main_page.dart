@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../services/theme_service.dart';
+import '../services/settings.dart';
+import '../main.dart';
+import '../widgets/speed_dial_fab.dart';
 import 'bills_page.dart';
 import 'calendar_page.dart';
 import 'stats_page.dart';
 import 'assets_page.dart';
 import 'manual_entry_page.dart';
 import 'add_asset_account_page.dart';
+
+const _aiBookkeepingKey = 'ai_bookkeeping_enabled';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -16,17 +21,38 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with RouteAware {
   int _tab = 0;
-  bool _menuOpen = false;
+  bool _aiEnabled = false;
   final int _todayDay = DateTime.now().day;
 
-  void _toggleMenu() {
-    setState(() => _menuOpen = !_menuOpen);
+  @override
+  void initState() {
+    super.initState();
+    _loadAiSetting();
   }
 
-  void _closeMenu() {
-    if (_menuOpen) setState(() => _menuOpen = false);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _loadAiSetting();
+  }
+
+  Future<void> _loadAiSetting() async {
+    final enabled = await Settings.getBool(_aiBookkeepingKey) ?? false;
+    if (!mounted) return;
+    setState(() => _aiEnabled = enabled);
   }
 
   static final _pages = const [
@@ -50,73 +76,40 @@ class _MainPageState extends State<MainPage> {
           scrolledUnderElevation: 0,
         ),
       ),
-      body: Stack(
-        children: [
-          GestureDetector(
-            onTap: _closeMenu,
-            behavior: HitTestBehavior.translucent,
-            child: IndexedStack(
-              index: _tab,
-              children: _pages,
-            ),
-          ),
-          if (_menuOpen)
-            Positioned(
-              bottom: 68,
-              left: 0,
-              right: 0,
-              child: SizedBox(
-                height: 20,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: MediaQuery.of(context).size.width / 2 - 100,
-                      top: 2,
-                      // TODO: 接入拍照记账功能
-                      child: _miniFab(Icons.edit, _closeMenu),
-                    ),
-                    Positioned(
-                      left: MediaQuery.of(context).size.width / 2 - 22,
-                      top: -18,
-                      // TODO: 接入语音记账功能
-                      child: _miniFab(Icons.mic, _closeMenu),
-                    ),
-                    Positioned(
-                      right: MediaQuery.of(context).size.width / 2 - 100,
-                      top: 2,
-                      // TODO: 接入扫码记账功能
-                      child: _miniFab(Icons.camera_alt, _closeMenu),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+      body: IndexedStack(
+        index: _tab,
+        children: _pages,
       ),
-      floatingActionButton: GestureDetector(
-        onLongPress: _tab == 4 ? null : _toggleMenu,
-        child: SizedBox(
-          width: 60,
-          height: 60,
-          child: FloatingActionButton(
-            onPressed: _menuOpen ? _closeMenu : () {
-              if (_tab == 4) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetAccountPage()));
-              } else {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualEntryPage()));
-              }
+      floatingActionButton: SpeedDialFAB(
+        onPressed: () {
+          if (_tab == 4) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetAccountPage()));
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualEntryPage()));
+          }
+        },
+        icon: Icons.add,
+        enabled: _tab != 4 && _aiEnabled,
+        actions: [
+          SpeedDialAction(
+            icon: Icons.edit,
+            onTap: () {
+              // TODO: 接入文字记账功能
             },
-            backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
-            shape: const CircleBorder(),
-            elevation: 0,
-            child: Icon(
-              _menuOpen ? Icons.close : Icons.add,
-              color: colorTextOnPrimary,
-              size: iconSizeFab,
-            ),
           ),
-        ),
+          SpeedDialAction(
+            icon: Icons.mic,
+            onTap: () {
+              // TODO: 接入语音记账功能
+            },
+          ),
+          SpeedDialAction(
+            icon: Icons.camera_alt,
+            onTap: () {
+              // TODO: 接入拍照记账功能
+            },
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
@@ -125,21 +118,6 @@ class _MainPageState extends State<MainPage> {
           border: Border(top: BorderSide(color: colorDivider, width: borderWidthDefault)),
         ),
         child: _buildBottomBar(),
-      ),
-    );
-  }
-
-  Widget _miniFab(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: sizeIconContainer,
-        height: sizeIconContainer,
-        decoration: BoxDecoration(
-          color: Theme.of(context).extension<AppThemeColors>()!.primary,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: colorTextOnPrimary, size: iconSizeDefault),
       ),
     );
   }

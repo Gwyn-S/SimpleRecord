@@ -89,7 +89,7 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _records.isEmpty
-              ? const Center(child: Text('暂无记录', style: textHint))
+              ? const SizedBox()
               : Column(
                   children: [
                     Expanded(

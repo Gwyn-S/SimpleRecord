@@ -8,6 +8,8 @@ import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
 import 'pages/main_page.dart';
 
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -42,6 +44,7 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(color),
           home: const MainPage(),
+          navigatorObservers: [routeObserver],
         );
       },
     );

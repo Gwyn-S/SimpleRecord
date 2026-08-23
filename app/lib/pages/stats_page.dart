@@ -651,9 +651,6 @@ void _scrollToEnd() {
         trailing: _buildTrailingButton('详情', onTap: _openDetail),
         child: const SizedBox(
           height: 160,
-          child: Center(
-            child: Text('暂无数据', style: textHint),
-          ),
         ),
       );
     }
@@ -872,8 +869,8 @@ void _scrollToEnd() {
     if (summaryData.isEmpty) {
       return CardContainer(
         title: _periodTitle,
-        child: const Center(
-          child: Text('暂无数据', style: textHint),
+        child: const SizedBox(
+          height: 160,
         ),
       );
     }
