@@ -11,6 +11,7 @@ import 'stats_page.dart';
 import 'assets_page.dart';
 import 'manual_entry_page.dart';
 import 'add_asset_account_page.dart';
+import 'ai_text_record_page.dart';
 
 const _aiBookkeepingKey = 'ai_bookkeeping_enabled';
 
@@ -94,7 +95,7 @@ class _MainPageState extends State<MainPage> with RouteAware {
           SpeedDialAction(
             icon: Icons.edit,
             onTap: () {
-              // TODO: 接入文字记账功能
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiTextBookkeepingPage()));
             },
           ),
           SpeedDialAction(
