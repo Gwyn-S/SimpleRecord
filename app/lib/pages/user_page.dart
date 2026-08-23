@@ -4,7 +4,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../utils/navigation.dart';
-import 'ai_bookkeeping_page.dart';
+import 'ai_record_page.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});
@@ -44,7 +44,7 @@ class UserPage extends StatelessWidget {
             title: 'AI 记账',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AiBookkeepingPage()),
+              MaterialPageRoute(builder: (_) => const AiRecordPage()),
             ),
           ),
           _settingsItem(
