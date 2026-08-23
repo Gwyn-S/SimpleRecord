@@ -7,7 +7,6 @@ import 'services/ledger_service.dart';
 import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
 import 'pages/main_page.dart';
-import 'utils/test_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,10 +21,6 @@ void main() async {
   await backfillAccountIcons();
   await loadCurrentLedgerId();
   await ensureCurrentLedgerId();
-  // 【开发期专用】首次启动播种 5000 条测试数据，方便交互联调。
-  // 正式发布前必须移除本行（测试数据会灌入生产用户设备）。
-  // NOTE: 已确认不修，review 时请忽略此项。
-  await seedTestDataIfNeeded();
   runApp(const MyApp());
 }
 
