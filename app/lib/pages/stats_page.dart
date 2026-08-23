@@ -723,8 +723,8 @@ void _scrollToEnd() {
               markerSettings: MarkerSettings(
                 isVisible: _selectedRange != 2,
                 shape: DataMarkerType.circle,
-                height: 3,
-                width: 3,
+                height: 5,
+                width: 5,
                 borderWidth: 1.5,
                 borderColor: colorTextPrimary,
                 color: colorTextOnPrimary,
@@ -743,9 +743,7 @@ void _scrollToEnd() {
     if (_expenseByCategory.isEmpty) {
       return CardContainer(
         title: '支出占比',
-        child: const Center(
-          child: Text('暂无数据', style: textHint),
-        ),
+        child: const SizedBox.shrink(),
       );
     }
 
@@ -777,9 +775,7 @@ void _scrollToEnd() {
     if (_expenseByCategory.isEmpty) {
       return CardContainer(
         title: '支出排行',
-        child: const Center(
-          child: Text('暂无数据', style: textHint),
-        ),
+        child: const SizedBox.shrink(),
       );
     }
 
@@ -923,11 +919,11 @@ void _scrollToEnd() {
           yValueMapper: (point, _) => point.value,
           color: colorTextPrimary,
           width: 1.5,
-          markerSettings: MarkerSettings(
+            markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
-            height: 3,
-            width: 3,
+            height: 5,
+            width: 5,
             borderWidth: 1.5,
             borderColor: colorTextPrimary,
             color: colorTextOnPrimary,
