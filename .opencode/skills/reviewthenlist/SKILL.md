@@ -1,6 +1,6 @@
 ---
 name: reviewthenlist
-description: Use when the user asks to review the SimpleRecord codebase and present findings as a table ("审查", "review", "列个表", "审查项目", "todolist"). Loads todolist.txt as the baseline checklist, checks each item against current code, and outputs a status table. Read-only: do not modify code unless asked.
+description: Use when the user asks to review the SimpleRecord codebase and present findings as a table ("审查", "review", "列个表", "审查项目", "todolist"). Read-only: do not modify code unless asked.
 ---
 
 # Review Then List
@@ -9,29 +9,104 @@ description: Use when the user asks to review the SimpleRecord codebase and pres
 
 ## 前置准备
 
-1. 读取 `E:\KeepBook\todolist.txt`，它是审查基准清单（逐行格式：`优先级<TAB>类别<TAB>问题<TAB>位置<TAB>状态`）。
-2. 运行 `git status --short` 和 `git log --oneline -5`（工作目录 `E:\KeepBook`），确认自上次审查以来改动了哪些文件。
-3. 运行 `git diff --stat HEAD` 核对实际改动范围。
+1. 确定工作目录：从项目根目录下找到 `app\lib`，以此为审查范围。
+2. 确定审查范围（根据用户意图）：
+   - 用户说"最新几笔提交" → `git log --oneline -N` + `git diff` 审查改动文件
+   - 用户说"全库" → 审查 `app\lib` 下所有 Dart 文件
+   - 用户未明确 → 默认审查改动文件 + 关联文件
+3. 运行 `git status --short` 和 `git log --oneline -5` 确认当前状态。
 
 ## 审查流程
 
-1. **逐项核对**清单每行：
-   - 用 grep/read 定位清单中标注的文件与行号（如 `bills_page.dart:129`），确认问题当前是否仍存在。
-   - 状态符号定义：
-     - `⬜` 未处理 / 仍存在
-     - `◐` 部分处理 / 进行中
-     - `✅` 已修复
-     - `🚫` 决定不修（保持原状）
-   - 注意：行号可能因近期改动偏移，以 grep 实际定位为准，不要盲目相信行号。
-2. **检查新增问题**：对本次会话/提交涉及的改动文件，检查是否引入新隐患（如备份/恢复的 close 顺序、isolate 传参可传递性、临时文件清理等）。
-3. **输出表格**，列头固定为：
-   `| # | 类型 | 问题 | 位置 | 状态 |`
-   - 保持清单原有行序与编号、类型（P1/P2/P3/—）、问题描述、位置不变，只更新状态列。
-4. 表后附一段说明：本次改动了哪些文件、状态有无变化、是否发现新增问题。
+### 一、确定审查基准
+
+- 如果 `reviewresult.txt` 存在且用户要求核对 → 读取并逐项核对状态
+- 如果文件不存在、为空、或用户要求新审查 → 跳过此步，直接进入四维度审查
+- 状态符号：`✅` 已修复 / `⬜` 仍存在 / `◐` 进行中 / `🚫` 不修
+
+### 二、四维度审查
+
+对审查范围内的文件，从以下四个维度检查：
+
+#### 维度一：冗余代码
+
+- 同一逻辑在多处重复实现
+- 魔术值/硬编码常量未走常量文件
+- 已有公共工具函数未复用（检查 formatters.dart、constants/ 下已有定义）
+- 模型字段/Getter 在多处重复格式化
+- 默认值/提示词在多处重复定义
+
+#### 维度二：分层耦合
+
+- 单文件超过 500 行（应拆分）
+- UI 层混入业务逻辑（网络请求、数据解析）
+- Model 定义在 Widget 文件中（应移 models/）
+- Service 函数定义在页面文件中（应移 services/）
+- 缓存 key 设计缺陷（缺维度导致命中旧数据）
+- 空 catch 吞异常
+- async 后使用 context 缺 mounted 检查
+
+#### 维度三：代码风格
+
+- 命名不规范（布尔变量缺 is/has 前缀、类名与文件名不一致）
+- const 使用不统一
+- import 排序不规范（dart: > package: > 相对路径）
+- 缩进/格式错位
+- 公开 API 无文档注释
+
+#### 维度四：改进写法
+
+- 可抽取的公共 Widget（重复的 UI 模式，但需评估合并收益，避免过度抽象）
+- 可抽取的公共工具函数
+- 可参数化的 switch/if 分支
+- 可简化的条件表达式（死条件、冗余三元）
+- 可优化的性能（N+1 查询、不必要的重建）
+
+### 三、验证与去重
+
+对每个审查项：
+1. 读取实际代码确认问题真实存在
+2. 不存在 → 标记"误判"，不列入结果
+3. 严重程度有误 → 调整
+4. 同一问题在多维度出现 → 合并，归入最合适的维度
+
+### 四、输出
+
+按严重程度分组：
+
+**P0 — 必须修**
+
+| # | 文件 | 问题 |
+|---|------|------|
+
+**P1 — 建议修**
+
+| # | 文件 | 问题 | 行号 |
+|---|------|------|------|
+
+**P2 — 可优化**
+
+| # | 文件 | 问题 | 行号 |
+|---|------|------|------|
+
+**P3 — 可选/代码洁癖**
+
+| # | 文件 | 问题 | 行号 |
+|---|------|------|------|
+
+表后附汇总：P0/P1/P2/P3 数量、误判项、已有清单状态变化。
+
+## 严重程度定义
+
+- **P0**：必须修，影响架构/性能/安全/数据正确性
+- **P1**：建议修，影响代码质量/可维护性/复用性
+- **P2**：可优化，提升用户体验/代码整洁度
+- **P3**：可选，纯代码洁癖，收益低
 
 ## 约定
 
 - 回答使用中文。
 - 不修改任何代码文件，除非用户明确要求修复。
 - 若 `git status` 显示未提交改动，在结论中说明。
-- 若清单文件不存在或为空，则改为从代码库独立审查（架构/性能/健壮性/工程分层维度）并直接列表。
+- commit message 要精简，不暴露函数/方法名。
+- 审查粒度适中，不要过度细分（同一类问题合并为一项），也不要遗漏关键问题。
