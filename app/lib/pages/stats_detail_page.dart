@@ -96,76 +96,86 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: 5),
                         children: sortedKeys.asMap().entries.map((entry) {
-                          final key = entry.value;
-                          final dayRecords = grouped[key]!;
-                          final date = dayRecords.first.date;
-                          final dayExp = dayRecords.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
-                          final dayInc = dayRecords.where((r) => !r.isExpense).fold(0, (s, r) => s + r.amountCents);
-                          final expanded = _expandedDays.contains(key);
-                          return Container(
-                            margin: const EdgeInsets.fromLTRB(spacingM, 5, spacingM, 5),
-                            decoration: BoxDecoration(
-                              color: colorBackgroundCard,
-                              borderRadius: BorderRadius.circular(radiusMedium),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => setState(() {
-                                    if (_expandedDays.contains(key)) {
-                                      _expandedDays.remove(key);
-                                    } else {
-                                      _expandedDays.add(key);
-                                    }
-                                  }),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
-                                    child: Row(
-                                      children: [
-                                        Text(formatDate(date), style: textBody),
-                                        const Spacer(),
-                                        Text.rich(
-                                          TextSpan(
-                                            style: textItemSub,
-                                            children: [
-                                              const TextSpan(text: '收入 '),
-                                              TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
-                                              const TextSpan(text: '  支出 '),
-                                              TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: spacingXS),
-                                        Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextSecondary),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (expanded) ...[
-                                  const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                                  ...dayRecords.map((r) => RecordItem(record: r, readonly: true)),
-                                  const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        const Text('结余：', style: textSecondary),
-                                        Text(formatAmount(dayInc - dayExp), style: textBalance),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                          return _buildDayCard(
+                            key: entry.value,
+                            dayRecords: grouped[entry.value]!,
+                            expanded: _expandedDays.contains(entry.value),
                           );
                         }).toList(),
                       ),
                     ),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildDayCard({
+    required String key,
+    required List<Record> dayRecords,
+    required bool expanded,
+  }) {
+    final date = dayRecords.first.date;
+    final dayExp = dayRecords.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
+    final dayInc = dayRecords.where((r) => !r.isExpense).fold(0, (s, r) => s + r.amountCents);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(spacingM, 5, spacingM, 5),
+      decoration: BoxDecoration(
+        color: colorBackgroundCard,
+        borderRadius: BorderRadius.circular(radiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() {
+              if (_expandedDays.contains(key)) {
+                _expandedDays.remove(key);
+              } else {
+                _expandedDays.add(key);
+              }
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
+              child: Row(
+                children: [
+                  Text(formatDate(date), style: textBody),
+                  const Spacer(),
+                  Text.rich(
+                    TextSpan(
+                      style: textItemSub,
+                      children: [
+                        const TextSpan(text: '收入 '),
+                        TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                        const TextSpan(text: '  支出 '),
+                        TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: spacingXS),
+                  Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextSecondary),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+            ...dayRecords.map((r) => RecordItem(record: r, readonly: true)),
+            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Text('结余：', style: textSecondary),
+                  Text(formatAmount(dayInc - dayExp), style: textBalance),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

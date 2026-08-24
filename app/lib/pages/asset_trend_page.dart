@@ -213,8 +213,8 @@ class _DailyTrendChart extends StatelessWidget {
           markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
-            height: 6,
-            width: 6,
+            height: 5,
+            width: 5,
             borderWidth: 1.5,
             borderColor: colorTextPrimary,
             color: colorTextOnPrimary,

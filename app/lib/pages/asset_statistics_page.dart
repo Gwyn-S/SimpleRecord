@@ -345,8 +345,8 @@ class _TrendLineChart extends StatelessWidget {
           markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
-            height: 12,
-            width: 12,
+            height: 5,
+            width: 5,
             borderWidth: 1.5,
             borderColor: colorTextPrimary,
             color: colorTextOnPrimary,
