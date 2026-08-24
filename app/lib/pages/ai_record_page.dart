@@ -2,18 +2,11 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
 import '../utils/toast.dart';
 import 'ai_manage_page.dart';
-
-const _aiBookkeepingKey = 'ai_bookkeeping_enabled';
-const _aiTextConfigKey = 'ai_text_config_index';
-const _aiImageConfigKey = 'ai_image_config_index';
-const _aiVoiceConfigKey = 'ai_voice_config_index';
-const _aiPromptKey = 'ai_prompt';
-
-const _defaultPrompt = '你是一个记账助手。用户会输入消费或收入的描述，你需要解析出：isExpense(是否支出，true/false)、categoryName(分类名称)、amountCents(金额，单位分)、remark(备注)、date(日期，格式yyyy-MM-dd，今天则返回空字符串)。只返回JSON，不要其他内容。可用分类：餐饮、交通、购物、娱乐、居住、医疗、教育、通讯、服饰、美容、运动、旅行、宠物、数码、Gifts、其他、工资、奖金、兼职、理财、红包、报销、其他。';
 
 class AiRecordPage extends StatefulWidget {
   const AiRecordPage({super.key});
@@ -45,11 +38,11 @@ class _AiRecordPageState extends State<AiRecordPage> {
 
   Future<void> _loadSettings() async {
     final configs = await loadAiConfigs();
-    final enabled = await Settings.getBool(_aiBookkeepingKey) ?? false;
-    final textIndex = await Settings.getInt(_aiTextConfigKey);
-    final imageIndex = await Settings.getInt(_aiImageConfigKey);
-    final voiceIndex = await Settings.getInt(_aiVoiceConfigKey);
-    final prompt = await Settings.getString(_aiPromptKey) ?? '';
+    final enabled = await Settings.getBool(aiRecordKey) ?? false;
+    final textIndex = await getConfigIndex('ai_text_config_index');
+    final imageIndex = await getConfigIndex('ai_image_config_index');
+    final voiceIndex = await getConfigIndex('ai_voice_config_index');
+    final prompt = await getPrompt();
     if (!mounted) return;
     setState(() {
       _configs = configs;
@@ -57,12 +50,12 @@ class _AiRecordPageState extends State<AiRecordPage> {
       _textConfigIndex = textIndex;
       _imageConfigIndex = imageIndex;
       _voiceConfigIndex = voiceIndex;
-      _promptController.text = prompt.isEmpty ? _defaultPrompt : prompt;
+      _promptController.text = prompt.isEmpty ? defaultAiPrompt : prompt;
     });
   }
 
   Future<void> _toggle(bool value) async {
-    await Settings.setBool(_aiBookkeepingKey, value);
+    await Settings.setBool(aiRecordKey, value);
     if (!mounted) return;
     setState(() => _enabled = value);
   }
@@ -217,11 +210,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
             label: '文本模型',
             selectedIndex: _textConfigIndex,
             onChanged: (v) async {
-              if (v != null) {
-                await Settings.setInt(_aiTextConfigKey, v);
-              } else {
-                await Settings.remove(_aiTextConfigKey);
-              }
+              await setConfigIndex('ai_text_config_index', v);
               setState(() => _textConfigIndex = v);
             },
           ),
@@ -229,11 +218,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
             label: '图片模型',
             selectedIndex: _imageConfigIndex,
             onChanged: (v) async {
-              if (v != null) {
-                await Settings.setInt(_aiImageConfigKey, v);
-              } else {
-                await Settings.remove(_aiImageConfigKey);
-              }
+              await setConfigIndex('ai_image_config_index', v);
               setState(() => _imageConfigIndex = v);
             },
             showVision: true,
@@ -242,11 +227,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
             label: '语音模型',
             selectedIndex: _voiceConfigIndex,
             onChanged: (v) async {
-              if (v != null) {
-                await Settings.setInt(_aiVoiceConfigKey, v);
-              } else {
-                await Settings.remove(_aiVoiceConfigKey);
-              }
+              await setConfigIndex('ai_voice_config_index', v);
               setState(() => _voiceConfigIndex = v);
             },
             showVoice: true,
@@ -348,13 +329,13 @@ class _AiRecordPageState extends State<AiRecordPage> {
   }
 
   void _savePrompt() async {
-    await Settings.setString(_aiPromptKey, _promptController.text);
+    await Settings.setString('ai_prompt', _promptController.text);
     if (!mounted) return;
     safeShowToast(context, '保存成功');
   }
 
   void _resetPrompt() {
-    setState(() => _promptController.text = _defaultPrompt);
+    setState(() => _promptController.text = defaultAiPrompt);
   }
 
   void _showPromptHelp() {

@@ -1,27 +1,12 @@
 import 'package:flutter/material.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/ai_record_result.dart';
 
-class AiBookkeepingResult {
-  final bool isExpense;
-  final String categoryName;
-  final int amountCents;
-  final String remark;
-  final DateTime date;
+class AiRecordResultCard extends StatelessWidget {
+  final AiRecordResult result;
 
-  const AiBookkeepingResult({
-    required this.isExpense,
-    required this.categoryName,
-    required this.amountCents,
-    this.remark = '',
-    required this.date,
-  });
-}
-
-class AiBookkeepingResultCard extends StatelessWidget {
-  final AiBookkeepingResult result;
-
-  const AiBookkeepingResultCard({super.key, required this.result});
+  const AiRecordResultCard({super.key, required this.result});
 
   @override
   Widget build(BuildContext context) {

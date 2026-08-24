@@ -1,29 +1,27 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../services/theme_service.dart';
-import '../services/settings.dart';
-import '../services/record_service.dart';
-import '../models/category.dart';
+import '../models/ai_record_result.dart';
 import '../models/record.dart';
+import '../services/ai_service.dart';
+import '../services/record_service.dart';
+import '../services/theme_service.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/ai_record_result_card.dart';
-import 'ai_manage_page.dart';
-import 'package:dio/dio.dart';
 
-class AiTextBookkeepingPage extends StatefulWidget {
-  const AiTextBookkeepingPage({super.key});
+class AiTextRecordPage extends StatefulWidget {
+  const AiTextRecordPage({super.key});
 
   @override
-  State<AiTextBookkeepingPage> createState() => _AiTextBookkeepingPageState();
+  State<AiTextRecordPage> createState() => _AiTextRecordPageState();
 }
 
-class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
+class _AiTextRecordPageState extends State<AiTextRecordPage> {
   final _textController = TextEditingController();
   bool _loading = false;
   String? _error;
-  AiBookkeepingResult? _result;
+  AiRecordResult? _result;
 
   @override
   void dispose() {
@@ -45,8 +43,8 @@ class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
       return;
     }
 
-    final textConfigIndex = await Settings.getInt('ai_text_config_index');
-    final configIndex = textConfigIndex ?? 0;
+    final configIndex = await getConfigIndex('ai_text_config_index') ?? 0;
+    if (!mounted) return;
     if (configIndex >= configs.length) {
       safeShowToast(context, '请先配置AI');
       return;
@@ -58,7 +56,7 @@ class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
       return;
     }
 
-    final prompt = await Settings.getString('ai_prompt') ?? '';
+    final prompt = await getPrompt();
 
     setState(() {
       _loading = true;
@@ -67,86 +65,16 @@ class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
     });
 
     try {
-      final dio = Dio();
-      dio.options.connectTimeout = const Duration(seconds: 30);
-      dio.options.receiveTimeout = const Duration(seconds: 60);
-      final url = config.url.endsWith('/')
-          ? config.url.substring(0, config.url.length - 1)
-          : config.url;
-
-      final apiUrl = '$url/chat/completions';
-
-      final systemPrompt = prompt.isEmpty
-          ? '你是一个记账助手。用户会输入消费或收入的描述，你需要解析出：isExpense(是否支出，true/false)、categoryName(分类名称)、amountCents(金额，单位分)、remark(备注)、date(日期，格式yyyy-MM-dd，今天则返回空字符串)。只返回JSON，不要其他内容。可用分类：${expenseCategories.map((c) => c.name).join("、")}、${incomeCategories.map((c) => c.name).join("、")}。'
-          : prompt;
-
-      Response? lastResponse;
-      for (int retry = 0; retry < 3; retry++) {
-        try {
-          lastResponse = await dio.post(
-            apiUrl,
-            options: Options(
-              headers: {
-                'Authorization': 'Bearer ${config.key}',
-                'Content-Type': 'application/json',
-              },
-            ),
-            data: {
-              'model': config.textModel,
-              'messages': [
-                {'role': 'system', 'content': systemPrompt},
-                {'role': 'user', 'content': text},
-              ],
-              'temperature': 0,
-            },
-          );
-          break;
-        } on DioException catch (e) {
-          if (e.response?.statusCode == 429 && retry < 2) {
-            await Future.delayed(Duration(seconds: (retry + 1) * 2));
-            continue;
-          }
-          rethrow;
-        }
-      }
+      final result = await analyzeText(
+        config: config,
+        text: text,
+        customPrompt: prompt,
+      );
 
       if (!mounted) return;
 
-      final response = lastResponse!;
-
-      final content = response.data['choices'][0]['message']['content'] as String;
-      final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
-      final parsed = Map<String, dynamic>.from(
-        _parseJson(jsonStr),
-      );
-
-      final isExpense = parsed['isExpense'] as bool? ?? true;
-      final categoryName = parsed['categoryName'] as String? ?? '其他';
-      final amountRaw = parsed['amountCents'];
-      final int amountCents;
-      if (amountRaw is num) {
-        amountCents = amountRaw.toInt();
-      } else {
-        amountCents = int.tryParse(amountRaw?.toString() ?? '') ?? 0;
-      }
-      final remark = parsed['remark'] as String? ?? '';
-      final dateStr = parsed['date'] as String?;
-
-      DateTime date = DateTime.now();
-      if (dateStr != null && dateStr.isNotEmpty) {
-        try {
-          date = DateTime.parse(dateStr);
-        } catch (_) {}
-      }
-
       setState(() {
-        _result = AiBookkeepingResult(
-          isExpense: isExpense,
-          categoryName: categoryName,
-          amountCents: amountCents,
-          remark: remark,
-          date: date,
-        );
+        _result = result;
         _loading = false;
       });
     } catch (e) {
@@ -156,40 +84,6 @@ class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
         _loading = false;
       });
     }
-  }
-
-  dynamic _parseJson(String text) {
-    try {
-      final start = text.indexOf('{');
-      final end = text.lastIndexOf('}');
-      if (start >= 0 && end > start) {
-        final jsonStr = text.substring(start, end + 1);
-        return _decodeJson(jsonStr);
-      }
-    } catch (_) {}
-    return <String, dynamic>{};
-  }
-
-  dynamic _decodeJson(String jsonStr) {
-    jsonStr = jsonStr.replaceAll("'", '"');
-    final map = <String, dynamic>{};
-    final regex = RegExp(r'"(\w+)"\s*:\s*("[^"]*"|\d+\.?\d*|true|false|null)');
-    for (final match in regex.allMatches(jsonStr)) {
-      final key = match.group(1)!;
-      final value = match.group(2)!;
-      if (value == 'true') {
-        map[key] = true;
-      } else if (value == 'false') {
-        map[key] = false;
-      } else if (value == 'null') {
-        map[key] = null;
-      } else if (value.startsWith('"')) {
-        map[key] = value.substring(1, value.length - 1);
-      } else {
-        map[key] = double.tryParse(value) ?? value;
-      }
-    }
-    return map;
   }
 
   Future<void> _saveRecord() async {
@@ -265,7 +159,7 @@ class _AiTextBookkeepingPageState extends State<AiTextBookkeepingPage> {
             ],
             if (_result != null) ...[
               const SizedBox(height: spacingL),
-              AiBookkeepingResultCard(result: _result!),
+              AiRecordResultCard(result: _result!),
               const SizedBox(height: spacingM),
               SizedBox(
                 height: 44,

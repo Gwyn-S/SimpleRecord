@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
 import '../main.dart';
@@ -12,8 +13,6 @@ import 'assets_page.dart';
 import 'manual_entry_page.dart';
 import 'add_asset_account_page.dart';
 import 'ai_text_record_page.dart';
-
-const _aiBookkeepingKey = 'ai_bookkeeping_enabled';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -51,7 +50,7 @@ class _MainPageState extends State<MainPage> with RouteAware {
   }
 
   Future<void> _loadAiSetting() async {
-    final enabled = await Settings.getBool(_aiBookkeepingKey) ?? false;
+    final enabled = await Settings.getBool(aiRecordKey) ?? false;
     if (!mounted) return;
     setState(() => _aiEnabled = enabled);
   }
@@ -95,7 +94,7 @@ class _MainPageState extends State<MainPage> with RouteAware {
           SpeedDialAction(
             icon: Icons.edit,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiTextBookkeepingPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiTextRecordPage()));
             },
           ),
           SpeedDialAction(

@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
-import 'ai_manage_page.dart';
-import 'package:dio/dio.dart';
 
 class AiConfigDetailPage extends StatefulWidget {
   final AiConfig? config;
-  final int? index;
 
-  const AiConfigDetailPage({super.key, this.config, this.index});
+  const AiConfigDetailPage({super.key, this.config});
 
   @override
   State<AiConfigDetailPage> createState() => _AiConfigDetailPageState();
@@ -60,8 +58,9 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
     );
 
     final configs = await loadAiConfigs();
-    if (widget.index != null) {
-      configs[widget.index!] = config;
+    final existIndex = configs.indexWhere((c) => c.name == widget.config?.name);
+    if (existIndex >= 0) {
+      configs[existIndex] = config;
     } else {
       configs.add(config);
     }
@@ -90,26 +89,12 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
 
     setState(() => _testing = true);
     try {
-      final dio = Dio();
-      final url = _urlController.text.endsWith('/')
-          ? _urlController.text.substring(0, _urlController.text.length - 1)
-          : _urlController.text;
-      
-      final response = await dio.get(
-        '$url/models',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer ${_keyController.text}',
-          },
-        ),
+      await testAiConnection(
+        url: _urlController.text,
+        key: _keyController.text,
       );
-      
       if (!mounted) return;
-      if (response.statusCode == 200) {
-        showToast(context, '测试成功');
-      } else {
-        showToast(context, '测试失败：${response.statusCode}');
-      }
+      showToast(context, '测试成功');
     } catch (e) {
       if (!mounted) return;
       showToast(context, '测试失败：$e');
