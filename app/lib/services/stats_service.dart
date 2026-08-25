@@ -188,13 +188,12 @@ List<({String label, int amountCents})> _buildPeriodData(
       break;
     case StatsRange.year:
       start = dateRange.start;
-      days = dateRange.end.difference(dateRange.start).inDays;
+      days = dateRange.end.difference(dateRange.start).inDays + 1;
       labelFn = (d) => '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
       break;
     case StatsRange.custom:
-      start = customStart;
-      days = customStart.difference(customStart).inDays;
-      if (days <= 0) return [];
+      start = dateRange.start;
+      days = dateRange.end.difference(dateRange.start).inDays + 1;
       labelFn = (d) => '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
       break;
   }

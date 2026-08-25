@@ -29,6 +29,7 @@ class _StatsPageState extends State<StatsPage> {
   int _selectedYear = DateTime.now().year;
   final ScrollController _scrollController = ScrollController();
   final Map<StatsRange, int> _selectedIndexMap = {};
+  String _customPreset = '最近30天';
   DateTime _customStart = DateTime.now().subtract(const Duration(days: 30));
   DateTime _customEnd = DateTime.now();
 
@@ -138,7 +139,12 @@ class _StatsPageState extends State<StatsPage> {
     super.dispose();
   }
 
-  List<String> get _items => getRangeLabels(_selectedRange, _customStart);
+  List<String> get _items {
+    if (_selectedRange == StatsRange.custom) {
+      return [_customPreset];
+    }
+    return getRangeLabels(_selectedRange, _customStart);
+  }
 
   Future<void> _showYearPicker() async {
     final now = DateTime.now();
@@ -166,14 +172,23 @@ class _StatsPageState extends State<StatsPage> {
         if (result.$1 == null || result.$2 == null) {
           _customStart = DateTime.now().subtract(const Duration(days: 30));
           _customEnd = DateTime.now();
+          _customPreset = '最近30天';
         } else {
           _customStart = result.$1!;
           _customEnd = result.$2!;
+          final presetName = matchPresetName(result.$1!, result.$2!);
+          if (presetName != null) {
+            _customPreset = presetName;
+          } else {
+            _customPreset = '${_formatDate(result.$1!)}~${_formatDate(result.$2!)}';
+          }
         }
       });
       _loadData();
     }
   }
+
+  String _formatDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {

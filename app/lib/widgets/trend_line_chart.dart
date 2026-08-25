@@ -65,8 +65,6 @@ class TrendLineChart extends StatelessWidget {
       },
     );
 
-    final interval = points.length > 31 ? (points.length / 10).ceil() : 1;
-
     return SizedBox(
       height: height ?? 160,
       child: SfCartesianChart(
@@ -77,8 +75,8 @@ class TrendLineChart extends StatelessWidget {
           majorTickLines: const MajorTickLines(size: 0),
           axisLine: const AxisLine(width: 0),
           labelStyle: textChartLabel,
-          labelRotation: points.length > 12 ? -45 : 0,
-          interval: interval.toDouble(),
+          labelRotation: 0,
+          desiredIntervals: points.length > 31 ? 10 : points.length,
         ),
         primaryYAxis: NumericAxis(
           minimum: minY,
