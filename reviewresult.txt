@@ -2,330 +2,107 @@
 不修（🚫，附理由）
 =================================================
 
-[🚫-1/2] 金额溢出/静默负数
-  位置  : utils/formatters.dart:9-14 / manual_entry_page.dart:74-97
-  理由  : 需 17+ 位（元×100 溢出）才产生负数记录、19+ 位才崩溃；
-          手动输入不可达，仅粘贴超长串才触发；即使发生保存的
-          也是可正常删除的脏记录，可逆
+[🚫-1] 金额溢出（负数检查已加，Infinity/1e999 溢出仍在）
+  位置  : utils/formatters.dart / manual_entry_page.dart
+  理由  : 数字键盘输不出来，仅粘贴可触发
 
-[🚫-3] 测试数据播种（已缓解：test_data.dart 加 _seedDoneKey 标志 +
-      已有记录数≥60 双重防重播）
-  位置  : main.dart:23 / utils/test_data.dart
-  理由  : 开发期专用，正式发布前移除 main.dart 调用行；已加注释，
-          review 请忽略此项
-
-[🚫-4] 备份恢复破坏性覆盖（恢复前备份旧库、原子替换）（已缓解：
-      恢复前新增对解密库的只读完整性预校验，失败中止）
-  位置  : services/srb_backup_service.dart:60-71
+[🚫-2] 备份恢复破坏性覆盖（恢复前备份旧库、原子替换）（已缓解：
+       恢复前新增对解密库的只读完整性预校验，失败中止）
+  位置  : services/srb_backup_service.dart
   理由  : 触发概率低；SRB 备份文件始终未被改动，失败可重试恢复
-          （两入口均有 try/catch + "恢复失败" toast）
 
-[🚫-6] 节气表越界（S_TERM_INFO 仅 173 条，2073-2100 越界）
-  位置  : utils/lunar/solar_terms.dart:87,113
-  理由  : 月选择器需滚动 50+ 年才触发
+[🚫-3] 节气表越界（已有 1900-2100 范围检查）
+  位置  : utils/lunar/solar_terms.dart
+  理由  : 防护已存在，行号偏移
 
-[🚫-7] 农历 1900-01 负索引（基准日 1900-01-31 之前）
-  位置  : utils/lunar/chinese_date.dart:42,113
+[🚫-4] 农历 1900-01 负索引（构造函数无早于 1900 年防护）
+  位置  : utils/lunar/chinese_date.dart
   理由  : 需滚动 120 年才触发
 
-[🚫-8] 预算输入 Infinity/1e999 崩溃
-  位置  : pages/budget_page.dart:146
+[🚫-5] 预算输入 Infinity/1e999 崩溃
+  位置  : pages/budget_page.dart
   理由  : 数字键盘输不出来
 
-[🚫-10] 预算串行读文件（已缓解：Settings 内存缓存，实际磁盘
+[🚫-6] 预算串行读文件（已缓解：Settings 内存缓存，实际磁盘
        只读一次）
-  位置  : pages/budget_page.dart:93-97
+  位置  : pages/budget_page.dart
   理由  : JSON 仅几 KB，毫秒级，用户无感知
 
-[🚫-11] Settings 损坏静默清空
-  位置  : services/settings.dart:29-43
+[🚫-7] Settings 损坏静默清空
+  位置  : services/settings.dart
   理由  : 需用户手改文件才触发
 
-[🚫-12] updateRecord 幽灵余额（0 行更新仍 +1）
-  位置  : services/record_service.dart:110-118
-  理由  : UI 编辑的记录必然存在，实际不可触发
-
-[🚫-13] insertRecord replace 冲突余额重复累计
-  位置  : services/record_service.dart:81-89
+[🚫-8] insertRecord replace 冲突余额重复累计
+  位置  : services/record_service.dart
   理由  : UUID 实际不可碰撞
 
-[🚫-16] IndexedStack 启动即构建全部 5 tab
-  位置  : pages/main_page.dart:58
+[🚫-9] IndexedStack 启动即构建全部 5 tab
+  位置  : pages/main_page.dart
   理由  : 实测 5000 条无感
 
-[🚫-18] bills build 中改状态
-  位置  : pages/bills_page.dart:178-181
+[🚫-10] bills build 中改状态
+  位置  : pages/bills_page.dart
   理由  : 功能正常，纯代码洁癖
 
-[🚫-19] 日历点选日期清空缓存重建 ±1 月
-  位置  : pages/calendar_page.dart:89-96
+[🚫-11] 日历点选日期清空缓存重建 ±1 月
+  位置  : pages/calendar_page.dart
   理由  : 实测流畅
 
-[🚫-21] 详情弹窗长文本溢出
-  位置  : widgets/bill_detail_sheet.dart:49,58-69
-  理由  : 备注有 20 字上限且 Text 默认换行兜底；仅账户名等
-          超长连续字母/数字串才可能溢出色条，低概率观感问题
+[🚫-12] 详情弹窗长文本溢出
+  位置  : widgets/bill_detail_sheet.dart
+  理由  : 备注有 20 字上限且 Text 默认换行兜底；低概率观感问题
 
-[🚫-22] 账单删除无确认
-  位置  : widgets/record_item.dart:101-104
-  理由  : 用户决定不修，保持当前交互（详情面板直接删除）
+[🚫-13] 账单删除无确认
+  位置  : widgets/record_item.dart
+  理由  : 用户决定不修，保持当前交互
 
-[🚫-23] 日期选择器确定跨月 + 固定 6 行（连点被吞已修）
+[🚫-14] 日期选择器确定跨月 + 固定 6 行
   位置  : widgets/date_picker_sheet.dart
-  理由  : 确认返回旧月日期需"滑动到新月不点日期直接确定"才触发，
-          概率低；固定 6 行纯观感
+  理由  : 概率低；固定 6 行纯观感
 
-[🚫-24] 年月选择器越界/惯性滑动快速确认读旧值
+[🚫-15] 年月选择器惯性滑动快速确认读旧值
   位置  : widgets/month_year_picker.dart
-  理由  : 惯性滑动中秒点确认，概率极低
+  理由  : 概率极低
 
-[🚫-25] user_page Navigator.pop 后复用 context
-  位置  : pages/user_page.dart:106-108
+[🚫-16] user_page Navigator.pop 后复用 context
+  位置  : pages/user_page.dart:120-121
   理由  : 触发路径低
 
-[🚫-26] 账本页加载失败静默吞异常（死代码已删）
-  位置  : pages/ledger_list_page.dart:51-53
+[🚫-17] 账本页加载失败静默吞异常
+  位置  : pages/ledger_list_page.dart
   理由  : 失败仅发生在数据库异常，返回空列表无崩溃；下次进入
           页面会重试，影响极低
 
-[🚫-27] 本地备份删除按钮未受 _busy 禁用
-  位置  : pages/local_backup_page.dart:197-200
-  理由  : 备份/导出写的是新文件，删除旧文件无冲突；恢复中恢复
-          按钮已禁用；唯一缝隙是删除进行中（不置 _busy）点同
-          文件恢复，毫秒级窗口且失败有 catch 提示可重试
+[🚫-18] 本地备份删除按钮未受 _busy 禁用
+  位置  : pages/local_backup_page.dart
+  理由  : 备份/导出写的是新文件，删除旧文件无冲突；毫秒级窗口
+          且失败有 catch 提示可重试
 
-[🚫-29] 计算器负号/连续运算符无反馈
-  位置  : utils/calculator.dart:5-9
+[🚫-19] 计算器负号/连续运算符无反馈
+  位置  : utils/calculator.dart
   理由  : UI 已限制表达式不能以运算符开头/结尾，无输入路径
 
-[🚫-30] 日收支 round 截断（199 分显示 +1）
-  位置  : pages/calendar_page.dart:608-631
+[🚫-20] 日收支 round 截断（199 分显示 +1）
+  位置  : pages/calendar_page.dart
   理由  : 元级显示，影响可忽略
 
-[🚫-31] toast 延时移除无 mounted 防护
-  位置  : utils/toast.dart:12
+[🚫-21] toast 延时移除无 mounted 防护
+  位置  : utils/toast.dart
   理由  : 触发条件苛刻
 
-[🚫-32] _todayDay 跨天不刷新
-  位置  : pages/main_page.dart:22
-  理由  : app 常驻跨天才触发
-
-[🚫-33] 预算编辑不预填当前值
-  位置  : pages/budget_page.dart:113-133
+[🚫-22] 预算编辑不预填当前值
+  位置  : pages/budget_page.dart
   理由  : 用户决定不修，保持每次编辑空输入框重新输入
 
-[🚫-34] 农历缓存无上限 / 图标名称线性匹配 / Theme.extension!
-        强解包 / budget==0 误判"未设置"
+[🚫-23] 农历缓存无上限 / 图标名称线性匹配 / Theme.extension!
+       强解包 / budget==0 误判"未设置"
   位置  : lunar_utils.dart / record_item.dart / 多处 / bills_page.dart
   理由  : 纯代码洁癖，用户无感知
 
-[🚫-37] 账户余额 1e999/超长粘贴崩溃
-  位置  : assets_page.dart:100-103 / asset_account_form_page.dart:59-61
-  理由  : 同 🚫-1/2、🚫-8 判据，手动输入不可达
+[🚫-24] 账户余额 1e999/超长粘贴崩溃
+  位置  : asset_account_form_page.dart
+  理由  : 同 🚫-1 判据，手动输入不可达
 
-[🚫-38] 资产页加载失败静默吞异常
-  位置  : pages/assets_page.dart:47-51
-  理由  : 同 🚫-26 判据，仅数据库异常，下次进入页面重试
-
-[🚫-41] DB service 层（records/ledger/asset_accounts）读写无异常兜底
+[🚫-25] DB service 层（records/ledger/asset_accounts）读写无异常兜底
   位置  : record_service.dart / ledger_service.dart / asset_account_service.dart
-  理由  : 同 🚫-26 判据，DB 异常为低概率环境问题，范围大收益低
-
-
-=================================================================
-四维度审查（2026-08-24 远端合并后）
-=================================================================
-
---------------------------------------------------
-P0 — 必须修（3项）✅ 全部已修
---------------------------------------------------
-
-[P0-1] stats_page.dart 939 行巨型文件 ✅
-  位置  : pages/stats_page.dart 全文
-  问题  : 数据计算+图表+4 种 tab 混在一个 State，应拆分为数据服务+图表组件
-  修复  : 拆为 stats_service.dart + trend_line_chart.dart + stats_ranking_card.dart + 薄壳
-
-[P0-2] ai_text_record_page.dart _analyze 125 行上帝方法 ✅
-  位置  : pages/ai_text_record_page.dart:34-160
-  问题  : 配置读取+校验+重试请求+JSON 解析+字段映射全在 State 里
-  修复  : 拆到 ai_service.dart，页面仅 20 行
-
-[P0-3] ai_text_record_page.dart 手写正则解析 JSON ✅
-  位置  : pages/ai_text_record_page.dart:174-194
-  问题  : replaceAll("'",'"') 会破坏含撇号的备注文本，应先 jsonDecode 失败再降级
-  修复  : parseAiJson 优先 jsonDecode + 降级 _fallbackParse
-
---------------------------------------------------
-P1 — 建议修（14项）✅ 全部已修
---------------------------------------------------
-
-[P1-1] AiConfig 模型+load/save 放页面文件里 ✅
-  位置  : pages/ai_manage_page.dart:11-63
-  问题  : 应拆到 models/ai_config.dart + services/ai_service.dart
-  修复  : 移到 ai_service.dart
-
-[P1-2] 三个 onChanged 除 key 外完全相同 ✅
-  位置  : pages/ai_record_page.dart:219-251
-  问题  : 应抽公共方法 _saveConfigIndex(key, v)
-  修复  : 改用 setConfigIndex()
-
-[P1-3] 默认提示词硬编码，两处已分叉 ✅
-  位置  : pages/ai_record_page.dart:16, pages/ai_text_record_page.dart:80
-  问题  : 改一处漏一处，应移到常量文件并与 AI 服务共享
-  修复  : ai_service.dart 统一 defaultAiPrompt
-
-[P1-4] 缺 computeYRange 复用 ✅
-  位置  : pages/stats_page.dart:664-665
-  问题  : formatters.dart:80 已有 computeYRange，stats_page 手算 minY/maxY
-  修复  : stats_service.dart 使用 formatters.dart 的 computeYRange
-
-[P1-5] 缺 pad2 复用，手写 padLeft(2,'0') ✅
-  位置  : pages/stats_page.dart:219,239,259,278,434
-  问题  : formatters.dart:36 已有 pad2
-  修复  : stats_service.dart 使用 pad2
-
-[P1-6] range 用 0/1/2/3 魔术 int + 注释解释 ✅
-  位置  : pages/stats_page.dart:28
-  问题  : 应改 enum RangeMode { week, month, year, custom }
-  修复  : StatsRange enum (week/month/year/custom)
-
-[P1-7] 缓存 key 不含年份 ✅
-  位置  : pages/stats_page.dart:187
-  问题  : '$_selectedRange-$_selectedIndex'，切换年份命中旧缓存
-  修复  : StatsCacheKey(range, index, year)
-
-[P1-8] _formatDate 重复造轮子 ✅
-  位置  : pages/stats_page.dart:434
-  问题  : 与 formatters.dart:27 formatDateYmd 完全相同
-  修复  : stats_service.dart 使用 formatDateYmd
-
-[P1-9] 两套折线图配置高度重复 ✅
-  位置  : pages/stats_page.dart:647-735,887-932
-  问题  : _buildTrendChart/_buildLineChart 的 SfCartesianChart 配置几乎相同
-  修复  : widgets/trend_line_chart.dart 公共组件
-
-[P1-10] _dataCache Map 值类型不可读 ✅
-  位置  : pages/stats_page.dart:45
-  问题  : 单行 300+ 字符 inline record，应定义数据类
-  修复  : StatsData 数据类
-
-[P1-11] _aiBookkeepingKey 重复定义 ✅
-  位置  : pages/main_page.dart:16, pages/ai_record_page.dart:10
-  问题  : 两个文件各定义一份
-  修复  : aiRecordKey 统一在 ai_service.dart
-
-[P1-12] AiBookkeepingResult 领域模型在 widget 文件中 ✅
-  位置  : widgets/ai_record_result_card.dart:5-19
-  问题  : 应移 models/ai_bookkeeping_result.dart
-  修复  : models/ai_record_result.dart（已重命名为 AiRecordResult）
-
-[P1-13] stats_detail_page build 内 65 行嵌套闭包 ✅
-  位置  : pages/stats_detail_page.dart:98-164
-  问题  : 应抽 _buildDayCard 方法
-  修复  : 抽为 _buildDayCard() 方法
-
-[P1-14] _buildPeriodData 四 case 按天分桶可参数化 ✅
-  位置  : pages/stats_page.dart:202-286
-  问题  : 核心循环相同，仅 label 格式和 range 来源不同
-  修复  : stats_service.dart _buildPeriodData 参数化
-
---------------------------------------------------
-P2 — 可优化（12项）已修6项 / 不修6项
---------------------------------------------------
-
-[P2-1] _test 在 UI 层直接 new Dio ✅
-  位置  : pages/ai_config_detail_page.dart:73-119
-  问题  : 网络逻辑应抽 AiService
-  修复  : testAiConnection() 移到 ai_service.dart
-
-[P2-2] Dio 未设 timeout ✅
-  位置  : pages/ai_config_detail_page.dart:93
-  问题  : 可能永久挂起
-  修复  : connectTimeout: 10s, receiveTimeout: 10s
-
-[P2-3] 同时传 config 和 index ✅
-  位置  : pages/ai_config_detail_page.dart:11-12
-  问题  : 保存时按 index 回写，列表变化会写错
-  修复  : 删除 index 参数，按 config.name 匹配
-
-[P2-4] _save 无校验 🚫 不修
-  位置  : pages/ai_config_detail_page.dart:52
-  问题  : 可保存空配置
-  理由  : 空配置保存后仅列表多一项，不影响功能
-
-[P2-5] 删除无确认 ✅
-  位置  : pages/ai_manage_page.dart:100-105
-  问题  : 误触即删
-  修复  : 加确认对话框
-
-[P2-6] 手写开关模拟 Switch 🚫 不修
-  位置  : pages/ai_record_page.dart:195-201
-  问题  : 无障碍差
-  理由  : 用户决定暂不改
-
-[P2-7] response.data 动态链无防护 ✅
-  位置  : pages/ai_text_record_page.dart:118
-  问题  : 结构异常直接崩
-  修复  : try-catch 包裹，异常抛 "AI 返回格式异常"
-
-[P2-8] 重试循环魔数 ✅
-  位置  : pages/ai_text_record_page.dart:85-112
-  问题  : 3 次、(retry+1)*2 秒无常量化
-  修复  : _maxRetries = 3, _retryDelay = 2
-
-[P2-9] _todayDay 跨天不刷新 🚫 不修
-  位置  : pages/main_page.dart:28
-  问题  : IndexedStack 常驻
-  理由  : 实际触发概率极低
-
-[P2-10] _pages 索引跳号 ✅ 非问题
-  位置  : pages/main_page.dart:59-65
-  问题  : 3/4 跳号易错
-  说明  : 中间是 FAB 不是页面，SizedBox 占位正确，_tab 只会被设为 0/1/3/4
-
-[P2-11] 空 catch 吞异常 🚫 不修
-  位置  : pages/stats_page.dart:197-199
-  问题  : 无从排查
-  理由  : 用户决定暂不改
-
-[P2-12] 周数推导两份 🚫 不修
-  位置  : pages/stats_page.dart:96-99,290-293
-  问题  : 逻辑略有差异但核心相同
-  理由  : 用户决定暂不改
-
---------------------------------------------------
-P3 — 可选/代码洁癖（6项）未修
---------------------------------------------------
-
-[P3-1] shouldRepaint 身份比较
-  位置  : widgets/donut_pie_chart.dart:156-161
-  问题  : 恒重绘，实际影响小
-
-[P3-2] 魔术值 5
-  位置  : pages/stats_detail_page.dart:97,106
-  问题  : 应入 AppDimensions
-
-[P3-3] 空态无占位提示
-  位置  : pages/stats_detail_page.dart:92
-  问题  : 只给 SizedBox
-
-[P3-4] TextSpan 样式重复
-  位置  : pages/stats_detail_page.dart:133-136
-  问题  : fontWeight w700+colorTextPrimary 重复两份
-
-[P3-5] _scrollToEnd 缩进丢失
-  位置  : pages/stats_page.dart:71
-  问题  : 顶格写法
-
-[P3-6] markerSettings 缩进错位
-  位置  : pages/stats_page.dart:919
-  问题  : 缩进错位
-
-
- =================================================================
-审查统计
- =================================================================
-已修复（✅）：84 项（含本次四维度 P0×3 / P1×14 / P2×6）
-不修（🚫）：31 项（含本次四维度 P2×6）
-四维度未修：6 项（P3×6）
-本次新发现：35 项（P0×3 / P1×14 / P2×12 / P3×6）
+  理由  : 同 🚫-17 判据，DB 异常为低概率环境问题，范围大收益低
