@@ -24,7 +24,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> with RouteAware {
   int _tab = 0;
   bool _aiEnabled = false;
-  final int _todayDay = DateTime.now().day;
+  int get _todayDay => DateTime.now().day;
 
   @override
   void initState() {

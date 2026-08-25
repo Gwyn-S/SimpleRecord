@@ -185,12 +185,15 @@ class _AiRecordPageState extends State<AiRecordPage> {
               children: [
                 const Text('启用 AI 记账', style: textListItem),
                 const Spacer(),
-                GestureDetector(
-                  onTap: () => _toggle(!_enabled),
-                  child: Icon(
-                    _enabled ? Icons.toggle_on : Icons.toggle_off,
-                    size: 40,
-                    color: _enabled ? themeColor : Colors.grey.shade400,
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch(
+                    value: _enabled,
+                    onChanged: _toggle,
+                    splashRadius: 0,
+                    activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    inactiveTrackColor: Colors.grey.shade300,
+                    thumbColor: WidgetStateProperty.all(Colors.white),
                   ),
                 ),
               ],
