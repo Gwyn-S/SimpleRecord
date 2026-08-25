@@ -518,7 +518,6 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除账户'),
         content: Text('确定删除「${account.name}」吗？'),
         actions: [
           TextButton(
@@ -531,7 +530,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               if (dialogContext.mounted) Navigator.pop(dialogContext);
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('删除'),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

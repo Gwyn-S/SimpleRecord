@@ -83,7 +83,6 @@ class _TagManagePageState extends State<TagManagePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除标签'),
         content: Text('确定删除「$name」吗？相关记录的标签会被清空。'),
         actions: [
           TextButton(

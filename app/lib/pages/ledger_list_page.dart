@@ -161,7 +161,6 @@ class _LedgerListPageState extends State<LedgerListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除账本'),
         content: Text('确定删除「${_ledgers[index].name}」吗？'),
         actions: [
           TextButton(

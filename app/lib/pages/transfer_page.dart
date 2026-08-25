@@ -200,7 +200,6 @@ class _TransferPageState extends State<TransferPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除转账'),
         content: const Text('确定删除这笔转账记录吗？'),
         actions: [
           TextButton(
