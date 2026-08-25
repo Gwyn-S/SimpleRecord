@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
@@ -35,6 +38,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   AssetAccount? _selectedAccount;
   String? _selectedTag;
   final _remarkController = TextEditingController();
+  List<String> _imagePaths = [];
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -49,6 +54,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _selectedDate = r.date;
       _remarkController.text = r.remark;
       _selectedTag = r.tag;
+      _imagePaths = r.imagePaths ?? [];
       if (r.accountId != null) _loadSelectedAccount(r.accountId!);
     }
   }
@@ -94,6 +100,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       tag: _selectedTag,
       date: _selectedDate,
       createdAt: origin?.createdAt ?? DateTime.now(),
+      imagePaths: _imagePaths,
     );
     if (origin != null) {
       await updateRecord(record);
@@ -101,6 +108,46 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       await insertRecord(record);
     }
     return true;
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(source: source);
+      if (image != null) {
+        setState(() => _imagePaths.add(image.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        safeShowToast(context, '选择图片失败');
+      }
+    }
+  }
+
+  void _showImagePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              title: const Text('相册'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -224,6 +271,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   _remarkController.clear();
                   _selectedCategory = 0;
                   _selectedAccount = null;
+                  _imagePaths = [];
                 });
               });
             },
@@ -260,20 +308,49 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             onTap: _pickAccount,
           ),
           const SizedBox(width: spacingXXL),
-          // 标签：单标签，选择后回填
           OptionBarItem(
             icon: Icons.label_outline,
             label: _selectedTag ?? '标签',
             onTap: _pickTag,
           ),
           const SizedBox(width: spacingXXL),
-          // TODO: 接入图片附件功能
           OptionBarItem(
             icon: Icons.camera_alt_outlined,
             label: '图片',
-            onTap: () => showToast(context, '图片附件功能开发中'),
+            onTap: _showImagePicker,
           ),
+          if (_imagePaths.isNotEmpty) ...[
+            const SizedBox(width: spacingM),
+            ...List.generate(_imagePaths.length, (index) => Padding(
+              padding: const EdgeInsets.only(left: spacingXS),
+              child: GestureDetector(
+                onTap: () => _showImageViewer(index),
+                child: Image.file(
+                  File(_imagePaths[index]),
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showImageViewer(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ImageViewerPage(
+          imagePaths: _imagePaths,
+          initialIndex: index,
+          onDelete: (i) {
+            setState(() => _imagePaths.removeAt(i));
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
@@ -302,6 +379,91 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (result is AssetAccount) {
       setState(() => _selectedAccount = result);
     }
+  }
+}
+
+class _ImageViewerPage extends StatefulWidget {
+  final List<String> imagePaths;
+  final int initialIndex;
+  final ValueChanged<int> onDelete;
+
+  const _ImageViewerPage({
+    required this.imagePaths,
+    required this.initialIndex,
+    required this.onDelete,
+  });
+
+  @override
+  State<_ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<_ImageViewerPage> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: widget.imagePaths.length,
+              onPageChanged: (index) => setState(() => _currentIndex = index),
+              itemBuilder: (context, index) => Center(
+                child: Image.file(
+                  File(widget.imagePaths[index]),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 16,
+            child: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.white, size: 28),
+              onPressed: () => widget.onDelete(_currentIndex),
+            ),
+          ),
+          if (widget.imagePaths.length > 1)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  '${_currentIndex + 1} / ${widget.imagePaths.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

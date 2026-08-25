@@ -55,7 +55,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 12,
+      version: 13,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -249,6 +249,12 @@ class DatabaseHelper {
     if (oldVersion < 12) {
       await db.execute(
           "UPDATE asset_accounts SET category_name = '网络账户' WHERE category_name = '网络支付'");
+    }
+    if (oldVersion < 13) {
+      final cols = await db.rawQuery('PRAGMA table_info(records)');
+      if (!cols.any((c) => c['name'] == 'image_path')) {
+        await db.execute('ALTER TABLE records ADD COLUMN image_path TEXT');
+      }
     }
   }
 

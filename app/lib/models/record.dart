@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../utils/formatters.dart';
 
 class Record {
@@ -12,6 +14,7 @@ class Record {
   final DateTime date;
   final DateTime createdAt;
   final String? accountName;
+  final List<String>? imagePaths;
 
   Record({
     required this.id,
@@ -25,6 +28,7 @@ class Record {
     required this.date,
     required this.createdAt,
     this.accountName,
+    this.imagePaths,
   });
 
   Map<String, dynamic> toDbMap() => {
@@ -37,19 +41,36 @@ class Record {
         'remark': remark,
         'date': toEpochDay(date),
         'created_at': createdAt.millisecondsSinceEpoch,
+        'tag': tag,
+        'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
       };
 
-  factory Record.fromDbMap(Map<String, dynamic> map) => Record(
-        id: map['id'] as String,
-        ledgerId: map['book_id'] as String?,
-        accountId: map['account_id'] as String?,
-        isExpense: map['is_expense'] == 1,
-        categoryName: map['category_name'] as String,
-        amountCents: map['amount_cents'] as int,
-        remark: map['remark'] as String? ?? '',
-        tag: map['tag'] as String?,
-        date: fromEpochDay(map['date'] as int),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-        accountName: map['account_name'] as String?,
-      );
+  factory Record.fromDbMap(Map<String, dynamic> map) {
+    final raw = map['image_path'] as String?;
+    List<String>? paths;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          paths = decoded.cast<String>();
+        }
+      } catch (_) {
+        paths = [raw];
+      }
+    }
+    return Record(
+      id: map['id'] as String,
+      ledgerId: map['book_id'] as String?,
+      accountId: map['account_id'] as String?,
+      isExpense: map['is_expense'] == 1,
+      categoryName: map['category_name'] as String,
+      amountCents: map['amount_cents'] as int,
+      remark: map['remark'] as String? ?? '',
+      tag: map['tag'] as String?,
+      date: fromEpochDay(map['date'] as int),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+      accountName: map['account_name'] as String?,
+      imagePaths: paths,
+    );
+  }
 }
