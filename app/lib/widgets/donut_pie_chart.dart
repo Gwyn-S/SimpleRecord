@@ -154,9 +154,5 @@ class _PieLeaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PieLeaderPainter old) =>
-      rotation != old.rotation ||
-      data != old.data ||
-      total != old.total ||
-      center != old.center ||
-      radius != old.radius;
+      total != old.total || rotation != old.rotation;
 }

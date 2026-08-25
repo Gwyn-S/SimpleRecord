@@ -8,6 +8,8 @@ import '../services/record_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/record_item.dart';
 
+const _amountStyle = TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary);
+
 class StatsDetailPage extends StatefulWidget {
   final DateTime start;
   final DateTime end;
@@ -94,7 +96,7 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
                   children: [
                     Expanded(
                       child: ListView(
-                        padding: const EdgeInsets.only(bottom: 5),
+                        padding: const EdgeInsets.only(bottom: spacingXS),
                         children: sortedKeys.asMap().entries.map((entry) {
                           return _buildDayCard(
                             key: entry.value,
@@ -147,9 +149,9 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
                       style: textItemSub,
                       children: [
                         const TextSpan(text: '收入 '),
-                        TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                        TextSpan(text: formatAmount(dayInc), style: _amountStyle),
                         const TextSpan(text: '  支出 '),
-                        TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                        TextSpan(text: formatAmount(dayExp), style: _amountStyle),
                       ],
                     ),
                   ),

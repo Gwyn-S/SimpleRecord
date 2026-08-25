@@ -41,6 +41,15 @@ class StatsData {
   });
 }
 
+({DateTime jan1Monday, DateTime currentMonday, int currentWeek}) _weekInfo() {
+  final now = DateTime.now();
+  final jan1 = DateTime(now.year, 1, 1);
+  final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
+  final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+  final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
+  return (jan1Monday: jan1Monday, currentMonday: currentMonday, currentWeek: currentWeek);
+}
+
 /// 计算日期范围
 ({DateTime start, DateTime end})? getDateRange({
   required StatsRange range,
@@ -53,13 +62,10 @@ class StatsData {
   final now = DateTime.now();
   switch (range) {
     case StatsRange.week:
-      final jan1 = DateTime(now.year, 1, 1);
-      final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
-      final currentMonday = now.subtract(Duration(days: now.weekday - 1));
-      final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
+      final wi = _weekInfo();
       final weekOffset = totalItems - 1 - index;
-      final targetWeek = currentWeek - weekOffset;
-      final weekStart = jan1Monday.add(Duration(days: (targetWeek - 1) * 7));
+      final targetWeek = wi.currentWeek - weekOffset;
+      final weekStart = wi.jan1Monday.add(Duration(days: (targetWeek - 1) * 7));
       final weekEnd = weekStart.add(const Duration(days: 7));
       return (start: weekStart, end: weekEnd);
     case StatsRange.month:
@@ -209,23 +215,19 @@ List<({String label, int amountCents})> _buildPeriodData(
 }
 
 List<({String label, int amountCents})> _buildWeekSummaryData(List<Record> records) {
-  final now = DateTime.now();
-  final jan1 = DateTime(now.year, 1, 1);
-  final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
-  final currentMonday = now.subtract(Duration(days: now.weekday - 1));
-  final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
-  final weeklyExpense = List.filled(currentWeek, 0);
+  final wi = _weekInfo();
+  final weeklyExpense = List.filled(wi.currentWeek, 0);
   for (final r in records) {
     if (!r.isExpense) continue;
     final rMonday = DateTime(r.date.year, r.date.month, r.date.day).subtract(Duration(days: r.date.weekday - 1));
-    final weekIndex = ((rMonday.difference(jan1Monday).inDays) / 7).floor();
-    if (weekIndex >= 0 && weekIndex < currentWeek) {
+    final weekIndex = ((rMonday.difference(wi.jan1Monday).inDays) / 7).floor();
+    if (weekIndex >= 0 && weekIndex < wi.currentWeek) {
       weeklyExpense[weekIndex] += r.amountCents;
     }
   }
-  return List.generate(currentWeek, (i) {
-    final isLastWeek = i == currentWeek - 2;
-    final isThisWeek = i == currentWeek - 1;
+  return List.generate(wi.currentWeek, (i) {
+    final isLastWeek = i == wi.currentWeek - 2;
+    final isThisWeek = i == wi.currentWeek - 1;
     final label = isThisWeek ? '本周' : isLastWeek ? '上周' : '${i + 1}周';
     return (label: label, amountCents: weeklyExpense[i]);
   });
@@ -273,12 +275,9 @@ List<String> getRangeLabels(StatsRange range, DateTime customPreset) {
   final now = DateTime.now();
   switch (range) {
     case StatsRange.week:
-      final thisMonday = DateTime(now.year, 1, 1);
-      final jan1Monday = thisMonday.subtract(Duration(days: thisMonday.weekday - 1));
-      final currentMonday = now.subtract(Duration(days: now.weekday - 1));
-      final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
+      final wi = _weekInfo();
       return [
-        for (var i = 1; i <= currentWeek - 1; i++) '$i周',
+        for (var i = 1; i <= wi.currentWeek - 1; i++) '$i周',
         '上周',
         '本周',
       ];
