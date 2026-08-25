@@ -229,7 +229,9 @@ Future<AiRecordResult> analyzeText({
   if (dateStr != null && dateStr.isNotEmpty) {
     try {
       date = DateTime.parse(dateStr);
-    } catch (_) {}
+    } catch (_) {
+      throw '日期解析失败，请重试';
+    }
   }
 
   return AiRecordResult(

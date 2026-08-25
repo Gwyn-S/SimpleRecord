@@ -48,6 +48,17 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
   }
 
   Future<void> _save() async {
+    final allEmpty = _nameController.text.isEmpty &&
+        _urlController.text.isEmpty &&
+        _keyController.text.isEmpty &&
+        _textModelController.text.isEmpty &&
+        _visionModelController.text.isEmpty &&
+        _voiceModelController.text.isEmpty;
+    if (allEmpty) {
+      showToast(context, '配置为空');
+      return;
+    }
+
     final config = AiConfig(
       name: _nameController.text,
       url: _urlController.text,
