@@ -21,6 +21,7 @@ class SpeedDialFAB extends StatefulWidget {
   final IconData icon;
   final List<SpeedDialAction> actions;
   final bool enabled;
+  final bool longPressEnabled;
 
   const SpeedDialFAB({
     super.key,
@@ -28,6 +29,7 @@ class SpeedDialFAB extends StatefulWidget {
     required this.icon,
     required this.actions,
     this.enabled = true,
+    this.longPressEnabled = true,
   });
 
   @override
@@ -157,9 +159,9 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onLongPressStart: widget.enabled ? (_) => _show() : null,
-      onLongPressMoveUpdate: widget.enabled ? (d) => _onMove(d.globalPosition) : null,
-      onLongPressEnd: widget.enabled ? (_) => _onEnd() : null,
+      onLongPressStart: widget.longPressEnabled ? (_) => _show() : null,
+      onLongPressMoveUpdate: widget.longPressEnabled ? (d) => _onMove(d.globalPosition) : null,
+      onLongPressEnd: widget.longPressEnabled ? (_) => _onEnd() : null,
       child: SizedBox(
         width: 60, height: 60,
         child: FloatingActionButton(

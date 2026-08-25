@@ -43,8 +43,12 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
       return;
     }
 
-    final configIndex = await getConfigIndex('ai_text_config_index') ?? 0;
+    final configIndex = await getConfigIndex('ai_text_config_index');
     if (!mounted) return;
+    if (configIndex == null) {
+      safeShowToast(context, '请先选择文本模型');
+      return;
+    }
     if (configIndex >= configs.length) {
       safeShowToast(context, '请先配置AI');
       return;

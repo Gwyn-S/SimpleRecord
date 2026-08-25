@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
+import '../services/ai_service.dart';
 import '../main.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'bills_page.dart';
@@ -89,7 +89,8 @@ class _MainPageState extends State<MainPage> with RouteAware {
           }
         },
         icon: Icons.add,
-        enabled: _tab != 4 && _aiEnabled,
+        enabled: _tab != 4,
+        longPressEnabled: _tab != 4 && _aiEnabled,
         actions: [
           SpeedDialAction(
             icon: Icons.edit,
