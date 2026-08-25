@@ -278,10 +278,10 @@ P2 — 可优化（12项）已修6项 / 不修6项
   问题  : IndexedStack 常驻
   理由  : 实际触发概率极低
 
-[P2-10] _pages 索引跳号 🚫 不修
+[P2-10] _pages 索引跳号 ✅ 非问题
   位置  : pages/main_page.dart:59-65
   问题  : 3/4 跳号易错
-  理由  : 用户决定暂不改
+  说明  : 中间是 FAB 不是页面，SizedBox 占位正确，_tab 只会被设为 0/1/3/4
 
 [P2-11] 空 catch 吞异常 🚫 不修
   位置  : pages/stats_page.dart:197-199
