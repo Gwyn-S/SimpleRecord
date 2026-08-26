@@ -8,6 +8,7 @@ import '../services/theme_service.dart';
 import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/common_app_bar.dart';
 import '../widgets/account_avatar.dart';
 import 'asset_account_form_page.dart';
 import 'asset_trend_page.dart';
@@ -86,16 +87,8 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
       backgroundColor: colorBackgroundPage,
-      appBar: AppBar(
-        title: const Text('资产详情'),
-        backgroundColor: themeColor,
-        foregroundColor: colorTextOnPrimary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: CommonAppBar(
+        title: '资产详情',
         actions: [
           TextButton(
             onPressed: () => Navigator.push(

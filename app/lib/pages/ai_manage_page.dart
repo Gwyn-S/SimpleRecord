@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/ai_service.dart';
-import '../services/theme_service.dart';
+import '../widgets/common_app_bar.dart';
 import 'ai_config_detail_page.dart';
 
 class AiManagePage extends StatefulWidget {
@@ -58,18 +58,9 @@ class _AiManagePageState extends State<AiManagePage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI 管理'),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: CommonAppBar(
+        title: 'AI 管理',
         actions: [
           IconButton(
             icon: const Icon(Icons.add),

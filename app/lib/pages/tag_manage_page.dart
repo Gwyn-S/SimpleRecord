@@ -5,6 +5,7 @@ import '../constants/app_text_styles.dart';
 import '../services/tag_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
+import '../widgets/common_app_bar.dart';
 
 class TagManagePage extends StatefulWidget {
   const TagManagePage({super.key});
@@ -113,17 +114,7 @@ class _TagManagePageState extends State<TagManagePage> {
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('标签管理'),
-        backgroundColor: themeColor,
-        foregroundColor: colorTextOnPrimary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '标签管理'),
       body: SingleChildScrollView(
         child: Column(
           children: [

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
-import '../services/theme_service.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/common_app_bar.dart';
 import '../widgets/record_item.dart';
 
 const _amountStyle = TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary);
@@ -71,22 +71,11 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     final grouped = _grouped;
     final sortedKeys = _sortedKeys;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: CommonAppBar(title: widget.title),
       backgroundColor: colorBackgroundPage,
       body: _loading
           ? const Center(child: CircularProgressIndicator())

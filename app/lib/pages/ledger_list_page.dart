@@ -8,6 +8,7 @@ import '../services/record_service.dart';
 import '../services/ledger_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
 
 class LedgerListPage extends StatefulWidget {
@@ -185,25 +186,18 @@ class _LedgerListPageState extends State<LedgerListPage> {
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          title: const Text('账本'),
-          backgroundColor: themeColor,
-          foregroundColor: colorTextOnPrimary,
-          elevation: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
-          ),
-          leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: '', onPressed: () => Navigator.pop(context)),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add, size: 28),
-              onPressed: _showAddDialog,
-            ),
-          ],
+      appBar: CommonAppBar(
+        title: '账本',
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, size: 28),
+            onPressed: _showAddDialog,
+          ),
+        ],
       ),
       body: _ledgers.isEmpty
           ? const SizedBox.shrink()

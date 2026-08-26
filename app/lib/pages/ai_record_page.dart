@@ -6,6 +6,7 @@ import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
 import '../utils/toast.dart';
+import '../widgets/common_app_bar.dart';
 import 'ai_manage_page.dart';
 
 class AiRecordPage extends StatefulWidget {
@@ -161,19 +162,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI 记账'),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: const CommonAppBar(title: 'AI 记账'),
       backgroundColor: colorBackgroundPage,
       body: ListView(
         children: [

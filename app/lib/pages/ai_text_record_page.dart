@@ -5,10 +5,10 @@ import '../models/ai_record_result.dart';
 import '../models/record.dart';
 import '../services/ai_service.dart';
 import '../services/record_service.dart';
-import '../services/theme_service.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/ai_record_result_card.dart';
+import '../widgets/common_app_bar.dart';
 
 class AiTextRecordPage extends StatefulWidget {
   const AiTextRecordPage({super.key});
@@ -112,19 +112,8 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('文字记账'),
-        backgroundColor: themeColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '文字记账'),
       backgroundColor: colorBackgroundPage,
       body: Padding(
         padding: const EdgeInsets.all(spacingL),

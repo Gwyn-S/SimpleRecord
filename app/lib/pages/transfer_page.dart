@@ -8,6 +8,7 @@ import '../services/theme_service.dart';
 import '../services/asset_account_service.dart';
 import '../services/transfer_service.dart';
 import '../utils/calculator.dart';
+import '../widgets/common_app_bar.dart';
 import '../utils/formatters.dart';
 import '../widgets/option_bar_item.dart';
 import '../widgets/account_avatar.dart';
@@ -224,16 +225,8 @@ class _TransferPageState extends State<TransferPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
       backgroundColor: colorBackgroundPage,
-      appBar: AppBar(
-        title: const Text('转账'),
-        backgroundColor: themeColor,
-        foregroundColor: colorTextOnPrimary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '',
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: CommonAppBar(
+        title: '转账',
         actions: [
           TextButton(
             onPressed: _onDelete,
