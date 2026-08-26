@@ -1,8 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../models/ledger.dart';
+import '../models/record.dart';
 import '../utils/id.dart';
 import 'database.dart';
+import 'image_storage_service.dart';
 import 'record_service.dart';
 
 class LedgerStats {
@@ -59,6 +61,18 @@ Future<void> updateLedger(Ledger ledger) async {
 
 Future<void> deleteLedger(String id) async {
   final db = await DatabaseHelper.instance.database;
+  // 先查询该账本下所有记录的图片路径
+  final rows = await db.query('records',
+      columns: ['image_path'], where: 'book_id = ?', whereArgs: [id]);
+  for (final row in rows) {
+    final imagePath = row['image_path'] as String?;
+    if (imagePath != null && imagePath.isNotEmpty) {
+      final paths = Record.imagePathsFromDb(imagePath);
+      for (final path in paths) {
+        await deleteImage(path);
+      }
+    }
+  }
   await db.transaction((txn) async {
     await txn.delete('records', where: 'book_id = ?', whereArgs: [id]);
     await txn.delete('books', where: 'id = ?', whereArgs: [id]);

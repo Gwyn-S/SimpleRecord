@@ -16,6 +16,16 @@ class Record {
   final String? accountName;
   final List<String>? imagePaths;
 
+  /// 从数据库原始字符串解析图片路径列表。
+  static List<String> imagePathsFromDb(String? raw) {
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) return decoded.cast<String>();
+    } catch (_) {}
+    return [raw];
+  }
+
   Record({
     required this.id,
     this.ledgerId,

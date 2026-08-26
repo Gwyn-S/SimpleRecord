@@ -11,6 +11,7 @@ import '../models/record.dart';
 import '../models/asset_account.dart';
 import '../services/record_service.dart';
 import '../services/asset_account_service.dart';
+import '../services/image_storage_service.dart';
 import '../utils/calculator.dart';
 import '../utils/formatters.dart';
 import '../widgets/option_bar_item.dart';
@@ -55,6 +56,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _remarkController.text = r.remark;
       _selectedTag = r.tag;
       _imagePaths = r.imagePaths ?? [];
+      _migrateOldImages();
       if (r.accountId != null) _loadSelectedAccount(r.accountId!);
     }
   }
@@ -68,6 +70,23 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         return;
       }
     }
+  }
+
+  Future<void> _migrateOldImages() async {
+    final migrated = <String>[];
+    var changed = false;
+    for (final path in _imagePaths) {
+      final newPath = await migrateIfNeeded(path);
+      if (newPath != null && newPath != path) {
+        migrated.add(newPath);
+        changed = true;
+      } else if (newPath != null) {
+        migrated.add(path);
+      } else {
+        changed = true;
+      }
+    }
+    if (changed && mounted) setState(() => _imagePaths = migrated);
   }
 
   @override
@@ -114,7 +133,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     try {
       final XFile? image = await _picker.pickImage(source: source);
       if (image != null) {
-        setState(() => _imagePaths.add(image.path));
+        final saved = await saveImage(image.path);
+        setState(() => _imagePaths.add(saved));
       }
     } catch (e) {
       if (mounted) {
@@ -170,6 +190,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: Padding(
@@ -290,53 +311,57 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     return Container(
       height: heightOptionBar,
       padding: const EdgeInsets.symmetric(horizontal: spacingL),
-      child: Row(
-        children: [
-          OptionBarItem(
-            icon: Icons.calendar_today_outlined,
-            label: formatSelectedDate(_selectedDate),
-            onTap: () async {
-              final picked = await showDatePickerSheet(context, _selectedDate);
-              if (picked == null || !mounted) return;
-              setState(() => _selectedDate = picked);
-            },
-          ),
-          const SizedBox(width: spacingXXL),
-          OptionBarItem(
-            icon: Icons.account_balance_wallet_outlined,
-            label: _selectedAccount?.name ?? '账户',
-            onTap: _pickAccount,
-          ),
-          const SizedBox(width: spacingXXL),
-          OptionBarItem(
-            icon: Icons.label_outline,
-            label: _selectedTag ?? '标签',
-            onTap: _pickTag,
-          ),
-          const SizedBox(width: spacingXXL),
-          OptionBarItem(
-            icon: Icons.camera_alt_outlined,
-            label: '图片',
-            onTap: _showImagePicker,
-          ),
-          if (_imagePaths.isNotEmpty) ...[
-            const SizedBox(width: spacingM),
-            ...List.generate(_imagePaths.length, (index) => Padding(
-              padding: const EdgeInsets.only(left: spacingXS),
-              child: GestureDetector(
-                onTap: () => _showImageViewer(index),
-                child: Image.file(
-                  File(_imagePaths[index]),
-                  width: 32,
-                  height: 32,
-                  fit: BoxFit.cover,
-                ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+            children: [
+              OptionBarItem(
+                icon: Icons.calendar_today_outlined,
+                label: formatSelectedDate(_selectedDate),
+                onTap: () async {
+                  final picked = await showDatePickerSheet(context, _selectedDate);
+                  if (picked == null || !mounted) return;
+                  setState(() => _selectedDate = picked);
+                },
               ),
-            )),
-          ],
-        ],
-      ),
-    );
+              const SizedBox(width: spacingXXL),
+              OptionBarItem(
+                icon: Icons.account_balance_wallet_outlined,
+                label: _selectedAccount?.name ?? '账户',
+                onTap: _pickAccount,
+              ),
+              const SizedBox(width: spacingXXL),
+              OptionBarItem(
+                icon: Icons.label_outline,
+                label: _selectedTag ?? '标签',
+                onTap: _pickTag,
+              ),
+              const SizedBox(width: spacingXXL),
+              OptionBarItem(
+                icon: Icons.camera_alt_outlined,
+                label: '图片',
+                onTap: _showImagePicker,
+              ),
+              if (_imagePaths.isNotEmpty) ...[
+                const SizedBox(width: spacingM),
+                ...List.generate(_imagePaths.length, (index) => Padding(
+                  padding: const EdgeInsets.only(left: spacingXS),
+                  child: GestureDetector(
+                    onTap: () => _showImageViewer(index),
+                    child: Image.file(
+                      File(_imagePaths[index]),
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )),
+              ],
+            ],
+          ),
+        ),
+      );
   }
 
   void _showImageViewer(int index) {
@@ -347,7 +372,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           imagePaths: _imagePaths,
           initialIndex: index,
           onDelete: (i) {
+            final path = _imagePaths[i];
             setState(() => _imagePaths.removeAt(i));
+            deleteImage(path);
             Navigator.pop(context);
           },
         ),

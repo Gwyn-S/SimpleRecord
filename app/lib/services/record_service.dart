@@ -5,6 +5,7 @@ import '../models/record.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'database.dart';
+import 'image_storage_service.dart';
 import 'settings.dart';
 
 const _currentLedgerKey = 'currentBookId';
@@ -196,6 +197,10 @@ Future<void> deleteRecord(String id) async {
         amountCents: old.amountCents,
         sign: -1,
       );
+      // 删除关联的图片文件
+      for (final path in old.imagePaths ?? []) {
+        await deleteImage(path);
+      }
     }
   });
   recordsVersion.value++;

@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+
+import '../utils/app_paths.dart';
 
 /// 极简 JSON 配置存储，替代 shared_preferences 插件。
-/// 文件固定为 <应用支持目录>/simple_record.json，写入时格式化缩进便于阅读。
+/// 文件固定为 <应用基础目录>/simplerecord.json，写入时格式化缩进便于阅读。
 class Settings {
   Settings._();
 
@@ -13,7 +14,7 @@ class Settings {
   static bool _loaded = false;
 
   static Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
+    final dir = await appBaseDirectory();
     final file = File(p.join(dir.path, 'simplerecord.json'));
     file.parent.createSync(recursive: true);
     return file;
