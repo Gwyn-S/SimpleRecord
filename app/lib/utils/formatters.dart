@@ -7,12 +7,13 @@ String formatAmount(int cents) {
   return '$sign${abs ~/ 100}.${(abs % 100).toString().padLeft(2, '0')}';
 }
 
-/// 解析元（字符串，可能带小数）为分。
+/// 解析元（字符串，可能带小数）为分。输入非有限或溢出时返回 0。
 int yuanToCents(String s) {
   final parts = s.split('.');
-  final yuan = int.parse(parts[0] == '' ? '0' : parts[0]);
+  final yuanD = double.tryParse(parts[0] == '' ? '0' : parts[0]);
+  if (yuanD == null || !yuanD.isFinite || yuanD.abs() > 9.0e16) return 0;
   final frac = (parts.length > 1 ? parts[1] : '').padRight(2, '0').substring(0, 2);
-  return yuan * 100 + int.parse(frac);
+  return yuanD.toInt() * 100 + int.parse(frac);
 }
 
 const weekdaysFull = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -69,7 +70,7 @@ String formatDateTime(DateTime d) {
 (int cents, String? error) parseAmountCents(String expr) {
   final result = evaluate(expr);
   final parsed = double.tryParse(result);
-  if (parsed == null) return (0, '金额无效');
+  if (parsed == null || !parsed.isFinite) return (0, '金额无效');
   if (parsed < 0) return (0, '金额不能为负');
   final cents = yuanToCents(result);
   if (cents == 0) return (0, '请输入金额');

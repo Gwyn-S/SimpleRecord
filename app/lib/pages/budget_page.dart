@@ -144,7 +144,7 @@ class _BudgetPageState extends State<BudgetPage> {
       return;
     }
     final v = double.tryParse(s);
-    if (v == null || v < 0) {
+    if (v == null || !v.isFinite || v < 0) {
       showToast(context, '金额格式不正确');
       return;
     }
