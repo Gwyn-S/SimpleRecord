@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/ai_service.dart';
+import '../services/tencent_asr_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
 import '../utils/toast.dart';
@@ -24,6 +25,10 @@ class _AiRecordPageState extends State<AiRecordPage> {
   final _promptController = TextEditingController();
   List<AiConfig> _configs = [];
   bool _promptExpanded = false;
+  bool _asrExpanded = false;
+  bool _asrTesting = false;
+  final _secretIdController = TextEditingController();
+  final _secretKeyController = TextEditingController();
 
   @override
   void initState() {
@@ -34,6 +39,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
   @override
   void dispose() {
     _promptController.dispose();
+    _secretIdController.dispose();
+    _secretKeyController.dispose();
     super.dispose();
   }
 
@@ -44,6 +51,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
     final imageIndex = await getConfigIndex('ai_image_config_index');
     final voiceIndex = await getConfigIndex('ai_voice_config_index');
     final prompt = await getPrompt();
+    final asr = await loadAsrConfig();
     if (!mounted) return;
     setState(() {
       _configs = configs;
@@ -52,6 +60,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
       _imageConfigIndex = imageIndex;
       _voiceConfigIndex = voiceIndex;
       _promptController.text = prompt.isEmpty ? defaultAiPrompt : prompt;
+      _secretIdController.text = asr.secretId;
+      _secretKeyController.text = asr.secretKey;
     });
   }
 
@@ -225,6 +235,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
             },
             showVoice: true,
           ),
+          _buildAsrField(),
           _buildPromptField(),
         ],
       ),
@@ -248,6 +259,117 @@ class _AiRecordPageState extends State<AiRecordPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildAsrField() {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _asrExpanded = !_asrExpanded),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: spacingL),
+            height: 56,
+            child: Row(
+              children: [
+                const Text('语音识别密钥', style: textListItem),
+                const Spacer(),
+                Icon(
+                  _asrExpanded ? Icons.expand_less : Icons.chevron_right,
+                  size: iconSizeMedium,
+                  color: Colors.grey.shade300,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_asrExpanded)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingL),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _secretIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'SecretId',
+                    hintText: '腾讯云 API 密钥 ID',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: spacingM),
+                TextField(
+                  controller: _secretKeyController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'SecretKey',
+                    hintText: '腾讯云 API 密钥 Key',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: spacingM),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _asrTesting ? null : _testAsr,
+                        child: _asrTesting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('测试'),
+                      ),
+                    ),
+                    const SizedBox(width: spacingM),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saveAsr,
+                        child: const Text('保存'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _saveAsr() async {
+    final id = _secretIdController.text.trim();
+    final key = _secretKeyController.text.trim();
+    if (id.isEmpty || key.isEmpty) {
+      safeShowToast(context, '请填写 SecretId 和 SecretKey');
+      return;
+    }
+    await saveAsrConfig(TencentAsrConfig(secretId: id, secretKey: key));
+    if (!mounted) return;
+    safeShowToast(context, '保存成功');
+  }
+
+  Future<void> _testAsr() async {
+    final id = _secretIdController.text.trim();
+    final key = _secretKeyController.text.trim();
+    if (id.isEmpty || key.isEmpty) {
+      safeShowToast(context, '请填写 SecretId 和 SecretKey');
+      return;
+    }
+    setState(() => _asrTesting = true);
+    try {
+      await testAsr(TencentAsrConfig(secretId: id, secretKey: key));
+      if (!mounted) return;
+      safeShowToast(context, '语音识别连通正常');
+    } catch (e) {
+      if (!mounted) return;
+      safeShowToast(context, '测试失败：$e');
+    } finally {
+      if (mounted) setState(() => _asrTesting = false);
+    }
   }
 
   Widget _buildPromptField() {
