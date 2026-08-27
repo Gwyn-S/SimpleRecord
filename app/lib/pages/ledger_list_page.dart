@@ -50,7 +50,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
       setState(() => _ledgers.addAll(loaded));
       _loadStats();
     } catch (_) {
-      // 加载失败保持空列表，等待下次进入页面重试
+      if (mounted) safeShowToast(context, '加载账本失败，请重试');
     }
   }
 
