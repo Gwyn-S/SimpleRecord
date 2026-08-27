@@ -4,7 +4,9 @@ import '../constants/app_dimensions.dart';
 import '../models/ai_record_result.dart';
 import '../models/record.dart';
 import '../services/ai_service.dart';
+import '../services/asset_account_service.dart';
 import '../services/record_service.dart';
+import '../services/transfer_service.dart';
 import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/ai_record_result_card.dart';
@@ -21,7 +23,7 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
   final _textController = TextEditingController();
   bool _loading = false;
   String? _error;
-  AiRecordResult? _result;
+  List<AiRecordResult> _results = [];
 
   @override
   void dispose() {
@@ -61,24 +63,26 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
     }
 
     final prompt = await getPrompt();
+    final accounts = await loadAssetAccounts();
 
     setState(() {
       _loading = true;
       _error = null;
-      _result = null;
+      _results = [];
     });
 
     try {
-      final result = await analyzeText(
+      final results = await analyzeTextList(
         config: config,
         text: text,
         customPrompt: prompt,
+        accounts: accounts,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _result = result;
+        _results = results;
         _loading = false;
       });
     } catch (e) {
@@ -90,23 +94,40 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
     }
   }
 
-  Future<void> _saveRecord() async {
-    if (_result == null) return;
+  Future<void> _saveRecords() async {
+    if (_results.isEmpty) return;
 
-    final record = Record(
-      id: genId(),
-      ledgerId: currentLedgerId.value,
-      isExpense: _result!.isExpense,
-      categoryName: _result!.categoryName,
-      amountCents: _result!.amountCents,
-      remark: _result!.remark,
-      date: _result!.date,
-      createdAt: DateTime.now(),
-    );
+    for (final result in _results) {
+      if (result.isTransfer) {
+        if (result.fromAccountId.isEmpty || result.toAccountId.isEmpty) {
+          safeShowToast(context, '转账账户缺失，请手动记账');
+          return;
+        }
+        await insertTransfer(
+          fromAccountId: result.fromAccountId,
+          toAccountId: result.toAccountId,
+          amountCents: result.amountCents,
+          remark: result.remark,
+          date: result.date,
+        );
+      } else {
+        final record = Record(
+          id: genId(),
+          ledgerId: currentLedgerId.value,
+          accountId: result.accountId.isEmpty ? null : result.accountId,
+          isExpense: result.isExpense,
+          categoryName: result.categoryName,
+          amountCents: result.amountCents,
+          remark: result.remark,
+          date: result.date,
+          createdAt: DateTime.now(),
+        );
+        await insertRecord(record);
+      }
+    }
 
-    await insertRecord(record);
     if (!mounted) return;
-    safeShowToast(context, '记账成功');
+    safeShowToast(context, '已记录${_results.length}笔');
     Navigator.pop(context);
   }
 
@@ -150,15 +171,21 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
               const SizedBox(height: spacingM),
               Text(_error!, style: const TextStyle(color: colorDelete)),
             ],
-            if (_result != null) ...[
+            if (_results.isNotEmpty) ...[
               const SizedBox(height: spacingL),
-              AiRecordResultCard(result: _result!),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _results.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: spacingM),
+                  itemBuilder: (_, i) => AiRecordResultCard(result: _results[i]),
+                ),
+              ),
               const SizedBox(height: spacingM),
               SizedBox(
                 height: 44,
                 child: FilledButton(
-                  onPressed: _saveRecord,
-                  child: const Text('确认记账'),
+                  onPressed: _saveRecords,
+                  child: Text('确认记账${_results.length > 1 ? '(${_results.length}笔)' : ''}'),
                 ),
               ),
             ],

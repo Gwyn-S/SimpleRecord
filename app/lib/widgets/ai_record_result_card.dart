@@ -19,14 +19,33 @@ class AiRecordResultCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRow('类型', result.isExpense ? '支出' : '收入'),
+          _buildRow('类型', _typeLabel),
           _buildRow('分类', result.categoryName),
           _buildRow('金额', '${(result.amountCents / 100).toStringAsFixed(2)}元'),
+          if (result.accountId.isNotEmpty) _buildRow('账户', result.accountId),
+          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', result.fromAccountId),
+          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', result.toAccountId),
           if (result.remark.isNotEmpty) _buildRow('备注', result.remark),
+          _buildRow('日期', '${result.date.year}-${_pad(result.date.month)}-${_pad(result.date.day)}'),
         ],
       ),
     );
   }
+
+  String get _typeLabel {
+    switch (result.type) {
+      case 'expense':
+        return '支出';
+      case 'income':
+        return '收入';
+      case 'transfer':
+        return '转账';
+      default:
+        return '支出';
+    }
+  }
+
+  String _pad(int n) => n.toString().padLeft(2, '0');
 
   Widget _buildRow(String label, String value) {
     return Padding(

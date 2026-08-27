@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../models/ai_record_result.dart';
+import '../models/asset_account.dart';
 import '../models/category.dart';
 import '../services/settings.dart';
 
@@ -9,7 +10,76 @@ const _aiConfigsKey = 'ai_configs';
 const _aiPromptKey = 'ai_prompt';
 const _maxRetries = 3;
 const _retryDelay = 2;
-final defaultAiPrompt = '你是一个记账助手。用户会输入消费或收入的描述，你需要解析出：isExpense(是否支出，true/false)、categoryName(分类名称)、amountCents(金额，单位分)、remark(备注)、date(日期，格式yyyy-MM-dd，今天则返回空字符串)。只返回JSON，不要其他内容。可用分类：${expenseCategories.map((c) => c.name).join("、")}、${incomeCategories.map((c) => c.name).join("、")}。';
+final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收入/转账描述，返回 JSON 数组。
+
+当前时间：{{CURRENT_TIME}}
+
+{{CATEGORIES}}
+
+{{ACCOUNTS}}
+
+## 输出格式
+始终返回 JSON 数组，即使只有一笔也用 [...] 包裹。
+
+## 字段规则
+
+### type（必填）
+- "expense"：支出
+- "income"：收入
+- "transfer"：转账
+
+### amount（必填）
+- 金额，单位分（元×100），必须是整数
+- 例：35元 → 3500
+
+### categoryName（必填）
+- 从上方可用分类中选择最匹配的
+- 无法匹配时返回"其他"
+
+### accountId（可选）
+- 从上方可用账户中匹配支付/收款账户
+- 匹配不到则返回空字符串，由用户手动选择
+
+### fromAccountId / toAccountId（转账必填）
+- 转出账户id / 转入账户id
+- 匹配不到则返回空字符串
+
+### remark（可选）
+- ≤15字
+- 优先级：商家名 > 商品名 > 用户描述
+- 例："星巴克"、"打车去公司"、"给女儿买"
+- 无明确内容则留空
+
+### date（必填）
+- 绝对日期 yyyy-MM-dd
+- 必须将相对日期转换为具体日期
+- 未提及时间则使用当前日期
+
+## 示例
+
+### 单笔支出
+"昨天午餐微信35"
+[{"type":"expense","amount":3500,"categoryName":"餐饮","accountId":"微信id","remark":"午餐","date":"2026-08-26"}]
+
+### 单笔收入
+"收到工资8000"
+[{"type":"income","amount":800000,"categoryName":"工资","remark":"","date":"2026-08-27"}]
+
+### 转账
+"从建行转800到微信"
+[{"type":"transfer","fromAccountId":"建行id","toAccountId":"微信id","amount":80000,"remark":"","date":"2026-08-27"}]
+
+### 多笔
+"早上地铁5元，中午吃饭40元，晚上买水果35"
+[{"type":"expense","amount":500,"categoryName":"交通","remark":"地铁","date":"2026-08-27"},{"type":"expense","amount":4000,"categoryName":"餐饮","remark":"午餐","date":"2026-08-27"},{"type":"expense","amount":3500,"categoryName":"购物","remark":"水果","date":"2026-08-27"}]
+
+## 注意
+- 只返回 JSON 数组，不要其他内容
+- 金额必须是整数分，不要返回小数
+- 不确定分类时返回"其他"
+- 不确定日期时返回当前日期
+- 无法匹配账户时留空，由用户手动选择
+''';
 
 /// AI 配置模型
 class AiConfig {
@@ -84,7 +154,61 @@ Future<String> getPrompt() async {
   return prompt ?? '';
 }
 
-/// 解析 AI 返回的 JSON 文本
+/// 构建完整提示词（替换模板变量）
+String buildAiPrompt({
+  required String template,
+  required List<AssetAccount> accounts,
+}) {
+  final now = DateTime.now();
+  final currentTime = '${now.year}-${_pad(now.month)}-${_pad(now.day)} ${_pad(now.hour)}:${_pad(now.minute)}:${_pad(now.second)}';
+
+  final categories = '''
+## 可用分类
+支出：${expenseCategories.map((c) => c.name).join('、')}
+收入：${incomeCategories.map((c) => c.name).join('、')}
+''';
+
+  final accountsText = accounts.isEmpty
+      ? ''
+      : '''
+## 可用账户
+${accounts.map((a) => '- ${a.displayName}(id:${a.id})').join('\n')}
+''';
+
+  return template
+      .replaceAll('{{CURRENT_TIME}}', currentTime)
+      .replaceAll('{{CATEGORIES}}', categories)
+      .replaceAll('{{ACCOUNTS}}', accountsText);
+}
+
+String _pad(int n) => n.toString().padLeft(2, '0');
+
+/// 解析 AI 返回的 JSON 文本（支持单对象和数组）
+List<Map<String, dynamic>> parseAiJsonList(String text) {
+  // 先尝试解析数组
+  try {
+    final start = text.indexOf('[');
+    final end = text.lastIndexOf(']');
+    if (start >= 0 && end > start) {
+      final jsonStr = text.substring(start, end + 1);
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    }
+  } catch (_) {}
+
+  // 降级：尝试解析单个对象
+  final single = parseAiJson(text);
+  if (single.isNotEmpty) return [single];
+
+  return [];
+}
+
+/// 解析 AI 返回的 JSON 文本（单对象）
 Map<String, dynamic> parseAiJson(String text) {
   // 先尝试标准 JSON 解析
   try {
@@ -158,11 +282,12 @@ Future<void> testAiConnection({
   }
 }
 
-/// 调用 AI API 进行文字记账识别
-Future<AiRecordResult> analyzeText({
+/// 调用 AI API 进行文字记账识别（返回多条结果）
+Future<List<AiRecordResult>> analyzeTextList({
   required AiConfig config,
   required String text,
   String? customPrompt,
+  List<AssetAccount> accounts = const [],
 }) async {
   final dio = Dio();
   dio.options.connectTimeout = const Duration(seconds: 30);
@@ -172,7 +297,8 @@ Future<AiRecordResult> analyzeText({
       ? config.url.substring(0, config.url.length - 1)
       : config.url;
 
-  final systemPrompt = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
+  final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
+  final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
   Response? lastResponse;
   for (int retry = 0; retry < _maxRetries; retry++) {
@@ -211,11 +337,19 @@ Future<AiRecordResult> analyzeText({
     throw Exception('AI 返回格式异常');
   }
   final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
-  final parsed = parseAiJson(jsonStr);
+  final parsedList = parseAiJsonList(jsonStr);
 
-  final isExpense = parsed['isExpense'] as bool? ?? true;
+  if (parsedList.isEmpty) {
+    throw Exception('AI 返回内容无法解析');
+  }
+
+  return parsedList.map(_parseOneResult).toList();
+}
+
+AiRecordResult _parseOneResult(Map<String, dynamic> parsed) {
+  final type = parsed['type'] as String? ?? 'expense';
   final categoryName = parsed['categoryName'] as String? ?? '其他';
-  final amountRaw = parsed['amountCents'];
+  final amountRaw = parsed['amount'];
   final int amountCents;
   if (amountRaw is num) {
     amountCents = amountRaw.toInt();
@@ -223,6 +357,9 @@ Future<AiRecordResult> analyzeText({
     amountCents = int.tryParse(amountRaw?.toString() ?? '') ?? 0;
   }
   final remark = parsed['remark'] as String? ?? '';
+  final accountId = parsed['accountId'] as String? ?? '';
+  final fromAccountId = parsed['fromAccountId'] as String? ?? '';
+  final toAccountId = parsed['toAccountId'] as String? ?? '';
   final dateStr = parsed['date'] as String?;
 
   DateTime date = DateTime.now();
@@ -235,10 +372,13 @@ Future<AiRecordResult> analyzeText({
   }
 
   return AiRecordResult(
-    isExpense: isExpense,
+    type: type,
     categoryName: categoryName,
     amountCents: amountCents,
     remark: remark,
+    accountId: accountId,
+    fromAccountId: fromAccountId,
+    toAccountId: toAccountId,
     date: date,
   );
 }
