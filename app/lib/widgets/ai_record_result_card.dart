@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/ai_record_result.dart';
+import '../models/asset_account.dart';
 
 class AiRecordResultCard extends StatelessWidget {
   final AiRecordResult result;
+  final List<AssetAccount> accounts;
 
-  const AiRecordResultCard({super.key, required this.result});
+  const AiRecordResultCard({super.key, required this.result, this.accounts = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -22,14 +24,21 @@ class AiRecordResultCard extends StatelessWidget {
           _buildRow('类型', _typeLabel),
           _buildRow('分类', result.categoryName),
           _buildRow('金额', '${(result.amountCents / 100).toStringAsFixed(2)}元'),
-          if (result.accountId.isNotEmpty) _buildRow('账户', result.accountId),
-          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', result.fromAccountId),
-          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', result.toAccountId),
+          if (result.accountId.isNotEmpty) _buildRow('账户', _accountDisplay(result.accountId)),
+          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', _accountDisplay(result.fromAccountId)),
+          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', _accountDisplay(result.toAccountId)),
           if (result.remark.isNotEmpty) _buildRow('备注', result.remark),
           _buildRow('日期', '${result.date.year}-${_pad(result.date.month)}-${_pad(result.date.day)}'),
         ],
       ),
     );
+  }
+
+  String _accountDisplay(String id) {
+    for (final a in accounts) {
+      if (a.id == id) return a.displayName;
+    }
+    return id;
   }
 
   String get _typeLabel {

@@ -208,7 +208,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
             },
           ),
           _buildConfigSelector(
-            label: '图片模型',
+            label: '视觉模型',
             selectedIndex: _imageConfigIndex,
             onChanged: (v) async {
               await setConfigIndex('ai_image_config_index', v);

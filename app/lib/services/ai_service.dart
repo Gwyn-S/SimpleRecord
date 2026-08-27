@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import '../models/ai_record_result.dart';
 import '../models/asset_account.dart';
@@ -37,11 +38,13 @@ final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收�
 - 无法匹配时返回"其他"
 
 ### accountId（可选）
-- 从上方可用账户中匹配支付/收款账户
+- 从上方可用账户中匹配支付/收款账户，返回账户名（如：微信）
+- 不要返回账户id，只返回账户名
 - 匹配不到则返回空字符串，由用户手动选择
 
 ### fromAccountId / toAccountId（转账必填）
-- 转出账户id / 转入账户id
+- 转出账户名 / 转入账户名（如：建行、微信）
+- 不要返回账户id，只返回账户名
 - 匹配不到则返回空字符串
 
 ### remark（可选）
@@ -59,7 +62,7 @@ final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收�
 
 ### 单笔支出
 "昨天午餐微信35"
-[{"type":"expense","amount":3500,"categoryName":"餐饮","accountId":"微信id","remark":"午餐","date":"2026-08-26"}]
+[{"type":"expense","amount":3500,"categoryName":"餐饮","accountId":"微信","remark":"午餐","date":"2026-08-26"}]
 
 ### 单笔收入
 "收到工资8000"
@@ -67,7 +70,7 @@ final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收�
 
 ### 转账
 "从建行转800到微信"
-[{"type":"transfer","fromAccountId":"建行id","toAccountId":"微信id","amount":80000,"remark":"","date":"2026-08-27"}]
+[{"type":"transfer","fromAccountId":"建行","toAccountId":"微信","amount":80000,"remark":"","date":"2026-08-27"}]
 
 ### 多笔
 "早上地铁5元，中午吃饭40元，晚上买水果35"
@@ -343,7 +346,7 @@ Future<List<AiRecordResult>> analyzeTextList({
     throw Exception('AI 返回内容无法解析');
   }
 
-  return parsedList.map(_parseOneResult).toList();
+  return _resolveAccounts(parsedList.map(_parseOneResult).toList(), accounts);
 }
 
 AiRecordResult _parseOneResult(Map<String, dynamic> parsed) {
@@ -381,4 +384,123 @@ AiRecordResult _parseOneResult(Map<String, dynamic> parsed) {
     toAccountId: toAccountId,
     date: date,
   );
+}
+
+/// 调用 AI API 进行图片记账识别
+Future<List<AiRecordResult>> analyzeImage({
+  required AiConfig config,
+  required File imageFile,
+  String? customPrompt,
+  List<AssetAccount> accounts = const [],
+}) async {
+  final dio = Dio();
+  dio.options.connectTimeout = const Duration(seconds: 30);
+  dio.options.receiveTimeout = const Duration(seconds: 120);
+
+  final url = config.url.endsWith('/')
+      ? config.url.substring(0, config.url.length - 1)
+      : config.url;
+
+  final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
+  final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
+
+  final bytes = await imageFile.readAsBytes();
+  final base64Image = base64Encode(bytes);
+  final ext = imageFile.path.split('.').last.toLowerCase();
+  final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+  Response? lastResponse;
+  for (int retry = 0; retry < _maxRetries; retry++) {
+    try {
+      lastResponse = await dio.post(
+        '$url/chat/completions',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${config.key}',
+            'Content-Type': 'application/json',
+          },
+        ),
+        data: {
+          'model': config.visionModel,
+          'messages': [
+            {'role': 'system', 'content': systemPrompt},
+            {
+              'role': 'user',
+              'content': [
+                {'type': 'text', 'text': '请识别这张图片中的消费/收入信息，返回记账JSON'},
+                {
+                  'type': 'image_url',
+                  'image_url': {'url': 'data:$mimeType;base64,$base64Image'}
+                },
+              ],
+            },
+          ],
+          'temperature': 0,
+        },
+      );
+      break;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429 && retry < _maxRetries - 1) {
+        await Future.delayed(Duration(seconds: (retry + 1) * _retryDelay));
+        continue;
+      }
+      rethrow;
+    }
+  }
+
+  String content;
+  try {
+    content = lastResponse!.data['choices'][0]['message']['content'] as String;
+  } catch (_) {
+    throw Exception('AI 返回格式异常');
+  }
+  final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
+  final parsedList = parseAiJsonList(jsonStr);
+
+  if (parsedList.isEmpty) {
+    throw Exception('AI 返回内容无法解析');
+  }
+
+  return _resolveAccounts(parsedList.map(_parseOneResult).toList(), accounts);
+}
+
+/// 将 AI 返回的账户名/账户id解析为真实账户id
+List<AiRecordResult> _resolveAccounts(
+    List<AiRecordResult> results, List<AssetAccount> accounts) {
+  if (accounts.isEmpty) return results;
+  final byId = {for (final a in accounts) a.id: a};
+  final byName = {
+    for (final a in accounts) a.name: a,
+    for (final a in accounts) a.displayName: a,
+  };
+  final byLowerName = {
+    for (final a in accounts) a.name.toLowerCase(): a,
+    for (final a in accounts) a.displayName.toLowerCase(): a,
+  };
+
+  String resolve(String raw) {
+    if (raw.isEmpty) return '';
+    if (byId.containsKey(raw)) return raw;
+    if (byName.containsKey(raw)) return byName[raw]!.id;
+    if (byLowerName.containsKey(raw.toLowerCase())) {
+      return byLowerName[raw.toLowerCase()]!.id;
+    }
+    for (final a in accounts) {
+      if (raw.contains(a.name) || a.name.contains(raw)) return a.id;
+    }
+    return '';
+  }
+
+  return results
+      .map((r) => AiRecordResult(
+            type: r.type,
+            amountCents: r.amountCents,
+            categoryName: r.categoryName,
+            accountId: resolve(r.accountId),
+            fromAccountId: resolve(r.fromAccountId),
+            toAccountId: resolve(r.toAccountId),
+            remark: r.remark,
+            date: r.date,
+          ))
+      .toList();
 }

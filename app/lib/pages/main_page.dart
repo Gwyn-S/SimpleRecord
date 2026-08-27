@@ -13,6 +13,8 @@ import 'assets_page.dart';
 import 'manual_entry_page.dart';
 import 'add_asset_account_page.dart';
 import 'ai_text_record_page.dart';
+import 'ai_image_record_page.dart';
+import 'ai_voice_record_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -101,13 +103,13 @@ class _MainPageState extends State<MainPage> with RouteAware {
           SpeedDialAction(
             icon: Icons.mic,
             onTap: () {
-              // TODO: 接入语音记账功能
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiVoiceRecordPage()));
             },
           ),
           SpeedDialAction(
             icon: Icons.camera_alt,
             onTap: () {
-              // TODO: 接入拍照记账功能
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiImageRecordPage()));
             },
           ),
         ],
