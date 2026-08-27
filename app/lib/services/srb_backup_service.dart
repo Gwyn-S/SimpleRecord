@@ -136,7 +136,9 @@ Future<void> _encryptToSrb(String dbPath, Uint8List header, String targetPath, {
         var w = 0;
         while (w < imagesBytes.length) {
           final n = (w + chunk < imagesBytes.length) ? chunk : imagesBytes.length - w;
-          for (var i = 0; i < n; i++) buf[i] = imagesBytes[w + i] ^ key[(off + i) % key.length];
+          for (var i = 0; i < n; i++) {
+            buf[i] = imagesBytes[w + i] ^ key[(off + i) % key.length];
+          }
           off += n;
           w += n;
           out.writeFromSync(buf, 0, n);
@@ -153,7 +155,9 @@ void _xorChunks(File inF, RandomAccessFile outF, List<int> key, Uint8List buf, i
   try {
     int n;
     while ((n = inp.readIntoSync(buf, 0, buf.length)) > 0) {
-      for (var i = 0; i < n; i++) buf[i] = buf[i] ^ key[(off + i) % key.length];
+      for (var i = 0; i < n; i++) {
+        buf[i] = buf[i] ^ key[(off + i) % key.length];
+      }
       off += n;
       outF.writeFromSync(buf, 0, n);
     }
