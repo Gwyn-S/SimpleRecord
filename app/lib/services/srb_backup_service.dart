@@ -86,7 +86,7 @@ Future<void> restoreSrbBackup(String filePath) async {
     final f = File('$dbPath$s');
     if (f.existsSync()) await f.delete();
   }
-  await tmp.copy(dbPath);
+  await tmp.rename(dbPath);
   if (tmp.existsSync()) await tmp.delete();
   if (imagesBytes != null && imagesBytes.isNotEmpty) {
     await _restoreImages(imagesBytes);
