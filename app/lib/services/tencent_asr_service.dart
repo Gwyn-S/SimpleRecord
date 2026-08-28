@@ -9,6 +9,7 @@ import 'settings.dart';
 const _asrSecretIdKey = 'tencent_asr_secret_id';
 const _asrSecretKeyKey = 'tencent_asr_secret_key';
 const _host = 'asr.tencentcloudapi.com';
+final _dio = Dio();
 
 /// 腾讯云语音识别密钥配置
 class TencentAsrConfig {
@@ -79,10 +80,6 @@ Future<String> recognizeSpeech({
 Future<String> _callSentenceRecognition(
     TencentAsrConfig config, String data, int dataLen,
     {bool allowEmpty = false}) async {
-  final dio = Dio();
-  dio.options.connectTimeout = const Duration(seconds: 15);
-  dio.options.receiveTimeout = const Duration(seconds: 30);
-
   final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final sessionId = const Uuid().v4();
 
@@ -107,9 +104,13 @@ Future<String> _callSentenceRecognition(
   };
 
   try {
-    final response = await dio.post(
+    final response = await _dio.post(
       'https://$_host/',
-      options: Options(headers: headers),
+      options: Options(
+        headers: headers,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
       data: body,
     );
     final data = response.data;

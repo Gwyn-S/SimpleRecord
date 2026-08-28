@@ -11,6 +11,7 @@ const _aiConfigsKey = 'ai_configs';
 const _aiPromptKey = 'ai_prompt';
 const _maxRetries = 3;
 const _retryDelay = 2;
+final _dio = Dio();
 final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收入/转账描述，返回 JSON 数组。
 
 当前时间：{{CURRENT_TIME}}
@@ -265,18 +266,16 @@ Future<void> testAiConnection({
   required String url,
   required String key,
 }) async {
-  final dio = Dio();
-  dio.options.connectTimeout = const Duration(seconds: 10);
-  dio.options.receiveTimeout = const Duration(seconds: 10);
-
   final baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
 
-  final response = await dio.get(
+  final response = await _dio.get(
     '$baseUrl/models',
     options: Options(
       headers: {
         'Authorization': 'Bearer $key',
       },
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     ),
   );
 
@@ -292,10 +291,6 @@ Future<List<AiRecordResult>> analyzeTextList({
   String? customPrompt,
   List<AssetAccount> accounts = const [],
 }) async {
-  final dio = Dio();
-  dio.options.connectTimeout = const Duration(seconds: 30);
-  dio.options.receiveTimeout = const Duration(seconds: 60);
-
   final url = config.url.endsWith('/')
       ? config.url.substring(0, config.url.length - 1)
       : config.url;
@@ -306,13 +301,15 @@ Future<List<AiRecordResult>> analyzeTextList({
   Response? lastResponse;
   for (int retry = 0; retry < _maxRetries; retry++) {
     try {
-      lastResponse = await dio.post(
+      lastResponse = await _dio.post(
         '$url/chat/completions',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${config.key}',
             'Content-Type': 'application/json',
           },
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 60),
         ),
         data: {
           'model': config.textModel,
@@ -393,10 +390,6 @@ Future<List<AiRecordResult>> analyzeImage({
   String? customPrompt,
   List<AssetAccount> accounts = const [],
 }) async {
-  final dio = Dio();
-  dio.options.connectTimeout = const Duration(seconds: 30);
-  dio.options.receiveTimeout = const Duration(seconds: 120);
-
   final url = config.url.endsWith('/')
       ? config.url.substring(0, config.url.length - 1)
       : config.url;
@@ -412,13 +405,15 @@ Future<List<AiRecordResult>> analyzeImage({
   Response? lastResponse;
   for (int retry = 0; retry < _maxRetries; retry++) {
     try {
-      lastResponse = await dio.post(
+      lastResponse = await _dio.post(
         '$url/chat/completions',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${config.key}',
             'Content-Type': 'application/json',
           },
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 120),
         ),
         data: {
           'model': config.visionModel,
