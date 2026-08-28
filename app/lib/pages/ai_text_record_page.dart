@@ -19,6 +19,7 @@ class AiTextRecordPage extends StatefulWidget {
 class _AiTextRecordPageState extends State<AiTextRecordPage> {
   final _textController = TextEditingController();
   bool _loading = false;
+  bool _saving = false;
   String? _error;
   List<AiRecordResult> _results = [];
   List<AssetAccount> _accounts = [];
@@ -94,11 +95,13 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
   }
 
   Future<void> _saveRecords() async {
-    if (_results.isEmpty) return;
+    if (_results.isEmpty || _saving) return;
+    _saving = true;
 
     final error = await saveAiResults(_results);
     if (!mounted) return;
     if (error != null) {
+      _saving = false;
       safeShowToast(context, error);
       return;
     }

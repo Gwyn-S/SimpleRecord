@@ -25,6 +25,7 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
   final _recorder = AudioRecorder();
   bool _recording = false;
   bool _processing = false;
+  bool _saving = false;
   String? _error;
   String _transcript = '';
   List<AiRecordResult> _results = [];
@@ -88,7 +89,6 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
       if (!mounted) return;
       if (!asrConfig.isValid) {
         safeShowToast(context, '请先在AI设置配置语音识别密钥');
-        setState(() => _processing = false);
         return;
       }
 
@@ -100,18 +100,15 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
       if (!mounted) return;
       if (configs.isEmpty) {
         safeShowToast(context, '请先配置AI');
-        setState(() => _processing = false);
         return;
       }
       if (textIndex == null || textIndex >= configs.length) {
         safeShowToast(context, '请先选择文本模型');
-        setState(() => _processing = false);
         return;
       }
       final config = configs[textIndex];
       if (config.url.isEmpty || config.key.isEmpty || config.textModel.isEmpty) {
         safeShowToast(context, '请完善AI配置');
-        setState(() => _processing = false);
         return;
       }
 
@@ -130,25 +127,28 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
         _transcript = transcript;
         _results = results;
         _accounts = accounts;
-        _processing = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = '识别失败：$e';
-        _processing = false;
       });
     } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+      }
       if (audioFile.existsSync()) await audioFile.delete();
     }
   }
 
   Future<void> _saveRecords() async {
-    if (_results.isEmpty) return;
+    if (_results.isEmpty || _saving) return;
+    _saving = true;
 
     final error = await saveAiResults(_results);
     if (!mounted) return;
     if (error != null) {
+      _saving = false;
       safeShowToast(context, error);
       return;
     }
