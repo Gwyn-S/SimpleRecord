@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import '../constants/app_text_styles.dart';
 import '../services/ai_service.dart';
 import '../widgets/common_app_bar.dart';
 import 'ai_config_detail_page.dart';
@@ -100,16 +102,51 @@ class _AiManagePageState extends State<AiManagePage> {
                   onDismissed: (_) => _delete(index),
                   child: Container(
                     color: colorBackgroundCard,
-                    child: ListTile(
-                      title: Text(c.name.isEmpty ? '未命名' : c.name),
-                      subtitle: Text(c.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade300),
+                    child: GestureDetector(
                       onTap: () => _addOrEdit(index: index),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                c.name.isEmpty ? '未命名' : c.name,
+                                style: textPickerItem,
+                              ),
+                            ),
+                            ..._featureTags(c),
+                            const SizedBox(width: 8),
+                            Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade300),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
               },
             ),
     );
+  }
+
+  List<Widget> _featureTags(AiConfig c) {
+    final tags = <Widget>[];
+    void add(IconData icon) {
+      tags.add(Container(
+        margin: const EdgeInsets.only(left: 8),
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 14, color: colorTextSecondary),
+      ));
+    }
+
+    if (c.textModel.isNotEmpty) add(Icons.chat_bubble_outline);
+    if (c.visionModel.isNotEmpty) add(Icons.visibility_outlined);
+    if (c.voiceModel.isNotEmpty) add(Icons.mic_outlined);
+    return tags;
   }
 }

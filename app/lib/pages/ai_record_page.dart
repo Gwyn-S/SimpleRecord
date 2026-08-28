@@ -76,25 +76,52 @@ class _AiRecordPageState extends State<AiRecordPage> {
     return name;
   }
 
+  bool _supports(AiConfig c, String feature) {
+    switch (feature) {
+      case 'text':
+        return c.textModel.isNotEmpty;
+      case 'vision':
+        return c.visionModel.isNotEmpty;
+      case 'voice':
+        return c.voiceModel.isNotEmpty;
+    }
+    return false;
+  }
+
+  String _modelField(AiConfig c, String feature) {
+    switch (feature) {
+      case 'text':
+        return c.textModel;
+      case 'vision':
+        return c.visionModel;
+      case 'voice':
+        return c.voiceModel;
+    }
+    return '';
+  }
+
   Widget _buildConfigSelector({
     required String label,
+    required String feature,
     required int? selectedIndex,
     required ValueChanged<int?> onChanged,
-    bool showVision = false,
-    bool showVoice = false,
   }) {
-    final selectedName = selectedIndex != null && selectedIndex < _configs.length
+    final candidates = <int>[];
+    for (var i = 0; i < _configs.length; i++) {
+      if (_supports(_configs[i], feature)) candidates.add(i);
+    }
+    final selectedName = selectedIndex != null && candidates.contains(selectedIndex)
         ? _configLabel(_configs[selectedIndex])
         : '未选择';
 
     return GestureDetector(
-      onTap: _configs.isEmpty
+      onTap: candidates.isEmpty
           ? null
           : () => _showConfigPicker(
+                feature: feature,
+                candidates: candidates,
                 selectedIndex: selectedIndex,
                 onChanged: onChanged,
-                showVision: showVision,
-                showVoice: showVoice,
               ),
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -109,7 +136,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
               selectedName,
               style: TextStyle(
                 fontSize: 16,
-                color: selectedIndex != null ? Colors.black : Colors.grey,
+                color: selectedIndex != null && candidates.contains(selectedIndex) ? Colors.black : Colors.grey,
               ),
             ),
             const SizedBox(width: spacingS),
@@ -121,10 +148,10 @@ class _AiRecordPageState extends State<AiRecordPage> {
   }
 
   void _showConfigPicker({
+    required String feature,
+    required List<int> candidates,
     required int? selectedIndex,
     required ValueChanged<int?> onChanged,
-    required bool showVision,
-    required bool showVoice,
   }) {
     showModalBottomSheet(
       context: context,
@@ -133,7 +160,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (selectedIndex != null)
+              if (selectedIndex != null && candidates.contains(selectedIndex))
                 ListTile(
                   title: const Text('取消选择', style: TextStyle(color: Colors.red)),
                   onTap: () {
@@ -141,23 +168,17 @@ class _AiRecordPageState extends State<AiRecordPage> {
                     Navigator.pop(ctx);
                   },
                 ),
-              ...List.generate(_configs.length, (i) {
-                final c = _configs[i];
-                String modelInfo = '';
-                if (showVision && c.visionModel.isNotEmpty) {
-                  modelInfo = ' · ${c.visionModel}';
-                } else if (showVoice && c.voiceModel.isNotEmpty) {
-                  modelInfo = ' · ${c.voiceModel}';
-                } else if (c.textModel.isNotEmpty) {
-                  modelInfo = ' · ${c.textModel}';
-                }
+              ...List.generate(candidates.length, (j) {
+                final origIndex = candidates[j];
+                final c = _configs[origIndex];
+                final modelInfo = _modelField(c, feature);
                 return ListTile(
-                  title: Text(_configLabel(c) + modelInfo),
-                  trailing: selectedIndex == i
+                  title: Text(_configLabel(c) + (modelInfo.isEmpty ? '' : ' · $modelInfo')),
+                  trailing: selectedIndex == origIndex
                       ? Icon(Icons.check, color: Theme.of(context).extension<AppThemeColors>()!.primary)
                       : null,
                   onTap: () {
-                    onChanged(i);
+                    onChanged(origIndex);
                     Navigator.pop(ctx);
                   },
                 );
@@ -211,6 +232,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
           ),
           _buildConfigSelector(
             label: '文本模型',
+            feature: 'text',
             selectedIndex: _textConfigIndex,
             onChanged: (v) async {
               await setConfigIndex('ai_text_config_index', v);
@@ -219,21 +241,21 @@ class _AiRecordPageState extends State<AiRecordPage> {
           ),
           _buildConfigSelector(
             label: '视觉模型',
+            feature: 'vision',
             selectedIndex: _imageConfigIndex,
             onChanged: (v) async {
               await setConfigIndex('ai_image_config_index', v);
               setState(() => _imageConfigIndex = v);
             },
-            showVision: true,
           ),
           _buildConfigSelector(
             label: '语音模型',
+            feature: 'voice',
             selectedIndex: _voiceConfigIndex,
             onChanged: (v) async {
               await setConfigIndex('ai_voice_config_index', v);
               setState(() => _voiceConfigIndex = v);
             },
-            showVoice: true,
           ),
           _buildAsrField(),
           _buildPromptField(),
