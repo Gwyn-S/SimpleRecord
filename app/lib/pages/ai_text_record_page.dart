@@ -77,6 +77,7 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
         text: text,
         customPrompt: prompt,
         accounts: accounts,
+        model: config.textModel,
       );
 
       if (!mounted) return;

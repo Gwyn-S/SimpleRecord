@@ -294,13 +294,14 @@ Future<List<AiRecordResult>> analyzeTextList({
   required String text,
   String? customPrompt,
   List<AssetAccount> accounts = const [],
+  required String model,
 }) async {
   final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
   final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
   final content = await _chatCompletion(
     config: config,
-    model: config.textModel,
+    model: model,
     messages: [
       {'role': 'system', 'content': systemPrompt},
       {'role': 'user', 'content': text},
