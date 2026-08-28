@@ -24,7 +24,7 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   bool _isExpense = true;
-  StatsRange _selectedRange = StatsRange.month;
+  StatsRange _selectedRange = StatsRange.week;
   late int _selectedIndex;
   int _selectedYear = DateTime.now().year;
   final ScrollController _scrollController = ScrollController();
