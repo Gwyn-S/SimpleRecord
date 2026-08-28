@@ -12,6 +12,7 @@ class AiRecordResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accountNames = {for (final a in accounts) a.id: a.displayName};
     return Container(
       padding: const EdgeInsets.all(spacingL),
       decoration: BoxDecoration(
@@ -24,9 +25,9 @@ class AiRecordResultCard extends StatelessWidget {
           _buildRow('类型', _typeLabel),
           _buildRow('分类', result.categoryName),
           _buildRow('金额', '${(result.amountCents / 100).toStringAsFixed(2)}元'),
-          if (result.accountId.isNotEmpty) _buildRow('账户', _accountDisplay(result.accountId)),
-          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', _accountDisplay(result.fromAccountId)),
-          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', _accountDisplay(result.toAccountId)),
+          if (result.accountId.isNotEmpty) _buildRow('账户', _accountDisplay(result.accountId, accountNames)),
+          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', _accountDisplay(result.fromAccountId, accountNames)),
+          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', _accountDisplay(result.toAccountId, accountNames)),
           if (result.remark.isNotEmpty) _buildRow('备注', result.remark),
           _buildRow('日期', '${result.date.year}-${_pad(result.date.month)}-${_pad(result.date.day)}'),
         ],
@@ -34,11 +35,8 @@ class AiRecordResultCard extends StatelessWidget {
     );
   }
 
-  String _accountDisplay(String id) {
-    for (final a in accounts) {
-      if (a.id == id) return a.displayName;
-    }
-    return id;
+  String _accountDisplay(String id, Map<String, String> accountNames) {
+    return accountNames[id] ?? id;
   }
 
   String get _typeLabel {
