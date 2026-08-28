@@ -40,21 +40,9 @@ class _AiManagePageState extends State<AiManagePage> {
     _load();
   }
 
-  Future<void> _delete(int index) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        content: Text('确定删除"${_configs[index].name.isEmpty ? '未命名' : _configs[index].name}"？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
+  void _remove(int index) {
     _configs.removeAt(index);
-    await saveAiConfigs(_configs);
-    if (!mounted) return;
+    saveAiConfigs(_configs);
     setState(() {});
   }
 
@@ -99,7 +87,7 @@ class _AiManagePageState extends State<AiManagePage> {
                       ),
                     );
                   },
-                  onDismissed: (_) => _delete(index),
+                  onDismissed: (_) => _remove(index),
                   child: Container(
                     color: colorBackgroundCard,
                     child: GestureDetector(
