@@ -4,7 +4,11 @@ import 'package:dio/dio.dart';
 import '../models/ai_record_result.dart';
 import '../models/asset_account.dart';
 import '../models/category.dart';
+import '../models/record.dart';
+import '../services/record_service.dart';
 import '../services/settings.dart';
+import '../services/transfer_service.dart';
+import '../utils/id.dart';
 
 const aiRecordKey = 'ai_bookkeeping_enabled';
 const _aiConfigsKey = 'ai_configs';
@@ -291,59 +295,20 @@ Future<List<AiRecordResult>> analyzeTextList({
   String? customPrompt,
   List<AssetAccount> accounts = const [],
 }) async {
-  final url = config.url.endsWith('/')
-      ? config.url.substring(0, config.url.length - 1)
-      : config.url;
-
   final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
   final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
-  Response? lastResponse;
-  for (int retry = 0; retry < _maxRetries; retry++) {
-    try {
-      lastResponse = await _dio.post(
-        '$url/chat/completions',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer ${config.key}',
-            'Content-Type': 'application/json',
-          },
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 60),
-        ),
-        data: {
-          'model': config.textModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': text},
-          ],
-          'temperature': 0,
-        },
-      );
-      break;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 429 && retry < _maxRetries - 1) {
-        await Future.delayed(Duration(seconds: (retry + 1) * _retryDelay));
-        continue;
-      }
-      rethrow;
-    }
-  }
+  final content = await _chatCompletion(
+    config: config,
+    model: config.textModel,
+    messages: [
+      {'role': 'system', 'content': systemPrompt},
+      {'role': 'user', 'content': text},
+    ],
+    receiveTimeout: const Duration(seconds: 60),
+  );
 
-  String content;
-  try {
-    content = lastResponse!.data['choices'][0]['message']['content'] as String;
-  } catch (_) {
-    throw Exception('AI 返回格式异常');
-  }
-  final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
-  final parsedList = parseAiJsonList(jsonStr);
-
-  if (parsedList.isEmpty) {
-    throw Exception('AI 返回内容无法解析');
-  }
-
-  return _resolveAccounts(parsedList.map(_parseOneResult).toList(), accounts);
+  return _parseResults(content, accounts);
 }
 
 AiRecordResult _parseOneResult(Map<String, dynamic> parsed) {
@@ -390,10 +355,6 @@ Future<List<AiRecordResult>> analyzeImage({
   String? customPrompt,
   List<AssetAccount> accounts = const [],
 }) async {
-  final url = config.url.endsWith('/')
-      ? config.url.substring(0, config.url.length - 1)
-      : config.url;
-
   final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
   final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
@@ -401,6 +362,39 @@ Future<List<AiRecordResult>> analyzeImage({
   final base64Image = base64Encode(bytes);
   final ext = imageFile.path.split('.').last.toLowerCase();
   final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+  final content = await _chatCompletion(
+    config: config,
+    model: config.visionModel,
+    messages: [
+      {'role': 'system', 'content': systemPrompt},
+      {
+        'role': 'user',
+        'content': [
+          {'type': 'text', 'text': '请识别这张图片中的消费/收入信息，返回记账JSON'},
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:$mimeType;base64,$base64Image'}
+          },
+        ],
+      },
+    ],
+    receiveTimeout: const Duration(seconds: 120),
+  );
+
+  return _parseResults(content, accounts);
+}
+
+/// 调用 OpenAI 兼容 chat/completions 接口，返回模型输出文本。
+Future<String> _chatCompletion({
+  required AiConfig config,
+  required String model,
+  required List<Map<String, dynamic>> messages,
+  required Duration receiveTimeout,
+}) async {
+  final url = config.url.endsWith('/')
+      ? config.url.substring(0, config.url.length - 1)
+      : config.url;
 
   Response? lastResponse;
   for (int retry = 0; retry < _maxRetries; retry++) {
@@ -413,23 +407,11 @@ Future<List<AiRecordResult>> analyzeImage({
             'Content-Type': 'application/json',
           },
           connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 120),
+          receiveTimeout: receiveTimeout,
         ),
         data: {
-          'model': config.visionModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {
-              'role': 'user',
-              'content': [
-                {'type': 'text', 'text': '请识别这张图片中的消费/收入信息，返回记账JSON'},
-                {
-                  'type': 'image_url',
-                  'image_url': {'url': 'data:$mimeType;base64,$base64Image'}
-                },
-              ],
-            },
-          ],
+          'model': model,
+          'messages': messages,
           'temperature': 0,
         },
       );
@@ -449,6 +431,12 @@ Future<List<AiRecordResult>> analyzeImage({
   } catch (_) {
     throw Exception('AI 返回格式异常');
   }
+  return content;
+}
+
+/// 解析模型输出文本为记账结果
+List<AiRecordResult> _parseResults(
+    String content, List<AssetAccount> accounts) {
   final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
   final parsedList = parseAiJsonList(jsonStr);
 
@@ -498,4 +486,36 @@ List<AiRecordResult> _resolveAccounts(
             date: r.date,
           ))
       .toList();
+}
+
+/// 保存多条 AI 记账结果。账户缺失时返回提示文案，全部成功返回 null。
+Future<String?> saveAiResults(List<AiRecordResult> results) async {
+  for (final result in results) {
+    if (result.isTransfer) {
+      if (result.fromAccountId.isEmpty || result.toAccountId.isEmpty) {
+        return '转账账户缺失，请手动记账';
+      }
+      await insertTransfer(
+        fromAccountId: result.fromAccountId,
+        toAccountId: result.toAccountId,
+        amountCents: result.amountCents,
+        remark: result.remark,
+        date: result.date,
+      );
+    } else {
+      final record = Record(
+        id: genId(),
+        ledgerId: currentLedgerId.value,
+        accountId: result.accountId.isEmpty ? null : result.accountId,
+        isExpense: result.isExpense,
+        categoryName: result.categoryName,
+        amountCents: result.amountCents,
+        remark: result.remark,
+        date: result.date,
+        createdAt: DateTime.now(),
+      );
+      await insertRecord(record);
+    }
+  }
+  return null;
 }

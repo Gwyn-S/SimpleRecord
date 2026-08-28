@@ -5,12 +5,8 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../models/ai_record_result.dart';
 import '../models/asset_account.dart';
-import '../models/record.dart';
 import '../services/ai_service.dart';
 import '../services/asset_account_service.dart';
-import '../services/record_service.dart';
-import '../services/transfer_service.dart';
-import '../utils/id.dart';
 import '../utils/toast.dart';
 import '../widgets/ai_record_result_card.dart';
 import '../widgets/common_app_bar.dart';
@@ -106,36 +102,12 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
   Future<void> _saveRecords() async {
     if (_results.isEmpty) return;
 
-    for (final result in _results) {
-      if (result.isTransfer) {
-        if (result.fromAccountId.isEmpty || result.toAccountId.isEmpty) {
-          safeShowToast(context, '转账账户缺失，请手动记账');
-          return;
-        }
-        await insertTransfer(
-          fromAccountId: result.fromAccountId,
-          toAccountId: result.toAccountId,
-          amountCents: result.amountCents,
-          remark: result.remark,
-          date: result.date,
-        );
-      } else {
-        final record = Record(
-          id: genId(),
-          ledgerId: currentLedgerId.value,
-          accountId: result.accountId.isEmpty ? null : result.accountId,
-          isExpense: result.isExpense,
-          categoryName: result.categoryName,
-          amountCents: result.amountCents,
-          remark: result.remark,
-          date: result.date,
-          createdAt: DateTime.now(),
-        );
-        await insertRecord(record);
-      }
-    }
-
+    final error = await saveAiResults(_results);
     if (!mounted) return;
+    if (error != null) {
+      safeShowToast(context, error);
+      return;
+    }
     safeShowToast(context, '已记录${_results.length}笔');
     Navigator.pop(context);
   }
