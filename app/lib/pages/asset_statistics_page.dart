@@ -97,7 +97,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       backgroundColor: colorBackgroundPage,
       body: ListView(
               padding: const EdgeInsets.all(spacingM),
-              children: _accounts.isEmpty ? [] : [
+              children: [
                 _buildSummarySection(),
                 const SizedBox(height: spacingM),
                 _buildTrendCard(themeColor),
