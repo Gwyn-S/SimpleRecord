@@ -94,7 +94,7 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
 
       final configs = await loadAiConfigs();
       if (!mounted) return;
-      final textIndex = await getConfigIndex('ai_text_config_index');
+      final voiceIndex = await getConfigIndex('ai_voice_config_index');
       final prompt = await getPrompt();
       final accounts = await loadAssetAccounts();
       if (!mounted) return;
@@ -102,12 +102,12 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
         safeShowToast(context, '请先配置AI');
         return;
       }
-      if (textIndex == null || textIndex >= configs.length) {
-        safeShowToast(context, '请先选择文本模型');
+      if (voiceIndex == null || voiceIndex >= configs.length) {
+        safeShowToast(context, '请先选择语音模型');
         return;
       }
-      final config = configs[textIndex];
-      if (config.url.isEmpty || config.key.isEmpty || config.textModel.isEmpty) {
+      final config = configs[voiceIndex];
+      if (config.url.isEmpty || config.key.isEmpty || config.voiceModel.isEmpty) {
         safeShowToast(context, '请完善AI配置');
         return;
       }
@@ -120,6 +120,7 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
         text: transcript,
         customPrompt: prompt,
         accounts: accounts,
+        model: config.voiceModel,
       );
       if (!mounted) return;
 
