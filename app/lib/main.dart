@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'constants/app_colors.dart';
 import 'services/theme_service.dart';
 import 'services/database.dart';
@@ -45,6 +46,13 @@ class _MyAppState extends State<MyApp> {
           theme: buildAppTheme(color),
           home: const MainPage(),
           navigatorObservers: [routeObserver],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          locale: const Locale('zh', 'CN'),
         );
       },
     );
