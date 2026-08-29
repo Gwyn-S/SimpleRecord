@@ -7,6 +7,7 @@ import 'services/database.dart';
 import 'services/ledger_service.dart';
 import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
+import 'services/sync_service.dart';
 import 'pages/main_page.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
@@ -24,6 +25,8 @@ void main() async {
   await backfillAccountIcons();
   await loadCurrentLedgerId();
   await ensureCurrentLedgerId();
+  // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置时静默跳过）。
+  SyncService.instance.start();
   runApp(const MyApp());
 }
 
