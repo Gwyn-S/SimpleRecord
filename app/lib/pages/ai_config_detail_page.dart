@@ -140,7 +140,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'AI 名称',
-                  hintText: '如 GPT-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -150,7 +149,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
                   labelText: 'Base URL',
-                  hintText: 'https://api.openai.com/v1',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -177,7 +175,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _textModelController,
                 decoration: const InputDecoration(
                   labelText: '文本模型',
-                  hintText: '如 gpt-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -186,7 +183,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _visionModelController,
                 decoration: const InputDecoration(
                   labelText: '视觉模型',
-                  hintText: '如 gpt-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -195,7 +191,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _voiceModelController,
                 decoration: const InputDecoration(
                   labelText: '语音模型',
-                  hintText: '如 whisper-1',
                   border: OutlineInputBorder(),
                 ),
               ),

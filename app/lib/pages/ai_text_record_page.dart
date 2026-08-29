@@ -127,7 +127,6 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
                 controller: _textController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  hintText: '例如：午餐35元、打车20元、工资8000',
                   border: InputBorder.none,
                 ),
               ),

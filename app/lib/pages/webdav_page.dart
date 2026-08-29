@@ -252,7 +252,6 @@ class _WebDavPageState extends State<WebDavPage> {
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
               labelText: '服务器地址',
-              hintText: 'https://example.com',
               border: OutlineInputBorder(),
             ),
           ),
@@ -262,7 +261,6 @@ class _WebDavPageState extends State<WebDavPage> {
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
               labelText: '远程目录',
-              hintText: '如 /remote.php/dav/files/用户名，留空为服务器根目录',
               border: OutlineInputBorder(),
             ),
           ),
@@ -295,7 +293,7 @@ class _WebDavPageState extends State<WebDavPage> {
             height: 44,
             child: FilledButton(
               onPressed: _busy ? null : _saveAndConnect,
-              child: const Text('保存并连接'),
+              child: const Text('连接'),
             ),
           ),
         ],
