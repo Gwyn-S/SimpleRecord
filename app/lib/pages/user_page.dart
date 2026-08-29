@@ -74,7 +74,8 @@ class UserPage extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: heightOptionBar,
         child: Row(
           children: [
             Text(title, style: textListItem),

@@ -206,16 +206,13 @@ class _AiRecordPageState extends State<AiRecordPage> {
               children: [
                 const Text('启用 AI 记账', style: textListItem),
                 const Spacer(),
-                Transform.scale(
-                  scale: 0.8,
-                  child: Switch(
-                    value: _enabled,
-                    onChanged: _toggle,
-                    splashRadius: 0,
-                    activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
-                    inactiveTrackColor: Colors.grey.shade300,
-                    thumbColor: WidgetStateProperty.all(Colors.white),
-                  ),
+                Switch(
+                  value: _enabled,
+                  onChanged: _toggle,
+                  splashRadius: 0,
+                  activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                  inactiveTrackColor: Colors.grey.shade300,
+                  thumbColor: WidgetStateProperty.all(Colors.white),
                 ),
               ],
             ),
@@ -271,7 +268,7 @@ class _AiRecordPageState extends State<AiRecordPage> {
       child: Container(
         color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: spacingL),
-        height: 56,
+        height: heightOptionBar,
         child: Row(
           children: [
             Text(title, style: textListItem),
