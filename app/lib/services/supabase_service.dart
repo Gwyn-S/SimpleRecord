@@ -85,15 +85,21 @@ class SupabaseManager {
   // ==================== rooms（房间 = 共享账本）====================
 
   /// 新建房间。房间 id 由本地账本 id 直接充当，保证双端一致。
-  Future<bool> createRoom({
+  /// 云端已有同 id 房间（重复开启/历史残留）则复用并返回其邀请码；
+  /// 创建失败返回 null。
+  Future<String?> createRoom({
     required String roomId,
     required String name,
     required String inviteCode,
   }) async {
     final client = this.client;
     final myUid = uid;
-    if (client == null || myUid == null) return false;
+    if (client == null || myUid == null) return null;
     try {
+      final existing = await fetchRoom(roomId);
+      if (existing != null) {
+        return existing['invite_code']?.toString();
+      }
       await client.from('rooms').insert({
         'id': roomId,
         'name': name,
@@ -102,10 +108,11 @@ class SupabaseManager {
         'invite_code': inviteCode,
         'seq': 0,
       });
-      return true;
+      return inviteCode;
     } catch (e) {
       debugPrint('[sync] createRoom failed: $e');
-      return false;
+      final existing = await fetchRoom(roomId);
+      return existing?['invite_code']?.toString();
     }
   }
 

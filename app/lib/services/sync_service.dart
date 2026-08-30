@@ -256,11 +256,13 @@ class SyncService {
     var invite = '';
     for (var i = 0; i < 5 && !ok; i++) {
       invite = _generateInviteCode();
-      ok = await supabase.createRoom(
+      final code = await supabase.createRoom(
         roomId: ledger.id,
         name: ledger.name,
         inviteCode: invite,
       );
+      ok = code != null;
+      if (ok) invite = code;
     }
     if (!ok) return false;
     _inviteCodeCache[ledger.id] = invite;
