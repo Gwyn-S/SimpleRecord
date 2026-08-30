@@ -307,8 +307,32 @@ void _showAddDialog() {
 
   Future<void> _enableShared(int index) async {
     if (!await _ensureCloudConfigured()) return;
+    if (!mounted) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const Dialog(
+        child: Padding(
+          padding: EdgeInsets.all(spacingXXL),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: spacingL),
+              Text('正在开启多人记账', style: textBody),
+            ],
+          ),
+        ),
+      ),
+    );
     final ok = await SyncService.instance.enableSync(_ledgers[index]);
     if (!mounted) return;
+    navigator.pop();
     if (ok) {
       final code = await SyncService.instance.getInviteCode(_ledgers[index].id);
       if (!mounted) return;
