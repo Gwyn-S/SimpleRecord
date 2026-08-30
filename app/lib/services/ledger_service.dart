@@ -41,6 +41,30 @@ Future<Map<String, LedgerStats>> loadLedgerStats() async {
   };
 }
 
+/// 各账本按作者分组的结余（收入-支出），key 为作者昵称；
+  /// COALESCE 兜底历史脏数据（author 为 NULL 时归入 '' 分组）。
+Future<Map<String, Map<String, int>>> loadLedgerPerAuthorBalance() async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.rawQuery('''
+    SELECT book_id,
+           COALESCE(author, '') AS author,
+           SUM(CASE WHEN is_expense = 0 THEN amount_cents
+                    WHEN is_expense = 1 THEN -amount_cents
+                    ELSE 0 END) AS bal
+    FROM records
+    GROUP BY book_id, author
+  ''');
+  final result = <String, Map<String, int>>{};
+  for (final r in rows) {
+    final bookId = r['book_id'] as String?;
+    if (bookId == null) continue;
+    final author = (r['author'] as String?) ?? '';
+    final bal = (r['bal'] as num).toInt();
+    result.putIfAbsent(bookId, () => {})[author] = bal;
+  }
+  return result;
+}
+
 Future<List<Ledger>> loadLedgers() async {
   final db = await DatabaseHelper.instance.database;
   final rows = await db.query('books', orderBy: 'created_at');

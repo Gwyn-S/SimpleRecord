@@ -12,6 +12,7 @@ import '../utils/id.dart';
 import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
 import '../services/cloud_config.dart';
+import '../services/settings.dart';
 import '../services/sync_service.dart';
 
 class LedgerListPage extends StatefulWidget {
@@ -24,6 +25,7 @@ class LedgerListPage extends StatefulWidget {
 class _LedgerListPageState extends State<LedgerListPage> {
   final List<Ledger> _ledgers = [];
   Map<String, LedgerStats> _stats = {};
+  Map<String, Map<String, int>> _perAuthor = {};
 
   @override
   void initState() {
@@ -65,9 +67,24 @@ class _LedgerListPageState extends State<LedgerListPage> {
   }
 
   Future<void> _loadStats() async {
-    final stats = await loadLedgerStats();
+    final results = await Future.wait([
+      loadLedgerStats(),
+      loadLedgerPerAuthorBalance(),
+    ]);
     if (!mounted) return;
-    setState(() => _stats = stats);
+    setState(() {
+      _stats = results[0] as Map<String, LedgerStats>;
+      _perAuthor = results[1] as Map<String, Map<String, int>>;
+    });
+  }
+
+  /// 多人账本结余行：总结余 + 按作者分组，如「总结余：-17.00 A：-8.00 B：-9.00」。
+  String _sharedBalanceLine(String bookId, int total) {
+    final buf = StringBuffer('总结余：${formatAmount(total)}');
+    (_perAuthor[bookId] ?? const {}).forEach((author, bal) {
+      buf.write(' $author：${formatAmount(bal)}');
+    });
+    return buf.toString();
   }
 
 void _showAddDialog() {
@@ -350,13 +367,19 @@ void _showAddDialog() {
     _loadLedgers();
   }
 
-  /// 确保已配置 Supabase（URL + anon key）。未配置时提示前往备份页配置。
+  /// 确保先完成「备份 → Supabase 同步」的三项配置：昵称 + URL + anon key。
   Future<bool> _ensureCloudConfigured() async {
     final config = await loadCloudConfig();
-    if (config.isConfigured) return true;
-    if (!mounted) return false;
-    showToast(context, '请先到「备份 → Supabase 同步」配置云同步');
-    return false;
+    if (!config.isConfigured) {
+      if (mounted) showToast(context, '请先到「备份 → Supabase 同步」配置云同步');
+      return false;
+    }
+    final nickname = await Settings.getString('nickname') ?? '';
+    if (nickname.trim().isEmpty) {
+      if (mounted) showToast(context, '请先在「备份 → Supabase 同步」填写昵称');
+      return false;
+    }
+    return true;
   }
 
   void _showDeleteDialog(int index) {
@@ -484,7 +507,10 @@ void _showAddDialog() {
                               const SizedBox(height: spacingXS),
                               Text('总支出：${formatAmount(expense)}', style: textCardMeta),
                               const SizedBox(height: spacingXS),
-                              Text('总结余：${formatAmount(income - expense)}', style: textCardMeta),
+                              Text(ledger.syncMode == 1
+                          ? _sharedBalanceLine(ledger.id, income - expense)
+                          : '总结余：${formatAmount(income - expense)}',
+                      style: textCardMeta),
                             ],
                           ),
                         ),

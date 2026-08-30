@@ -4,6 +4,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/record.dart';
+import '../services/ledger_service.dart';
 import '../services/record_service.dart';
 import '../services/settings.dart';
 import '../utils/calendar_utils.dart';
@@ -33,6 +34,7 @@ class _BillsPageState extends State<BillsPage> {
   int _monthIncome = 0;
   int _monthExpense = 0;
   int _monthBudget = 0;
+  bool _isShared = false;
 
   int _loadSeq = 0;
 
@@ -65,8 +67,16 @@ class _BillsPageState extends State<BillsPage> {
     final monthBudget = await Settings.getInt(
       'budget_${currentLedgerId.value ?? 'none'}_month_${month.year}-${month.month}',
     ) ?? 0;
+    var shared = false;
+    for (final l in await loadLedgers()) {
+      if (l.id == currentLedgerId.value) {
+        shared = l.syncMode == 1;
+        break;
+      }
+    }
     if (seq != _loadSeq || !mounted) return;
     setState(() {
+      _isShared = shared;
       _records = records;
       _grouped.clear();
       for (final r in records) {
@@ -83,6 +93,29 @@ class _BillsPageState extends State<BillsPage> {
       }
       _loading = false;
     });
+  }
+
+  /// 多人账本某日结余的数值部分：结余总计与金额加粗、分组昵称细体，
+  /// 如「-17.00 A：-8.00 B：-9.00」。total 为当日结余（dayInc-dayExp）。
+  TextSpan _sharedDayBalance(List<Record> group, int total) {
+    final map = <String, int>{};
+    for (final r in group) {
+      final name = r.author ?? '';
+      map[name] = (map[name] ?? 0) + (r.isExpense ? -r.amountCents : r.amountCents);
+    }
+    final spans = <InlineSpan>[TextSpan(text: formatAmount(total))];
+    map.forEach((name, bal) {
+      spans
+        ..add(TextSpan(
+          text: ' $name',
+          style: const TextStyle(
+            fontWeight: FontWeight.w400,
+            color: colorTextSecondary,
+          ),
+        ))
+        ..add(TextSpan(text: '：${formatAmount(bal)}'));
+    });
+    return TextSpan(style: textBalance, children: spans);
   }
 
   void _changeMonth(int delta) {
@@ -240,11 +273,18 @@ class _BillsPageState extends State<BillsPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const Text('结余：', style: textSecondary),
-                      Text(
-                        formatAmount(dayInc - dayExp),
-                        style: textBalance,
-                      ),
+                      if (_isShared) ...[
+                        const Text('结余：', style: textSecondary),
+                        Text.rich(
+                          _sharedDayBalance(dayRecords, dayInc - dayExp),
+                        ),
+                      ] else ...[
+                        const Text('结余：', style: textSecondary),
+                        Text(
+                          formatAmount(dayInc - dayExp),
+                          style: textBalance,
+                        ),
+                      ],
                     ],
                   ),
                 ),
