@@ -84,11 +84,12 @@ void _showAddDialog() {
           children: [
             TextField(
               controller: nameController,
+              autofocus: true,
               decoration: InputDecoration(
                 labelText: '账本名称',
                 border: InputBorder.none,
                 enabledBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: colorDivider),
+                  borderSide: BorderSide(color: Colors.transparent),
                 ),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
@@ -104,7 +105,7 @@ void _showAddDialog() {
                 labelText: '邀请码',
                 border: InputBorder.none,
                 enabledBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: colorDivider),
+                  borderSide: BorderSide(color: Colors.transparent),
                 ),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
@@ -201,8 +202,8 @@ void _showAddDialog() {
                     title: const Text(
                       '多人记账',
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
                         color: colorTextPrimary,
                       ),
                     ),
@@ -228,9 +229,9 @@ void _showAddDialog() {
                       title: const Text(
                         '邀请他人',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w400,
-                          color: colorTextSecondary,
+                          color: colorTextPrimary,
                         ),
                       ),
                       trailing: Text(
@@ -264,8 +265,8 @@ void _showAddDialog() {
                 title: const Text(
                   '多人记账',
                   style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
                     color: colorTextPrimary,
                   ),
                 ),
