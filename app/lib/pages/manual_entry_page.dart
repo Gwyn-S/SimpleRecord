@@ -51,7 +51,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       final cats = r.isExpense ? expenseCategories : incomeCategories;
       final idx = cats.indexWhere((c) => c.name == r.categoryName);
       _selectedCategory = idx >= 0 ? idx : null;
-      _amount = (r.amountCents / 100).toStringAsFixed(2);
+      _amount = formatAmountEdit(r.amountCents);
       _selectedDate = r.date;
       _remarkController.text = r.remark;
       _selectedTag = r.tag;

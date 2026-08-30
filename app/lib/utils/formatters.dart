@@ -7,6 +7,20 @@ String formatAmount(int cents) {
   return '$sign${abs ~/ 100}.${(abs % 100).toString().padLeft(2, '0')}';
 }
 
+/// 编辑框预填用：去尾零（9.00 → 9、8.90 → 8.9），保留有效小数。
+String formatAmountEdit(int cents) {
+  final sign = cents < 0 ? '-' : '';
+  final abs = cents.abs();
+  final yuan = abs ~/ 100;
+  final fen = abs % 100;
+  if (fen == 0) return '$sign$yuan';
+  var s = fen.toString().padLeft(2, '0');
+  while (s.endsWith('0')) {
+    s = s.substring(0, s.length - 1);
+  }
+  return '$sign$yuan.$s';
+}
+
 /// 解析元（字符串，可能带小数）为分。输入非有限或溢出时返回 0。
 int yuanToCents(String s) {
   final parts = s.split('.');

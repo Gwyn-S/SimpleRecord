@@ -55,8 +55,8 @@ class _TransferPageState extends State<TransferPage> {
       _isEdit = true;
       _fromAccount = byId[t.fromAccountId] ?? widget.fromAccount;
       _toAccount = byId[t.toAccountId];
-      _amount = (t.amountCents / 100).toStringAsFixed(2);
-      _fee = (t.feeCents / 100).toStringAsFixed(2);
+      _amount = formatAmountEdit(t.amountCents);
+      _fee = formatAmountEdit(t.feeCents);
       _selectedDate = t.date;
       _remarkController.text = t.remark;
     });
