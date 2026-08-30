@@ -91,7 +91,6 @@ class _MainPageState extends State<MainPage> with RouteAware {
           }
         },
         icon: Icons.add,
-        enabled: _tab != 4,
         longPressEnabled: _tab != 4 && _aiEnabled,
         actions: [
           SpeedDialAction(
