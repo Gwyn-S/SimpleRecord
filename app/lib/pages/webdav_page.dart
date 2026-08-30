@@ -88,18 +88,40 @@ class _WebDavPageState extends State<WebDavPage> {
     }
   }
 
-  Future<void> _saveAndConnect() async {
+  /// 保存入口：不校验、可直接保存，仿 AI 页。
+  Future<void> _save() async {
+    final server = _serverController.text.trim();
+    final username = _usernameController.text;
+    final password = _passwordController.text;
+    final directory = _directoryController.text.trim();
+    if (server.isEmpty &&
+        username.isEmpty &&
+        password.isEmpty &&
+        directory.isEmpty) {
+      showToast(context, '配置为空');
+      return;
+    }
+    await saveWebDavConfig(WebDavConfig(
+      server: server,
+      username: username,
+      password: password,
+      directory: directory,
+    ));
+    if (!mounted) return;
+    showToast(context, '配置已保存');
+  }
+
+  Future<void> _connect() async {
     final config = WebDavConfig(
-      server: _serverController.text,
+      server: _serverController.text.trim(),
       username: _usernameController.text,
       password: _passwordController.text,
-      directory: _directoryController.text,
+      directory: _directoryController.text.trim(),
     );
     if (!config.isValid) {
       showToast(context, '请填写服务器地址');
       return;
     }
-    await saveWebDavConfig(config);
     setState(() => _config = config);
     await _refresh(config);
   }
@@ -289,12 +311,28 @@ class _WebDavPageState extends State<WebDavPage> {
             ),
           ),
           const SizedBox(height: spacingL),
-          SizedBox(
-            height: 44,
-            child: FilledButton(
-              onPressed: _busy ? null : _saveAndConnect,
-              child: const Text('连接'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _connect,
+                    child: const Text('连接'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: spacingM),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: FilledButton(
+                    onPressed: _save,
+                    child: const Text('保存'),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

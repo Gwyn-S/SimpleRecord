@@ -196,26 +196,34 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
               ),
             ]),
             const SizedBox(height: spacingXL),
-            SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                onPressed: _testing ? null : _test,
-                child: _testing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('测试'),
-              ),
-            ),
-            const SizedBox(height: spacingM),
-            SizedBox(
-              height: 44,
-              child: FilledButton(
-                onPressed: _save,
-                child: const Text('保存'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: _testing ? null : _test,
+                      child: _testing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('测试'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: spacingM),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: FilledButton(
+                      onPressed: _save,
+                      child: const Text('保存'),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

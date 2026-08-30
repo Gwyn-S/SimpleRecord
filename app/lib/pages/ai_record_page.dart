@@ -362,8 +362,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
   Future<void> _saveAsr() async {
     final id = _secretIdController.text.trim();
     final key = _secretKeyController.text.trim();
-    if (id.isEmpty || key.isEmpty) {
-      safeShowToast(context, '请填写 SecretId 和 SecretKey');
+    if (id.isEmpty && key.isEmpty) {
+      safeShowToast(context, '配置为空');
       return;
     }
     await saveAsrConfig(TencentAsrConfig(secretId: id, secretKey: key));
