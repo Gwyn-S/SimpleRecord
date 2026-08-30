@@ -34,8 +34,18 @@ class _TagManagePageState extends State<TagManagePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
@@ -114,71 +124,80 @@ class _TagManagePageState extends State<TagManagePage> {
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
+      backgroundColor: colorBackgroundPage,
       appBar: const CommonAppBar(title: '标签管理'),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            if (_tags.isNotEmpty) ...[
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _tags.length,
-                onReorderItem: _onReorder,
-                buildDefaultDragHandles: false,
-                itemBuilder: (context, index) {
-                  final tag = _tags[index];
-                  final isLast = index == _tags.length - 1;
-                  return Container(
-                    key: ValueKey(tag.id),
-                    decoration: BoxDecoration(
-                      border: isLast
-                          ? null
-                          : const Border(
-                              bottom: BorderSide(color: colorDivider)),
-                    ),
-                    child: ReorderableDelayedDragStartListener(
-                      index: index,
-                      child: GestureDetector(
-                        onTap: () => _showInputDialog(editing: tag.name),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: spacingL,
-                            vertical: spacingS,
+            Container(
+              color: colorBackgroundCard,
+              child: Column(
+                children: [
+                  if (_tags.isNotEmpty) ...[
+                    ReorderableListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _tags.length,
+                      onReorderItem: _onReorder,
+                      buildDefaultDragHandles: false,
+                      itemBuilder: (context, index) {
+                        final tag = _tags[index];
+                        final isLast = index == _tags.length - 1;
+                        return Container(
+                          key: ValueKey(tag.id),
+                          decoration: BoxDecoration(
+                            border: isLast
+                                ? null
+                                : const Border(
+                                    bottom: BorderSide(color: colorDivider),
+                                  ),
                           ),
-                          child: Row(
-                            children: [
-                              // 左侧红底减号删除按钮
-                              GestureDetector(
-                                onTap: () => _delete(tag.name),
-                                child: Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color: colorDelete,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.remove,
-                                    size: 16,
-                                    color: colorTextOnPrimary,
-                                  ),
+                          child: ReorderableDelayedDragStartListener(
+                            index: index,
+                            child: GestureDetector(
+                              onTap: () => _showInputDialog(editing: tag.name),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: spacingL,
+                                  vertical: spacingS,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // 左侧红底减号删除按钮
+                                    GestureDetector(
+                                      onTap: () => _delete(tag.name),
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: colorDelete,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.remove,
+                                          size: 16,
+                                          color: colorTextOnPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: spacingS),
+                                    Expanded(
+                                      child: Text(tag.name, style: textBody),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: spacingS),
-                              Expanded(
-                                child: Text(tag.name, style: textBody),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
+                    // 最后一个标签下方的细线
+                    Container(height: 1, color: colorDivider),
+                  ],
+                ],
               ),
-              // 最后一个标签下方的细线
-              Container(height: 1, color: colorDivider),
-            ],
+            ),
             _buildBottomBar(themeColor),
           ],
         ),
@@ -191,14 +210,15 @@ class _TagManagePageState extends State<TagManagePage> {
     return Container(
       color: colorBackgroundPage,
       padding: const EdgeInsets.fromLTRB(
-          spacingL, spacingS, spacingL, spacingS),
+        spacingL,
+        spacingS,
+        spacingL,
+        spacingS,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '长按拖曳排序标签列表',
-            style: textHint,
-          ),
+          Text('长按拖曳排序标签列表', style: textHint),
           const SizedBox(height: spacingS),
           GestureDetector(
             onTap: () => _showInputDialog(),
@@ -211,8 +231,7 @@ class _TagManagePageState extends State<TagManagePage> {
               ),
               child: Text(
                 '新增标签',
-                style: TextStyle(
-                    fontSize: 15, color: colorTextOnPrimary),
+                style: TextStyle(fontSize: 15, color: colorTextOnPrimary),
               ),
             ),
           ),
