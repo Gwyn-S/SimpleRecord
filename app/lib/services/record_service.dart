@@ -144,7 +144,16 @@ Future<void> _applyBalance(
   );
 }
 
+/// 当前账本作者名：设置了昵称返回昵称，未设置返回 null（不打标签）。
+Future<String?> currentNickname() async {
+  final nickname = await Settings.getString('nickname');
+  if (nickname != null && nickname.trim().isNotEmpty) return nickname;
+  return null;
+}
+
 Future<void> insertRecord(Record record) async {
+  final nickname = await currentNickname();
+  record = record.copyWith(author: record.author ?? nickname);
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
     await txn.insert(
@@ -166,6 +175,8 @@ Future<void> insertRecord(Record record) async {
 }
 
 Future<void> updateRecord(Record record) async {
+  final nickname = await currentNickname();
+  record = record.copyWith(author: record.author ?? nickname);
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
     final rows = await txn.query(

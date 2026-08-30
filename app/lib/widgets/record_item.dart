@@ -54,10 +54,32 @@ class RecordItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    record.categoryName,
-                    style: textListItem,
-                  ),
+                  Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        record.categoryName,
+                        style: textListItem,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (record.author != null && record.author!.isNotEmpty) ...[
+                      const SizedBox(width: spacingXS),
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorTagBackground,
+                          borderRadius: BorderRadius.circular(radiusXS),
+                        ),
+                        child: Text(
+                          record.author!,
+                          style: const TextStyle(color: colorTagText, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                   if (record.tag != null || record.remark.isNotEmpty)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,

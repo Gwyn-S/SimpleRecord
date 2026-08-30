@@ -15,6 +15,7 @@ class Record {
   final DateTime createdAt;
   final String? accountName;
   final List<String>? imagePaths;
+  final String? author;
 
   /// 从数据库原始字符串解析图片路径列表。
   static List<String> imagePathsFromDb(String? raw) {
@@ -39,6 +40,7 @@ class Record {
     required this.createdAt,
     this.accountName,
     this.imagePaths,
+    this.author,
   });
 
   Map<String, dynamic> toDbMap() => {
@@ -53,6 +55,7 @@ class Record {
         'created_at': createdAt.millisecondsSinceEpoch,
         'tag': tag,
         'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
+        'author': author,
       };
 
   factory Record.fromDbMap(Map<String, dynamic> map) {
@@ -81,6 +84,28 @@ class Record {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       accountName: map['account_name'] as String?,
       imagePaths: paths,
+      author: map['author'] as String?,
+    );
+  }
+
+  /// 浅拷贝并覆盖指定字段。
+  Record copyWith({
+    String? author,
+  }) {
+    return Record(
+      id: id,
+      ledgerId: ledgerId,
+      accountId: accountId,
+      isExpense: isExpense,
+      categoryName: categoryName,
+      amountCents: amountCents,
+      remark: remark,
+      tag: tag,
+      date: date,
+      createdAt: createdAt,
+      accountName: accountName,
+      imagePaths: imagePaths,
+      author: author ?? this.author,
     );
   }
 }
