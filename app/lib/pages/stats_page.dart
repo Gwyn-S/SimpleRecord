@@ -35,6 +35,7 @@ class _StatsPageState extends State<StatsPage> {
   DateTime _customEnd = DateTime.now();
 
   // 数据状态
+  int _loadSeq = 0;
   int _totalExpense = 0;
   int _totalIncome = 0;
   List<({String categoryName, int amountCents, int count})> _expenseByCategory = [];
@@ -124,6 +125,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<void> _loadData() async {
     try {
+      final seq = ++_loadSeq;
       _refreshCustomRangeIfRelative();
       final data = await loadStatsData(
         range: _selectedRange,
@@ -133,9 +135,10 @@ class _StatsPageState extends State<StatsPage> {
         customStart: _customStart,
         customEnd: _customEnd,
       );
-      
-      if (!mounted || data == null) return;
-      
+
+      // 已有更新的查询发出：丢弃本次过期结果，避免旧数据覆盖新数据。
+      if (!mounted || data == null || seq != _loadSeq) return;
+
       setState(() {
         _totalExpense = data.totalExpense;
         _totalIncome = data.totalIncome;
