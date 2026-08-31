@@ -1,5 +1,6 @@
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../utils/formatters.dart';
 
 /// 统计数据类型
 enum StatsRange { week, month, year, custom }
@@ -207,9 +208,10 @@ List<({String label, int amountCents})> _buildPeriodData(
   }
 
   final dailyExpense = List.filled(days, 0);
+  final startEpoch = toEpochDay(start);
   for (final r in records) {
     if (!r.isExpense) continue;
-    final dayIndex = r.date.difference(start).inDays;
+    final dayIndex = toEpochDay(r.date) - startEpoch;
     if (dayIndex >= 0 && dayIndex < days) {
       dailyExpense[dayIndex] += r.amountCents;
     }
