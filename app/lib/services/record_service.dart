@@ -58,7 +58,8 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
   }
   sql.write(' ORDER BY date DESC, created_at DESC');
   final rows = await db.rawQuery(sql.toString(), args);
-  return rows.map(Record.fromDbMap).toList();
+  return AuthorService.instance
+      .applyLatestNicknames(rows.map(Record.fromDbMap).toList());
 }
 
 /// 按日期范围查询记录（含 start，不含 end）
@@ -87,7 +88,8 @@ Future<List<Record>> loadRecordsByDateRange({
   sql.write(' WHERE ${where.join(' AND ')}');
   sql.write(' ORDER BY date DESC, created_at DESC');
   final rows = await db.rawQuery(sql.toString(), args);
-  return rows.map(Record.fromDbMap).toList();
+  return AuthorService.instance
+      .applyLatestNicknames(rows.map(Record.fromDbMap).toList());
 }
 
 /// 按日期范围查询并按分类聚合（支出）

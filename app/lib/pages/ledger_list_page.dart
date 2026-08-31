@@ -7,6 +7,7 @@ import '../services/theme_service.dart';
 import '../models/ledger.dart';
 import '../services/record_service.dart';
 import '../services/ledger_service.dart';
+import '../services/author_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
 import '../widgets/common_app_bar.dart';
@@ -71,10 +72,22 @@ class _LedgerListPageState extends State<LedgerListPage> {
       loadLedgerStats(),
       loadLedgerPerAuthorBalance(),
     ]);
+    final perAuthor = results[1] as Map<String, Map<String, int>>;
+    // 把分组的 author_id 键反查为最新昵称后展示。
+    final remapped = <String, Map<String, int>>{};
+    for (final entry in perAuthor.entries) {
+      final bookMap = <String, int>{};
+      for (final ae in entry.value.entries) {
+        final name =
+            await AuthorService.instance.displayNameFor(ae.key) ?? ae.key;
+        bookMap[name] = ae.value;
+      }
+      remapped[entry.key] = bookMap;
+    }
     if (!mounted) return;
     setState(() {
       _stats = results[0] as Map<String, LedgerStats>;
-      _perAuthor = results[1] as Map<String, Map<String, int>>;
+      _perAuthor = remapped;
     });
   }
 

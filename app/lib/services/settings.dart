@@ -46,6 +46,16 @@ class Settings {
   static Future<String?> getString(String key) async =>
       (await _ensureLoaded())[key] as String?;
 
+  /// 返回所有以 [prefix] 开头的字符串键值（用于按前缀批量读取映射）。
+  static Future<Map<String, String>> stringMapByPrefix(String prefix) async {
+    final data = await _ensureLoaded();
+    final result = <String, String>{};
+    data.forEach((k, v) {
+      if (k.startsWith(prefix) && v is String) result[k] = v;
+    });
+    return result;
+  }
+
   static Future<void> setString(String key, String value) async {
     await _ensureLoaded();
     _cache[key] = value;
