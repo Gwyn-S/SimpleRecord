@@ -9,15 +9,17 @@ class StatsCacheKey {
   final StatsRange range;
   final int index;
   final int year;
+  final String? ledgerId;
 
   const StatsCacheKey({
     required this.range,
     required this.index,
     required this.year,
+    this.ledgerId,
   });
 
   @override
-  String toString() => '$range-$index-$year';
+  String toString() => '${ledgerId ?? 'none'}-$range-$index-$year';
 }
 
 /// 统计数据结果
@@ -142,9 +144,15 @@ Future<StatsData?> loadStatsData({
   final records = results[0] as List<Record>;
   final expenseByCategory = results[1] as List<({String categoryName, int amountCents, int count})>;
 
+  // 只统计当前所选区间内的记录。
+  // loadStart/loadEnd 是为下方的周/月/年汇总图按更大范围取数，
+  // 总额须按 dateRange（如本周/本月）过滤，避免混入区间外数据。
+  final dStart = dateRange.start;
+  final dEnd = dateRange.end;
   int totalExpense = 0;
   int totalIncome = 0;
   for (final r in records) {
+    if (r.date.isBefore(dStart) || !r.date.isBefore(dEnd)) continue;
     if (r.isExpense) {
       totalExpense += r.amountCents;
     } else {
