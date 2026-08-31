@@ -71,3 +71,46 @@ class AiRecordResultCard extends StatelessWidget {
     );
   }
 }
+
+/// AI 记账结果区（结果列表 + 确认按钮），文字/图片/语音三页共用。
+/// 需置于支持 Flex（Column/Row 的 Expanded）的父级中提供高度约束。
+class AiRecordResultSection extends StatelessWidget {
+  const AiRecordResultSection({
+    super.key,
+    required this.results,
+    required this.accounts,
+    required this.onSave,
+  });
+
+  final List<AiRecordResult> results;
+  final List<AssetAccount> accounts;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: spacingL),
+        Expanded(
+          child: ListView.separated(
+            itemCount: results.length,
+            separatorBuilder: (_, _) => const SizedBox(height: spacingM),
+            itemBuilder: (_, i) =>
+                AiRecordResultCard(result: results[i], accounts: accounts),
+          ),
+        ),
+        const SizedBox(height: spacingM),
+        SizedBox(
+          height: 44,
+          child: FilledButton(
+            onPressed: onSave,
+            child: Text(
+              '确认记账${results.length > 1 ? '(${results.length}笔)' : ''}',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

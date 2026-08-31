@@ -144,24 +144,14 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
               const SizedBox(height: spacingM),
               Text(_error!, style: const TextStyle(color: colorDelete)),
             ],
-            if (_results.isNotEmpty) ...[
-              const SizedBox(height: spacingL),
+            if (_results.isNotEmpty)
               Expanded(
-                child: ListView.separated(
-                  itemCount: _results.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: spacingM),
-                  itemBuilder: (_, i) => AiRecordResultCard(result: _results[i], accounts: _accounts),
+                child: AiRecordResultSection(
+                  results: _results,
+                  accounts: _accounts,
+                  onSave: _saveRecords,
                 ),
               ),
-              const SizedBox(height: spacingM),
-              SizedBox(
-                height: 44,
-                child: FilledButton(
-                  onPressed: _saveRecords,
-                  child: Text('确认记账${_results.length > 1 ? '(${_results.length}笔)' : ''}'),
-                ),
-              ),
-            ],
           ],
         ),
       ),
