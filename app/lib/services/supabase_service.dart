@@ -321,4 +321,40 @@ class SupabaseManager {
     await _roomChannel?.unsubscribe();
     _roomChannel = null;
   }
+
+  // ==================== profiles（昵称，author_id 维度）====================
+
+  /// upsert 一条 profile（author_id 主键）。未就绪时静默忽略。
+  Future<void> upsertProfile({
+    required String authorId,
+    required String nickname,
+  }) async {
+    final client = this.client;
+    if (client == null) return;
+    try {
+      await client.from('profiles').upsert({
+        'author_id': authorId,
+        'nickname': nickname,
+      });
+    } catch (e) {
+      debugPrint('[sync] upsertProfile failed: $e');
+    }
+  }
+
+  /// 按 author_id 查昵称；未就绪或无记录返回 null。
+  Future<String?> getProfileNickname(String authorId) async {
+    final client = this.client;
+    if (client == null) return null;
+    try {
+      final res = await client
+          .from('profiles')
+          .select('nickname')
+          .eq('author_id', authorId)
+          .maybeSingle();
+      return res?['nickname'] as String?;
+    } catch (e) {
+      debugPrint('[sync] getProfileNickname failed: $e');
+      return null;
+    }
+  }
 }

@@ -56,8 +56,9 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
     return db;
   }
@@ -84,7 +85,8 @@ class DatabaseHelper {
         created_at INTEGER NOT NULL,
         tag TEXT,
         image_path TEXT,
-        author TEXT
+        author TEXT,
+        author_id TEXT
       )
     ''');
     await db.execute('''
@@ -120,6 +122,12 @@ class DatabaseHelper {
     ''');
     await db.execute('CREATE INDEX idx_records_book_date ON records(book_id, date)');
     await _createSyncTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE records ADD COLUMN author_id TEXT');
+    }
   }
 
   Future<void> _createSyncTables(Database db) async {

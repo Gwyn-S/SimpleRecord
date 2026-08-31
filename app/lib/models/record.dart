@@ -16,6 +16,7 @@ class Record {
   final String? accountName;
   final List<String>? imagePaths;
   final String? author;
+  final String? authorId;
 
   /// 从数据库原始字符串解析图片路径列表。
   static List<String> imagePathsFromDb(String? raw) {
@@ -41,6 +42,7 @@ class Record {
     this.accountName,
     this.imagePaths,
     this.author,
+    this.authorId,
   });
 
   Map<String, dynamic> toDbMap() => {
@@ -56,6 +58,7 @@ class Record {
         'tag': tag,
         'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
         'author': author,
+        'author_id': authorId,
       };
 
   factory Record.fromDbMap(Map<String, dynamic> map) {
@@ -85,12 +88,14 @@ class Record {
       accountName: map['account_name'] as String?,
       imagePaths: paths,
       author: map['author'] as String?,
+      authorId: map['author_id'] as String?,
     );
   }
 
   /// 浅拷贝并覆盖指定字段。
   Record copyWith({
     String? author,
+    String? authorId,
   }) {
     return Record(
       id: id,
@@ -106,6 +111,7 @@ class Record {
       accountName: accountName,
       imagePaths: imagePaths,
       author: author ?? this.author,
+      authorId: authorId ?? this.authorId,
     );
   }
 }

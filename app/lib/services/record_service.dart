@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/record.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
+import 'author_service.dart';
 import 'database.dart';
 import 'image_storage_service.dart';
 import 'settings.dart';
@@ -153,7 +154,11 @@ Future<String?> currentNickname() async {
 
 Future<void> insertRecord(Record record) async {
   final nickname = await currentNickname();
-  record = record.copyWith(author: record.author ?? nickname);
+  final authorId = await AuthorService.instance.ensureAuthorId();
+  record = record.copyWith(
+    author: record.author ?? nickname,
+    authorId: record.authorId ?? authorId,
+  );
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
     await txn.insert(
@@ -176,7 +181,11 @@ Future<void> insertRecord(Record record) async {
 
 Future<void> updateRecord(Record record) async {
   final nickname = await currentNickname();
-  record = record.copyWith(author: record.author ?? nickname);
+  final authorId = await AuthorService.instance.ensureAuthorId();
+  record = record.copyWith(
+    author: record.author ?? nickname,
+    authorId: record.authorId ?? authorId,
+  );
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
     final rows = await txn.query(
