@@ -102,8 +102,29 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  /// 自定义范围内，若用户选的是"相对当天"的预设（本周/近三月/最近30天等），
+  /// 每次加载都按当前日期重算起止，避免跨天仍停留在旧时间段；
+  /// 手动选死的固定区间（如 2026-01-01~2026-01-31）保持不动。
+  void _refreshCustomRangeIfRelative() {
+    if (_selectedRange != StatsRange.custom) return;
+    final now = DateTime.now();
+    final presets = datePresets(now);
+    for (final p in presets) {
+      if (p.label == _customPreset) {
+        _customStart = p.start;
+        _customEnd = p.end;
+        return;
+      }
+    }
+    if (_customPreset == '最近30天') {
+      _customStart = now.subtract(const Duration(days: 30));
+      _customEnd = now;
+    }
+  }
+
   Future<void> _loadData() async {
     try {
+      _refreshCustomRangeIfRelative();
       final data = await loadStatsData(
         range: _selectedRange,
         index: _selectedIndex,
@@ -130,6 +151,8 @@ class _StatsPageState extends State<StatsPage> {
         index: _selectedIndex,
         year: _selectedYear,
         ledgerId: currentLedgerId.value,
+        customStart: _customStart,
+        customEnd: _customEnd,
       );
       _dataCache[cacheKey.toString()] = data;
     } catch (e) {
@@ -229,6 +252,8 @@ class _StatsPageState extends State<StatsPage> {
                   index: _selectedIndex,
                   year: _selectedYear,
                   ledgerId: currentLedgerId.value,
+                  customStart: _customStart,
+                  customEnd: _customEnd,
                 );
                 final cached = _dataCache[cacheKey.toString()];
                 setState(() {

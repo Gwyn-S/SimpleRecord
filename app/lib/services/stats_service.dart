@@ -11,16 +11,23 @@ class StatsCacheKey {
   final int index;
   final int year;
   final String? ledgerId;
+  final DateTime? customStart;
+  final DateTime? customEnd;
 
   const StatsCacheKey({
     required this.range,
     required this.index,
     required this.year,
     this.ledgerId,
+    this.customStart,
+    this.customEnd,
   });
 
   @override
-  String toString() => '${ledgerId ?? 'none'}-$range-$index-$year';
+  String toString() =>
+      '${ledgerId ?? 'none'}-$range-$index-$year-'
+      '${customStart != null ? toEpochDay(customStart!) : ''}-'
+      '${customEnd != null ? toEpochDay(customEnd!) : ''}';
 }
 
 /// 统计数据结果
