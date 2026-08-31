@@ -10,6 +10,7 @@ import '../models/record.dart';
 import 'cloud_config.dart';
 import 'database.dart';
 import 'record_service.dart';
+import 'settings.dart';
 import 'supabase_service.dart';
 
 /// 加入失败细分原因。
@@ -108,6 +109,29 @@ class SyncService {
         'created_at': ledger.createdAt,
       },
     );
+    unawaited(flush());
+  }
+
+  /// 昵称变更广播：向所有共享账本发 profile 事件，对方收到后更新昵称映射。
+  Future<void> enqueueProfileChange({
+    required String authorId,
+    required String nickname,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.query('books', where: 'sync_mode = 1');
+    for (final row in rows) {
+      final roomId = row['id'] as String;
+      await _enqueue(
+        entityType: 'profile',
+        entityId: authorId,
+        op: 'update',
+        bookId: roomId,
+        payload: {
+          'author_id': authorId,
+          'nickname': nickname,
+        },
+      );
+    }
     unawaited(flush());
   }
 
@@ -236,7 +260,21 @@ class SyncService {
               where: 'book_id = ?', whereArgs: [entityId]);
           await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
       }
+    } else if (entityType == 'profile') {
+      // 昵称变更：更新本地 author_id -> 昵称 映射并触发界面刷新。
+      final authorId = payload['author_id'] as String?;
+      final nickname = payload['nickname'] as String?;
+      if (authorId != null && authorId.isNotEmpty && nickname != null) {
+        await _setNicknameMapping(authorId, nickname);
+      }
+      version.value++;
+      recordsVersion.value++;
     }
+  }
+
+  /// 记录 author_id -> 昵称 映射；与本地 author_id 同源关系由外部维护。
+  Future<void> _setNicknameMapping(String authorId, String nickname) async {
+    await Settings.setString('nickname_of_$authorId', nickname);
   }
 
   // ==================== 共享账本编排 ====================

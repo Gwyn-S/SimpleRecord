@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
+import '../services/author_service.dart';
 import '../services/cloud_config.dart';
 import '../services/settings.dart';
 import '../services/sync_service.dart';
@@ -22,9 +23,11 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   final _nicknameController = TextEditingController();
   final _urlController = TextEditingController();
   final _keyController = TextEditingController();
+  final _authorIdController = TextEditingController();
   String? _lastNickname;
   String? _lastUrl;
   String? _lastKey;
+  String _authorId = '';
   bool _loading = true;
   bool _saving = false;
 
@@ -39,12 +42,14 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     _nicknameController.dispose();
     _urlController.dispose();
     _keyController.dispose();
+    _authorIdController.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
     final nickname = await Settings.getString('nickname') ?? '';
     final config = await loadCloudConfig();
+    final authorId = await AuthorService.instance.ensureAuthorId();
     if (!mounted) return;
     _nicknameController.text = nickname;
     _lastNickname = nickname.trim();
@@ -52,6 +57,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     _lastUrl = config.supabaseUrl;
     _keyController.text = config.supabaseAnonKey;
     _lastKey = config.supabaseAnonKey;
+    _authorId = authorId;
     setState(() => _loading = false);
   }
 
@@ -108,7 +114,43 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       } else {
         Settings.setString('nickname', v);
       }
+      _broadcastNickname(v);
     });
+  }
+
+  /// 改昵称后：存云端 profiles + 向共享账本广播 profile 事件。
+  void _broadcastNickname(String nickname) async {
+    await AuthorService.instance.syncNicknameToCloud();
+    final authorId = await AuthorService.instance.ensureAuthorId();
+    if (nickname.isEmpty) return;
+    await SyncService.instance
+        .enqueueProfileChange(authorId: authorId, nickname: nickname);
+  }
+
+  /// 复制本机 author_id 到剪贴板（供换设备粘贴）。
+  void _copyAuthorId() {
+    Clipboard.setData(ClipboardData(text: _authorId));
+    showToast(context, '已复制用户ID');
+  }
+
+  /// 用旧设备的 author_id 从云端恢复昵称（换设备）。
+  Future<void> _restore() async {
+    final id = _authorIdController.text.trim();
+    if (id.isEmpty) {
+      showToast(context, '请输入旧设备的用户ID');
+      return;
+    }
+    final nickname = await AuthorService.instance.restoreNickname(id);
+    if (!mounted) return;
+    if (nickname == null) {
+      showToast(context, '未找到该ID的昵称，请检查连接后重试');
+      return;
+    }
+    _nicknameController.text = nickname;
+    _lastNickname = nickname;
+    _authorId = id;
+    setState(() {});
+    showToast(context, '已恢复到昵称：$nickname');
   }
 
   @override
@@ -151,6 +193,57 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                     decoration: const InputDecoration(
                       labelText: '昵称',
                       border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: spacingM),
+                  Container(
+                    padding: const EdgeInsets.all(spacingM),
+                    decoration: BoxDecoration(
+                      color: colorIconLightBackground,
+                      borderRadius: BorderRadius.circular(radiusMedium),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('我的用户ID',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
+                            GestureDetector(
+                              onTap: _copyAuthorId,
+                              child: const Text('复制',
+                                  style: TextStyle(
+                                      color: Colors.blue, fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: spacingXS),
+                        Text(_authorId,
+                            style: TextStyle(
+                                fontSize: 13, color: colorTextSecondary),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: spacingM),
+                  TextField(
+                    controller: _authorIdController,
+                    decoration: const InputDecoration(
+                      labelText: '换设备恢复：粘贴旧用户ID',
+                      border: OutlineInputBorder(),
+                      helperText: '换设备后填旧设备的用户ID，即可恢复昵称',
+                    ),
+                    onSubmitted: (_) => _restore(),
+                  ),
+                  const SizedBox(height: spacingM),
+                  SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: _restore,
+                      child: const Text('恢复昵称'),
                     ),
                   ),
                   const SizedBox(height: spacingM),
