@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../services/record_service.dart';
 import '../services/stats_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
@@ -65,6 +66,8 @@ class _StatsPageState extends State<StatsPage> {
       _scrollToEnd();
       _loadData();
     });
+    recordsVersion.addListener(_loadData);
+    currentLedgerId.addListener(_loadData);
   }
 
   void _scrollToEnd() {
@@ -126,6 +129,7 @@ class _StatsPageState extends State<StatsPage> {
         range: _selectedRange,
         index: _selectedIndex,
         year: _selectedYear,
+        ledgerId: currentLedgerId.value,
       );
       _dataCache[cacheKey.toString()] = data;
     } catch (e) {
@@ -135,6 +139,8 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   void dispose() {
+    recordsVersion.removeListener(_loadData);
+    currentLedgerId.removeListener(_loadData);
     _scrollController.dispose();
     super.dispose();
   }
@@ -222,6 +228,7 @@ class _StatsPageState extends State<StatsPage> {
                   range: _selectedRange,
                   index: _selectedIndex,
                   year: _selectedYear,
+                  ledgerId: currentLedgerId.value,
                 );
                 final cached = _dataCache[cacheKey.toString()];
                 setState(() {
