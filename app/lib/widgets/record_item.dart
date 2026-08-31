@@ -72,9 +72,29 @@ class RecordItem extends StatelessWidget {
                           color: colorTagBackground,
                           borderRadius: BorderRadius.circular(radiusXS),
                         ),
-                        child: Text(
-                          record.author!,
-                          style: const TextStyle(color: colorTagText, fontSize: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (record.authorAvatarUrl != null &&
+                                record.authorAvatarUrl!.isNotEmpty) ...[
+                              ClipOval(
+                                child: Image.network(
+                                  record.authorAvatarUrl!,
+                                  width: 14,
+                                  height: 14,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              record.author!,
+                              style:
+                                  const TextStyle(color: colorTagText, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                     ],

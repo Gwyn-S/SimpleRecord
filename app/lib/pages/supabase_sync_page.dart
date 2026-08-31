@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../services/author_service.dart';
 import '../services/cloud_config.dart';
+import '../services/image_storage_service.dart';
 import '../services/settings.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -28,6 +30,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   String? _lastUrl;
   String? _lastKey;
   String _authorId = '';
+  String _avatarUrl = '';
   bool _loading = true;
   bool _saving = false;
 
@@ -50,6 +53,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     final nickname = await Settings.getString('nickname') ?? '';
     final config = await loadCloudConfig();
     final authorId = await AuthorService.instance.ensureAuthorId();
+    final avatar = await AuthorService.instance.ownAvatar();
     if (!mounted) return;
     _nicknameController.text = nickname;
     _lastNickname = nickname.trim();
@@ -58,6 +62,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     _keyController.text = config.supabaseAnonKey;
     _lastKey = config.supabaseAnonKey;
     _authorId = authorId;
+    _avatarUrl = avatar ?? '';
     setState(() => _loading = false);
   }
 
@@ -127,6 +132,70 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
         .enqueueProfileChange(authorId: authorId, nickname: nickname);
   }
 
+  /// 选头像（相册/拍照）→ 上传 → 更新本机 + 云端 + 广播。
+  Future<void> _pickAvatar(ImageSource source) async {
+    final XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(source: source);
+    } catch (e) {
+      debugPrint('[avatar] pickImage failed: $e');
+      if (mounted) showToast(context, '选择图片失败');
+      return;
+    }
+    if (picked == null || !mounted) return;
+    // 复制到本地真实文件，避免直接上传临时虚拟路径（对齐记账传图流程）。
+    final String savedPath;
+    try {
+      savedPath = await saveImage(picked.path);
+    } catch (e) {
+      debugPrint('[avatar] saveImage failed: $e');
+      if (mounted) showToast(context, '读取图片失败');
+      return;
+    }
+    final url = await AuthorService.instance.changeAvatar(savedPath);
+    if (!mounted) return;
+    if (url == null) {
+      showToast(context, '头像上传失败，请检查云端连接');
+      return;
+    }
+    setState(() => _avatarUrl = url);
+    final authorId = await AuthorService.instance.ensureAuthorId();
+    await SyncService.instance
+        .enqueueProfileChange(authorId: authorId, avatarUrl: url);
+    if (!mounted) return;
+    showToast(context, '头像已更新');
+  }
+
+  void _showAvatarPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colorBackgroundCard,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('从相册选择'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pickAvatar(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pickAvatar(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 复制本机 author_id 到剪贴板（供换设备粘贴）。
   void _copyAuthorId() {
     Clipboard.setData(ClipboardData(text: _authorId));
@@ -146,9 +215,12 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       showToast(context, '未找到该ID的昵称，请检查连接后重试');
       return;
     }
+    final avatar = await AuthorService.instance.restoreAvatar(id);
+    if (!mounted) return;
     _nicknameController.text = nickname;
     _lastNickname = nickname;
     _authorId = id;
+    _avatarUrl = avatar ?? '';
     setState(() {});
     showToast(context, '已恢复到昵称：$nickname');
   }
@@ -186,6 +258,37 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: spacingXS),
+                  Center(
+                    child: GestureDetector(
+                      onTap: _showAvatarPicker,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: colorIconLightBackground,
+                            backgroundImage: _avatarUrl.isNotEmpty
+                                ? NetworkImage(_avatarUrl)
+                                : null,
+                            child: _avatarUrl.isNotEmpty
+                                ? null
+                                : const Icon(Icons.person,
+                                    size: 32, color: colorIconGray),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: colorTextOnPrimary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                size: 14, color: colorTextSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: spacingM),
                   TextField(
                     controller: _nicknameController,
                     inputFormatters: [LengthLimitingTextInputFormatter(6)],

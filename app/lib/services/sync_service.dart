@@ -7,10 +7,10 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/ledger.dart';
 import '../models/record.dart';
+import 'author_service.dart';
 import 'cloud_config.dart';
 import 'database.dart';
 import 'record_service.dart';
-import 'settings.dart';
 import 'supabase_service.dart';
 
 /// 加入失败细分原因。
@@ -112,10 +112,11 @@ class SyncService {
     unawaited(flush());
   }
 
-  /// 昵称变更广播：向所有共享账本发 profile 事件，对方收到后更新昵称映射。
+  /// 昵称/头像变更广播：向所有共享账本发 profile 事件，对方收到后更新映射。
   Future<void> enqueueProfileChange({
     required String authorId,
-    required String nickname,
+    String? nickname,
+    String? avatarUrl,
   }) async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query('books', where: 'sync_mode = 1');
@@ -128,7 +129,8 @@ class SyncService {
         bookId: roomId,
         payload: {
           'author_id': authorId,
-          'nickname': nickname,
+          'nickname': ?nickname,
+          'avatar_url': ?avatarUrl,
         },
       );
     }
@@ -261,11 +263,19 @@ class SyncService {
           await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
       }
     } else if (entityType == 'profile') {
-      // 昵称变更：更新本地 author_id -> 昵称 映射并触发界面刷新。
+      // 昵称/头像变更：更新本地 author_id -> 值 映射并触发界面刷新。
+      // 仅在 payload 显式携带某字段时才更新对应映射，缺席字段保持现状，
+      // 避免"只改昵称"的广播误把对方头像当作清除。
       final authorId = payload['author_id'] as String?;
-      final nickname = payload['nickname'] as String?;
-      if (authorId != null && authorId.isNotEmpty && nickname != null) {
-        await _setNicknameMapping(authorId, nickname);
+      if (authorId != null && authorId.isNotEmpty) {
+        if (payload.containsKey('nickname')) {
+          await _setNicknameMapping(
+              authorId, payload['nickname'] as String?);
+        }
+        if (payload.containsKey('avatar_url')) {
+          await _setAvatarMapping(
+              authorId, payload['avatar_url'] as String?);
+        }
       }
       version.value++;
       recordsVersion.value++;
@@ -273,8 +283,13 @@ class SyncService {
   }
 
   /// 记录 author_id -> 昵称 映射；与本地 author_id 同源关系由外部维护。
-  Future<void> _setNicknameMapping(String authorId, String nickname) async {
-    await Settings.setString('nickname_of_$authorId', nickname);
+  Future<void> _setNicknameMapping(String authorId, String? nickname) async {
+    if (nickname == null || nickname.isEmpty) return;
+    await AuthorService.instance.registerNickname(authorId, nickname);
+  }
+
+  Future<void> _setAvatarMapping(String authorId, String? url) async {
+    await AuthorService.instance.registerAvatar(authorId, url);
   }
 
   // ==================== 共享账本编排 ====================

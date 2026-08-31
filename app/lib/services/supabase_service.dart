@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -322,19 +324,42 @@ class SupabaseManager {
     _roomChannel = null;
   }
 
-  // ==================== profiles（昵称，author_id 维度）====================
+  // ==================== profiles（昵称/头像，author_id 维度）====================
 
-  /// upsert 一条 profile（author_id 主键）。未就绪时静默忽略。
+  static const _avatarsBucket = 'avatars';
+
+  /// 上传头像到公开桶，返回公开 URL；失败返回 null。
+  Future<String?> uploadAvatar(String authorId, String localPath) async {
+    final client = this.client;
+    if (client == null) return null;
+    try {
+      final path = '$authorId.jpg';
+      final file = File(localPath);
+      await client.storage.from(_avatarsBucket).upload(
+            path,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      return client.storage.from(_avatarsBucket).getPublicUrl(path);
+    } catch (e) {
+      debugPrint('[sync] uploadAvatar failed: $e');
+      return null;
+    }
+  }
+
+  /// upsert 一条 profile（author_id 主键）；[avatarUrl] 为可选的单独更新。
   Future<void> upsertProfile({
     required String authorId,
-    required String nickname,
+    String? nickname,
+    String? avatarUrl,
   }) async {
     final client = this.client;
     if (client == null) return;
     try {
       await client.from('profiles').upsert({
         'author_id': authorId,
-        'nickname': nickname,
+        'nickname': ?nickname,
+        'avatar_url': ?avatarUrl,
       });
     } catch (e) {
       debugPrint('[sync] upsertProfile failed: $e');
@@ -354,6 +379,24 @@ class SupabaseManager {
       return res?['nickname'] as String?;
     } catch (e) {
       debugPrint('[sync] getProfileNickname failed: $e');
+      return null;
+    }
+  }
+
+  /// 按 author_id 查头像 URL；未就绪或无记录返回 null。
+  Future<String?> getProfileAvatar(String authorId) async {
+    final client = this.client;
+    if (client == null) return null;
+    try {
+      final res = await client
+          .from('profiles')
+          .select('avatar_url')
+          .eq('author_id', authorId)
+          .maybeSingle();
+      final url = res?['avatar_url'] as String?;
+      return (url == null || url.isEmpty) ? null : url;
+    } catch (e) {
+      debugPrint('[sync] getProfileAvatar failed: $e');
       return null;
     }
   }
