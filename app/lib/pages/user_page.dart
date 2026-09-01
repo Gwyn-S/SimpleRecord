@@ -82,7 +82,7 @@ class UserPage extends StatelessWidget {
             const Spacer(),
             trailing ?? const SizedBox.shrink(),
             const SizedBox(width: spacingS),
-            Icon(Icons.chevron_right, size: iconSizeMedium, color: Colors.grey.shade300),
+            Icon(Icons.chevron_right, size: iconSizeDefault, color: colorTextSecondary),
           ],
         ),
       ),
