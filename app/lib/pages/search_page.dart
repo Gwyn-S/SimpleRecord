@@ -425,11 +425,11 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildAmountFilter(Color themeColor) {
     String label;
     if (_minAmountCents != null && _maxAmountCents != null) {
-      label = '金额 ${_fmtAmount(_minAmountCents!)}~${_fmtAmount(_maxAmountCents!)}';
-    } else if (_minAmountCents != null) {
-      label = '金额 ≥${_fmtAmount(_minAmountCents!)}';
-    } else if (_maxAmountCents != null) {
-      label = '金额 ≤${_fmtAmount(_maxAmountCents!)}';
+label = '金额 ${formatAmountEdit(_minAmountCents!)}~${formatAmountEdit(_maxAmountCents!)}';
+    } else if (_minAmountCents != null && _maxAmountCents == null) {
+      label = '金额 ≥${formatAmountEdit(_minAmountCents!)}';
+    } else if (_minAmountCents == null && _maxAmountCents != null) {
+      label = '金额 ≤${formatAmountEdit(_maxAmountCents!)}';
     } else {
       label = '金额不限';
     }
@@ -446,15 +446,12 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  String _fmtAmount(int cents) =>
-      cents % 100 == 0 ? (cents ~/ 100).toString() : (cents / 100).toString();
-
   Future<void> _openAmountFilter() async {
     final minController = TextEditingController(
-      text: _minAmountCents != null ? _fmtAmount(_minAmountCents!) : '',
+      text: _minAmountCents != null ? formatAmountEdit(_minAmountCents!) : '',
     );
     final maxController = TextEditingController(
-      text: _maxAmountCents != null ? _fmtAmount(_maxAmountCents!) : '',
+      text: _maxAmountCents != null ? formatAmountEdit(_maxAmountCents!) : '',
     );
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     final result = await showDialog<(int?, int?)>(
