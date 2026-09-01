@@ -136,13 +136,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 
   // ======================== 走势图卡片 ========================
 
-  String get _yearLabel {
-    final now = DateTime.now().year;
-    if (_selectedYear == now) return '今年';
-    if (_selectedYear == now - 1) return '去年';
-    if (_selectedYear == now - 2) return '前年';
-    return '$_selectedYear';
-  }
+  String get _yearLabel => yearLabel(_selectedYear);
 
   Widget _buildTrendCard(Color themeColor) {
     return CardContainer(

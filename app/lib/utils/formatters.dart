@@ -101,6 +101,15 @@ String formatDateTime(DateTime d) {
   return (minY, maxY);
 }
 
+/// 相对当前年份的中文标签：今年/去年/前年，其余返回年份本身。
+String yearLabel(int year) {
+  final now = DateTime.now().year;
+  if (year == now) return '今年';
+  if (year == now - 1) return '去年';
+  if (year == now - 2) return '前年';
+  return '$year';
+}
+
 /// 简单伪随机数生成器（不依赖 dart:math）。
 class SimpleRandom {
   int _seed;

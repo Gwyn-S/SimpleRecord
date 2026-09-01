@@ -49,13 +49,7 @@ class _StatsPageState extends State<StatsPage> {
 
   int get _lastIndex => _items.length - 1;
 
-  String get _yearLabel {
-    final now = DateTime.now().year;
-    if (_selectedYear == now) return '今年';
-    if (_selectedYear == now - 1) return '去年';
-    if (_selectedYear == now - 2) return '前年';
-    return '$_selectedYear';
-  }
+  String get _yearLabel => yearLabel(_selectedYear);
 
   @override
   void initState() {
