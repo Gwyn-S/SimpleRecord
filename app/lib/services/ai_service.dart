@@ -8,6 +8,7 @@ import '../models/record.dart';
 import '../services/record_service.dart';
 import '../services/settings.dart';
 import '../services/transfer_service.dart';
+import '../utils/formatters.dart';
 import '../utils/id.dart';
 
 const aiRecordKey = 'ai_bookkeeping_enabled';
@@ -168,7 +169,7 @@ String buildAiPrompt({
   required List<AssetAccount> accounts,
 }) {
   final now = DateTime.now();
-  final currentTime = '${now.year}-${_pad(now.month)}-${_pad(now.day)} ${_pad(now.hour)}:${_pad(now.minute)}:${_pad(now.second)}';
+  final currentTime = '${now.year}-${pad2(now.month)}-${pad2(now.day)} ${pad2(now.hour)}:${pad2(now.minute)}:${pad2(now.second)}';
 
   final categories = '''
 ## 可用分类
@@ -188,8 +189,6 @@ ${accounts.map((a) => '- ${a.displayName}(id:${a.id})').join('\n')}
       .replaceAll('{{CATEGORIES}}', categories)
       .replaceAll('{{ACCOUNTS}}', accountsText);
 }
-
-String _pad(int n) => n.toString().padLeft(2, '0');
 
 /// 解析 AI 返回的 JSON 文本（支持单对象和数组）
 List<Map<String, dynamic>> parseAiJsonList(String text) {
