@@ -32,7 +32,7 @@
 | 8 | ~~`widgets/bill_detail_sheet.dart:129` / `pages/manual_entry_page.dart:412`~~ | ~~全屏图片查看器两处平行实现，可抽公共组件 + 可选 onDelete~~ **✅ 已处理**（`693cdbf`：抽公共 `FullImageViewer` + 账单详情补全删图回调） |
 | 9 | `services/ledger_service.dart:11-12,90-93` | 本地账本 CRUD 反向依赖 supabase/sync 层；`renameRoom` 结果被 `unawaited` 丢弃，失败时新加入者拿到旧账本名、无重试无提示 |
 | 10 | `services/sync_service.dart:76-162,164-240,242-367` + 循环 import | 同步引擎一个类兼职上行/下行/订阅/编排多职责，且与 `record_service` 循环 import（仅为 `recordsVersion` 一个量）；另 `refresh()` 为死代码无调用点、outbox 表无清理无限膨胀、并发 flush 产生重复 oplog |
-| 11 | `pages/stats_page.dart:131-133` | `_loadData` catch 空吞无提示无日志；`data==null`（ledgerId 空）也不提示 |
+| 11 | ~~`pages/stats_page.dart:131-133`~~ | ~~`_loadData` catch 空吞无提示无日志；`data==null`（ledgerId 空）也不提示~~ **⏸ 已评估跳过（账本不会空、启动自动创建，仅剩数据库损坏极端场景，用户判定无修的价值）** |
 
 ## P3 — 可选/洁癖
 
@@ -41,8 +41,8 @@
 | 12 | ~~`pages/bills_page.dart:210-296` / `calendar_page.dart:336-387` / `stats_detail_page.dart:87-171`~~ | ~~日卡片折叠列表结构三处同构~~ **✅ 已处理**（`6baa20e`：抽公共 `DayCard`，三页统一） |
 | 13 | ~~`pages/stats_page.dart:50-54` / `asset_statistics_page.dart:139-145` / `stats_service.dart:267`~~ | ~~"今年/去年/前年"标签三处重复~~ **✅ 已处理**（`f4ecb00`：抽公共 `yearLabel`；另 `stats_service.dart:267` 实为月份标签，非年份重复，录入原误认，未动） |
 | 14 | ~~`pages/manual_entry_page.dart:269-275` / `transfer_page.dart:267-276`~~ | ~~金额实时预览三目表达式逐字重复，可入 `calculator.dart`~~ **✅ 已处理**（`f4e13a7`：抽公共 `amountPreview`） |
-| 15 | `local_backup_page.dart:69-96` / `webdav_page.dart:168-212` | srb 恢复确认Key弹窗重复（独立于 AppBar 问题） —— **⏸ 已评估跳过**（与 D 相同逻辑：骨架同、文案及确定逻辑分叉，抽公共会加迁就参数） |
-| 16 | `transfer_page.dart:139` / `asset_detail_page.dart:421` / `tag_manage_page.dart:32` | 单字段输入 AlertDialog 3 处一致样板可抽公共函数（budget/ledger 样式不同不入列） —— **⏸ 已评估跳过**（asset/tag 的"确定"按钮耦合异步保存+校验+是否关闭，强行抽公共参数过重） |
+| 15 | ~~`local_backup_page.dart:69-96` / `webdav_page.dart:168-212`~~ | ~~srb 恢复确认Key弹窗重复（独立于 AppBar 问题）~~ **⏸ 已评估跳过**（骨架同、文案及确定逻辑分叉，抽公共会加迁就参数） |
+| 16 | ~~`transfer_page.dart:139` / `asset_detail_page.dart:421` / `tag_manage_page.dart:32`~~ | ~~单字段输入 AlertDialog 3 处一致样板可抽公共函数（budget/ledger 样式不同不入列）~~ **⏸ 已评估跳过**（asset/tag 的"确定"按钮耦合异步保存+校验+是否关闭，强行抽公共参数过重） |
 | 17 | ~~`pages/backup_page.dart:18` / `local_backup_page.dart:116` / `webdav_page.dart:240` / `supabase_sync_page.dart:118`~~ | ~~四处手写 AppBar 与 `CommonAppBar` 重复（支持 bottom 可替换）~~ **✅ 已处理**（`0e1a039`：四处统一 `CommonAppBar`，各保留 1px 分隔线 `bottom`） |
 | 18 | ~~`pages/assets_page.dart:54-60,176`~~ | ~~`_grouped` 每次 build 重建 + `entries.elementAt` O(n²)（账户数十个量级影响小）~~ **✅ 已处理**（`d86e34f`：分组缓存到 `_categoryEntries`，下标取值） |
 | 19 | ~~`services/settings.dart:38-44`~~ | ~~每次 set 全量 `writeAsStringSync`，webdav 保存连写 4 次、cloud_config 连写 2 次~~ **✅ 已处理**（`696851e`：新增 `setStrings` 批量写 + 单次落盘，webdav/cloud 改为一次调用） |
