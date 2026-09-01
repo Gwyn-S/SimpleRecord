@@ -62,6 +62,13 @@ class Settings {
     await _persist();
   }
 
+  /// 批量写入多个字符串并只落盘一次，避免逐条写盘。
+  static Future<void> setStrings(Map<String, String> entries) async {
+    await _ensureLoaded();
+    _cache.addAll(entries);
+    await _persist();
+  }
+
   static Future<int?> getInt(String key) async =>
       (await _ensureLoaded())[key] as int?;
 

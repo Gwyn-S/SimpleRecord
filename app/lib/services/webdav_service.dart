@@ -40,10 +40,12 @@ Future<WebDavConfig?> loadWebDavConfig() async {
 }
 
 Future<void> saveWebDavConfig(WebDavConfig config) async {
-  await Settings.setString(_keyServer, config.server.trim());
-  await Settings.setString(_keyUsername, config.username.trim());
-  await Settings.setString(_keyPassword, config.password);
-  await Settings.setString(_keyDirectory, config.directory.trim());
+  await Settings.setStrings({
+    _keyServer: config.server.trim(),
+    _keyUsername: config.username.trim(),
+    _keyPassword: config.password,
+    _keyDirectory: config.directory.trim(),
+  });
 }
 
 class WebDavFile {

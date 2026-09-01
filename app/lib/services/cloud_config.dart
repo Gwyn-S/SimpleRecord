@@ -29,8 +29,10 @@ Future<CloudConfig> loadCloudConfig() async => CloudConfig(
     );
 
 Future<CloudConfig> saveCloudConfig(CloudConfig config) async {
-  await Settings.setString(_keySupabaseUrl, config.supabaseUrl.trim());
-  await Settings.setString(_keySupabaseAnonKey, config.supabaseAnonKey.trim());
+  await Settings.setStrings({
+    _keySupabaseUrl: config.supabaseUrl.trim(),
+    _keySupabaseAnonKey: config.supabaseAnonKey.trim(),
+  });
   return config;
 }
 
