@@ -48,6 +48,7 @@ const TextStyle textLunarFestival = TextStyle(
 
 // ===================== 页面通用 =====================
 const TextStyle textBody = TextStyle(fontSize: 14, color: colorTextPrimary);
+const TextStyle textDayAmount = TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary);
 const TextStyle textHint = TextStyle(fontSize: 14, color: colorTextSecondary);
 const TextStyle textPlaceholder = TextStyle(fontSize: 14, color: colorTextPlaceholder);
 const TextStyle textListItem = TextStyle(fontSize: 15, color: colorTextPrimary);

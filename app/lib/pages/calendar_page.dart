@@ -355,9 +355,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                           style: textItemSub,
                           children: [
                             const TextSpan(text: '收入 '),
-                            TextSpan(text: formatAmount(dayInc), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                            TextSpan(text: formatAmount(dayInc), style: textDayAmount),
                             const TextSpan(text: '  支出 '),
-                            TextSpan(text: formatAmount(dayExp), style: const TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary)),
+                            TextSpan(text: formatAmount(dayExp), style: textDayAmount),
                           ],
                         ),
                       ),

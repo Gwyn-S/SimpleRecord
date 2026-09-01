@@ -8,8 +8,6 @@ import '../utils/formatters.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/record_item.dart';
 
-const _amountStyle = TextStyle(fontWeight: FontWeight.w700, color: colorTextPrimary);
-
 class StatsDetailPage extends StatefulWidget {
   final DateTime start;
   final DateTime end;
@@ -138,9 +136,9 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
                       style: textItemSub,
                       children: [
                         const TextSpan(text: '收入 '),
-                        TextSpan(text: formatAmount(dayInc), style: _amountStyle),
+                        TextSpan(text: formatAmount(dayInc), style: textDayAmount),
                         const TextSpan(text: '  支出 '),
-                        TextSpan(text: formatAmount(dayExp), style: _amountStyle),
+                        TextSpan(text: formatAmount(dayExp), style: textDayAmount),
                       ],
                     ),
                   ),
