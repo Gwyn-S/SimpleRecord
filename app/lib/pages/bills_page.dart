@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/record.dart';
 import '../services/ledger_service.dart';
@@ -10,6 +8,7 @@ import '../services/settings.dart';
 import '../utils/calendar_utils.dart';
 import 'budget_page.dart';
 import '../utils/formatters.dart';
+import '../widgets/day_card.dart';
 import '../widgets/record_item.dart';
 import '../widgets/summary_block.dart';
 import '../widgets/home_top_bar.dart';
@@ -93,29 +92,6 @@ class _BillsPageState extends State<BillsPage> {
       }
       _loading = false;
     });
-  }
-
-  /// 多人账本某日结余的数值部分：结余总计与金额加粗、分组昵称细体，
-  /// 如「-17.00 A：-8.00 B：-9.00」。total 为当日结余（dayInc-dayExp）。
-  TextSpan _sharedDayBalance(List<Record> group, int total) {
-    final map = <String, int>{};
-    for (final r in group) {
-      final name = r.author ?? '';
-      map[name] = (map[name] ?? 0) + (r.isExpense ? -r.amountCents : r.amountCents);
-    }
-    final spans = <InlineSpan>[TextSpan(text: formatAmount(total))];
-    map.forEach((name, bal) {
-      spans
-        ..add(TextSpan(
-          text: ' $name',
-          style: const TextStyle(
-            fontWeight: FontWeight.w400,
-            color: colorTextSecondary,
-          ),
-        ))
-        ..add(TextSpan(text: '：${formatAmount(bal)}'));
-    });
-    return TextSpan(style: textBalance, children: spans);
   }
 
   void _changeMonth(int delta) {
@@ -213,83 +189,22 @@ class _BillsPageState extends State<BillsPage> {
         final isFirst = entry.key == 0;
         final key = entry.value;
         final dayRecords = _grouped[key]!;
-        final date = dayRecords.first.date;
-        final dayExp = monthExpense(dayRecords);
-        final dayInc = monthIncome(dayRecords);
         final expanded = _expandedDays.contains(key);
-        return Container(
+        return DayCard(
+          dayRecords: dayRecords,
+          expanded: expanded,
+          isShared: _isShared,
           margin: EdgeInsets.fromLTRB(spacingM, isFirst ? 10 : 5, spacingM, 5),
-          decoration: BoxDecoration(
-            color: colorBackgroundCard,
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() {
-                  if (_expandedDays.contains(key)) {
-                    _expandedDays.remove(key);
-                  } else {
-                    _expandedDays.add(key);
-                  }
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
-                  child: Row(
-                    children: [
-                      Text(
-                        formatDate(date),
-                        style: textBody,
-                      ),
-                      const Spacer(),
-                      Text.rich(
-                        TextSpan(
-                          style: textItemSub,
-                          children: [
-                            const TextSpan(text: '收入 '),
-                            TextSpan(text: formatAmount(dayInc), style: textDayAmount),
-                            const TextSpan(text: '  支出 '),
-                            TextSpan(text: formatAmount(dayExp), style: textDayAmount),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: spacingXS),
-                      Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextSecondary),
-                    ],
-                  ),
-                ),
-              ),
-              if (expanded) ...[
-                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                ...dayRecords.map((r) => RecordItem(
-                      record: r,
-                      onEdit: () => openEditRecord(context, r),
-                    )),
-                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (_isShared) ...[
-                        const Text('结余：', style: textSecondary),
-                        Text.rich(
-                          _sharedDayBalance(dayRecords, dayInc - dayExp),
-                        ),
-                      ] else ...[
-                        const Text('结余：', style: textSecondary),
-                        Text(
-                          formatAmount(dayInc - dayExp),
-                          style: textBalance,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ],
+          onToggle: () => setState(() {
+            if (_expandedDays.contains(key)) {
+              _expandedDays.remove(key);
+            } else {
+              _expandedDays.add(key);
+            }
+          }),
+          recordBuilder: (context, r) => RecordItem(
+            record: r,
+            onEdit: () => openEditRecord(context, r),
           ),
         );
       }).toList(),

@@ -5,11 +5,13 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/record.dart';
+import '../services/ledger_service.dart';
 import '../services/record_service.dart';
 import '../utils/calendar_utils.dart';
 import '../utils/formatters.dart';
 import '../utils/lunar_utils.dart';
 import '../utils/navigation.dart';
+import '../widgets/day_card.dart';
 import '../widgets/home_top_bar.dart';
 import '../widgets/month_year_picker.dart';
 import '../widgets/record_item.dart';
@@ -36,6 +38,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   int _monthExpense = 0;
   int _monthIncome = 0;
   int _loadSeq = 0;
+  bool _isShared = false;
   final Map<String, int> _dayExpense = {};
   final Map<String, int> _dayIncome = {};
   final Map<String, List<Record>> _dayRecords = {};
@@ -100,8 +103,16 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       ledgerId: currentLedgerId.value,
       month: _currentMonth,
     );
+    var shared = false;
+    for (final l in await loadLedgers()) {
+      if (l.id == currentLedgerId.value) {
+        shared = l.syncMode == 1;
+        break;
+      }
+    }
     if (seq != _loadSeq || !mounted) return;
     setState(() {
+      _isShared = shared;
       _monthIncome = monthIncome(records);
       _monthExpense = monthExpense(records);
       _dayExpense.clear();
@@ -129,9 +140,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     }
     _load();
     setState(() {});
-  }
-
-  String get _monthLabel => formatMonthLabel(_currentMonth);
+  }  String get _monthLabel => formatMonthLabel(_currentMonth);
 
   void _changeMonth(int delta) {
     final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
@@ -317,8 +326,6 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     }
     final key = '${day.year}-${day.month}-${day.day}';
     final records = _dayRecords[key] ?? [];
-    final dayExp = _dayExpense[key] ?? 0;
-    final dayInc = _dayIncome[key] ?? 0;
     if (records.isEmpty) {
       return Container(color: colorBackgroundPage);
     }
@@ -339,48 +346,14 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
               : const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: spacingS),
           children: [
-          Container(
-            color: colorBackgroundCard,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
-                  child: Row(
-                    children: [
-                      Text(formatDate(day), style: textBody),
-                      const Spacer(),
-                      Text.rich(
-                        TextSpan(
-                          style: textItemSub,
-                          children: [
-                            const TextSpan(text: '收入 '),
-                            TextSpan(text: formatAmount(dayInc), style: textDayAmount),
-                            const TextSpan(text: '  支出 '),
-                            TextSpan(text: formatAmount(dayExp), style: textDayAmount),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                ...records.map((r) => RecordItem(
-                      record: r,
-                      onEdit: () => openEditRecord(context, r),
-                    )),
-                const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Text('结余：', style: textSecondary),
-                      Text(formatAmount(dayInc - dayExp), style: textBalance),
-                    ],
-                  ),
-                ),
-              ],
+          DayCard(
+            dayRecords: records,
+            headerDate: day,
+            expanded: true,
+            isShared: _isShared,
+            recordBuilder: (context, r) => RecordItem(
+              record: r,
+              onEdit: () => openEditRecord(context, r),
             ),
           ),
         ],

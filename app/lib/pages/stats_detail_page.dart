@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../constants/app_text_styles.dart';
 import '../models/record.dart';
+import '../services/ledger_service.dart';
 import '../services/record_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/common_app_bar.dart';
+import '../widgets/day_card.dart';
 import '../widgets/record_item.dart';
 
 class StatsDetailPage extends StatefulWidget {
@@ -27,6 +28,7 @@ class StatsDetailPage extends StatefulWidget {
 class _StatsDetailPageState extends State<StatsDetailPage> {
   List<Record> _records = [];
   bool _loading = true;
+  bool _isShared = false;
   final Set<String> _expandedDays = {};
   bool _initialized = false;
 
@@ -44,9 +46,17 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
       start: widget.start,
       end: widget.end,
     );
+    var shared = false;
+    for (final l in await loadLedgers()) {
+      if (l.id == ledgerId) {
+        shared = l.syncMode == 1;
+        break;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _records = records;
+      _isShared = shared;
       _loading = false;
       if (!_initialized && _sortedKeys.isNotEmpty) {
         _expandedDays.add(_sortedKeys.first);
@@ -85,86 +95,29 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: spacingXS),
                         children: sortedKeys.asMap().entries.map((entry) {
-                          return _buildDayCard(
-                            key: entry.value,
-                            dayRecords: grouped[entry.value]!,
-                            expanded: _expandedDays.contains(entry.value),
+                          final key = entry.value;
+                          final dayRecords = grouped[key]!;
+                          final expanded = _expandedDays.contains(key);
+                          return DayCard(
+                            dayRecords: dayRecords,
+                            expanded: expanded,
+                            isShared: _isShared,
+                            margin: const EdgeInsets.fromLTRB(spacingM, 5, spacingM, 5),
+                            onToggle: () => setState(() {
+                              if (_expandedDays.contains(key)) {
+                                _expandedDays.remove(key);
+                              } else {
+                                _expandedDays.add(key);
+                              }
+                            }),
+                            recordBuilder: (context, r) =>
+                                RecordItem(record: r, readonly: true),
                           );
                         }).toList(),
                       ),
                     ),
                   ],
                 ),
-    );
-  }
-
-  Widget _buildDayCard({
-    required String key,
-    required List<Record> dayRecords,
-    required bool expanded,
-  }) {
-    final date = dayRecords.first.date;
-    final dayExp = dayRecords.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
-    final dayInc = dayRecords.where((r) => !r.isExpense).fold(0, (s, r) => s + r.amountCents);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(spacingM, 5, spacingM, 5),
-      decoration: BoxDecoration(
-        color: colorBackgroundCard,
-        borderRadius: BorderRadius.circular(radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() {
-              if (_expandedDays.contains(key)) {
-                _expandedDays.remove(key);
-              } else {
-                _expandedDays.add(key);
-              }
-            }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 14),
-              child: Row(
-                children: [
-                  Text(formatDate(date), style: textBody),
-                  const Spacer(),
-                  Text.rich(
-                    TextSpan(
-                      style: textItemSub,
-                      children: [
-                        const TextSpan(text: '收入 '),
-                        TextSpan(text: formatAmount(dayInc), style: textDayAmount),
-                        const TextSpan(text: '  支出 '),
-                        TextSpan(text: formatAmount(dayExp), style: textDayAmount),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: spacingXS),
-                  Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextSecondary),
-                ],
-              ),
-            ),
-          ),
-          if (expanded) ...[
-            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-            ...dayRecords.map((r) => RecordItem(record: r, readonly: true)),
-            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const Text('结余：', style: textSecondary),
-                  Text(formatAmount(dayInc - dayExp), style: textBalance),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
