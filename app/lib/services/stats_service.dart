@@ -172,7 +172,7 @@ Future<StatsData?> loadStatsData({
     totalExpense: totalExpense,
     totalIncome: totalIncome,
     expenseByCategory: expenseByCategory,
-    periodData: _buildPeriodData(records, range, dateRange, customStart),
+    periodData: _buildPeriodData(records, range, dateRange),
     weekSummary: _buildWeekSummaryData(records),
     monthSummary: _buildMonthSummaryData(records),
     yearSummary: _buildYearSummaryData(records),
@@ -183,7 +183,6 @@ List<({String label, int amountCents})> _buildPeriodData(
   List<Record> records,
   StatsRange range,
   ({DateTime start, DateTime end})? dateRange,
-  DateTime customStart,
 ) {
   if (dateRange == null) return [];
 
