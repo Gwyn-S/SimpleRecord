@@ -9,9 +9,9 @@ import '../services/cloud_config.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings.dart';
 import '../services/sync_service.dart';
-import '../services/theme_service.dart';
 import '../utils/persist.dart';
 import '../utils/toast.dart';
+import '../widgets/common_app_bar.dart';
 
 /// Supabase 云同步配置页：填写项目地址与 anon key，保存后重建连接。
 class SupabaseSyncPage extends StatefulWidget {
@@ -227,26 +227,14 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          title: const Text('Supabase 同步'),
-          backgroundColor: themeColor,
-          foregroundColor: colorTextOnPrimary,
-          elevation: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: colorTextOnPrimary.withValues(alpha: 0.3),
-              height: 1,
-            ),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: '',
-            onPressed: () => Navigator.pop(context),
+      appBar: CommonAppBar(
+        title: 'Supabase 同步',
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: colorTextOnPrimary.withValues(alpha: 0.3),
+            height: 1,
           ),
         ),
       ),

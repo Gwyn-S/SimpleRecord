@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
+import '../widgets/common_app_bar.dart';
 
 class LocalBackupPage extends StatefulWidget {
   const LocalBackupPage({super.key});
@@ -111,26 +112,14 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          title: const Text('本地备份'),
-          backgroundColor: themeColor,
-          foregroundColor: colorTextOnPrimary,
-          elevation: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: colorTextOnPrimary.withValues(alpha: 0.3),
-              height: 1,
-            ),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: '',
-            onPressed: () => Navigator.pop(context),
+      appBar: CommonAppBar(
+        title: '本地备份',
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: colorTextOnPrimary.withValues(alpha: 0.3),
+            height: 1,
           ),
         ),
       ),
