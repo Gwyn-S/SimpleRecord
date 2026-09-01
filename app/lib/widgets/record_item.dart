@@ -6,6 +6,7 @@ import '../services/theme_service.dart';
 import '../models/category.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../services/image_storage_service.dart';
 import '../utils/formatters.dart';
 import 'bill_detail_sheet.dart';
 
@@ -175,6 +176,27 @@ class RecordItem extends StatelessWidget {
         onDelete: () async {
           Navigator.pop(sheetContext);
           await deleteRecord(record.id);
+        },
+        onDeleteImage: (path) async {
+          Navigator.pop(sheetContext);
+          final paths = (record.imagePaths ?? []).where((p) => p != path).toList();
+          await deleteImage(path);
+          await updateRecord(Record(
+            id: record.id,
+            ledgerId: record.ledgerId,
+            accountId: record.accountId,
+            isExpense: record.isExpense,
+            categoryName: record.categoryName,
+            amountCents: record.amountCents,
+            remark: record.remark,
+            tag: record.tag,
+            date: record.date,
+            createdAt: record.createdAt,
+            accountName: record.accountName,
+            imagePaths: paths,
+            author: record.author,
+            authorId: record.authorId,
+          ));
         },
       ),
     );

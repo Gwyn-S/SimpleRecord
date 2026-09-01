@@ -6,17 +6,20 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/record.dart';
 import '../utils/formatters.dart';
+import 'full_image_viewer.dart';
 
 class BillDetailSheet extends StatelessWidget {
   final Record record;
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
+  final ValueChanged<String>? onDeleteImage;
 
   const BillDetailSheet({
     super.key,
     required this.record,
     required this.onDelete,
     this.onEdit,
+    this.onDeleteImage,
   });
 
   @override
@@ -100,9 +103,14 @@ class BillDetailSheet extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _FullImageViewer(
+        builder: (_) => FullImageViewer(
           imagePaths: paths,
           initialIndex: initialIndex,
+          onDelete: (i) {
+            if (paths.isNotEmpty && i >= 0 && i < paths.length) {
+              onDeleteImage?.call(paths[i]);
+            }
+          },
         ),
       ),
     );
@@ -123,80 +131,5 @@ class BillDetailSheet extends StatelessWidget {
 
   Widget _buildDivider() {
     return const Divider(height: 1, thickness: borderWidthThin, color: colorDivider);
-  }
-}
-
-class _FullImageViewer extends StatefulWidget {
-  final List<String> imagePaths;
-  final int initialIndex;
-
-  const _FullImageViewer({
-    required this.imagePaths,
-    required this.initialIndex,
-  });
-
-  @override
-  State<_FullImageViewer> createState() => _FullImageViewerState();
-}
-
-class _FullImageViewerState extends State<_FullImageViewer> {
-  late PageController _pageController;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.imagePaths.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemBuilder: (context, index) => Center(
-                child: Image.file(
-                  File(widget.imagePaths[index]),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          if (widget.imagePaths.length > 1)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  '${_currentIndex + 1} / ${widget.imagePaths.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

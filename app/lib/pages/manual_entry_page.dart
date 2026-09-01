@@ -20,6 +20,7 @@ import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
 import '../widgets/calc_keyboard.dart';
 import '../widgets/date_picker_sheet.dart';
+import '../widgets/full_image_viewer.dart';
 import '../widgets/tab_switcher_app_bar.dart';
 import '../widgets/tag_picker_sheet.dart';
 
@@ -368,7 +369,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _ImageViewerPage(
+        builder: (_) => FullImageViewer(
           imagePaths: _imagePaths,
           initialIndex: index,
           onDelete: (i) {
@@ -406,91 +407,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (result is AssetAccount) {
       setState(() => _selectedAccount = result);
     }
-  }
-}
-
-class _ImageViewerPage extends StatefulWidget {
-  final List<String> imagePaths;
-  final int initialIndex;
-  final ValueChanged<int> onDelete;
-
-  const _ImageViewerPage({
-    required this.imagePaths,
-    required this.initialIndex,
-    required this.onDelete,
-  });
-
-  @override
-  State<_ImageViewerPage> createState() => _ImageViewerPageState();
-}
-
-class _ImageViewerPageState extends State<_ImageViewerPage> {
-  late PageController _pageController;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.imagePaths.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemBuilder: (context, index) => Center(
-                child: Image.file(
-                  File(widget.imagePaths[index]),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 16,
-            child: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.white, size: 28),
-              onPressed: () => widget.onDelete(_currentIndex),
-            ),
-          ),
-          if (widget.imagePaths.length > 1)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  '${_currentIndex + 1} / ${widget.imagePaths.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }
 
