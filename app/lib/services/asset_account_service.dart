@@ -18,17 +18,6 @@ const _iconByTypeName = {
   '基金': 'assets/icons/funds.svg',
 };
 
-const _iconByCategory = {
-  '现金': 'assets/icons/cash.svg',
-  '网络账户': 'assets/icons/online_banking.svg',
-  '储蓄卡': 'assets/icons/savings_card.svg',
-  '信用卡': 'assets/icons/credit_card.svg',
-  '投资': 'assets/icons/investment.svg',
-  '负债': 'assets/icons/total_debt.svg',
-  '债券': 'assets/icons/bonds.svg',
-  '自定义资产': 'assets/icons/assets.svg',
-};
-
 /// 为 icon_path 为空的存量账户回填图标：
 /// 优先按账户名匹配具体类型图标（微信/支付宝/银行等），否则回退到分类图标。
 Future<void> backfillAccountIcons() async {
@@ -36,7 +25,12 @@ Future<void> backfillAccountIcons() async {
   final rows = await db.query('asset_accounts',
       where: 'icon_path = \'\'', columns: ['id', 'category_name', 'name']);
   for (final row in rows) {
-    final icon = _iconByTypeName[row['name']] ?? _iconByCategory[row['category_name']];
+    final icon =
+        _iconByTypeName[row['name']] ??
+        assetAccountCategories
+            .where((c) => c.name == row['category_name'])
+            .map((c) => c.iconPath)
+            .firstOrNull;
     if (icon == null) continue;
     await db.update('asset_accounts', {'icon_path': icon},
         where: 'id = ?', whereArgs: [row['id']]);

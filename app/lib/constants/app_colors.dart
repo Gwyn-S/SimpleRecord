@@ -43,13 +43,8 @@ const Color colorLunarFestival = Color(0xFFE53935);
 const Color colorTodayBackground = Color(0xFFFEF4BF);
 
 // ===================== 资产分类色 =====================
-const Color colorAssetCash = Color(0xFFE53935);
-const Color colorAssetOnlinePay = Color(0xFF1E88E5);
-const Color colorAssetSavingsCard = Color(0xFF43A047);
-const Color colorAssetCreditCard = Color(0xFFFDD835);
-const Color colorAssetInvestment = Color(0xFFFB8C00);
-const Color colorAssetDebt = Color(0xFF8E24AA);
-const Color colorAssetBond = Color(0xFF66BB6A);
+// 分类颜色由 `assetAccountCategories`（models/asset_account.dart）统一维护，
+// 此处仅保留供兜底与投资图标使用的常量。
 const Color colorAssetCustom = Color(0xFF546E7A);
 
 // ===================== 投资分类图标色 =====================
