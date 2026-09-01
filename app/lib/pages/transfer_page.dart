@@ -265,11 +265,7 @@ class _TransferPageState extends State<TransferPage> {
                 ),
                 Expanded(
                   child: Text(
-                    endsWithOp(_amount)
-                        ? _amount
-                        : _amount.contains(RegExp(r'[+\-×÷]'))
-                            ? '$_amount=${evaluate(_amount)}'
-                            : _amount,
+                    amountPreview(_amount),
                     textAlign: TextAlign.right,
                     style: textAmountInput.copyWith(color: themeColor),
                   ),

@@ -268,11 +268,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                 ),
                 Text(
-                  endsWithOp(_amount)
-                      ? _amount
-                      : _amount.contains(RegExp(r'[+\-×÷]'))
-                          ? '$_amount=${evaluate(_amount)}'
-                          : _amount,
+                  amountPreview(_amount),
                   style: textAmountInput.copyWith(color: themeColor),
                 ),
               ],

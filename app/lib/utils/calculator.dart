@@ -34,3 +34,10 @@ String evaluate(String expr) {
 }
 
 bool endsWithOp(String s) => s.endsWith('+') || s.endsWith('-') || s.endsWith('×') || s.endsWith('÷');
+
+/// 金额输入实时预览：以运算符结尾则原样显示，含运算则附结果，否则原样。
+String amountPreview(String expr) {
+  if (endsWithOp(expr)) return expr;
+  if (expr.contains(RegExp(r'[+\-×÷]'))) return '$expr=${evaluate(expr)}';
+  return expr;
+}
