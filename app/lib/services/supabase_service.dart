@@ -329,11 +329,14 @@ class SupabaseManager {
   static const _avatarsBucket = 'avatars';
 
   /// 上传头像到公开桶，返回公开 URL；失败返回 null。
-  Future<String?> uploadAvatar(String authorId, String localPath) async {
+  /// 文件名建议带版本（如 authorId_时间戳），使每次头像 URL 不同，
+  /// 以避开同名覆盖后客户端仍命中旧 URL 缓存的刷新问题。
+  Future<String?> uploadAvatar(String authorId, String localPath,
+      {String? fileName}) async {
     final client = this.client;
     if (client == null) return null;
     try {
-      final path = '$authorId.jpg';
+      final path = fileName ?? '$authorId.jpg';
       final file = File(localPath);
       await client.storage.from(_avatarsBucket).upload(
             path,

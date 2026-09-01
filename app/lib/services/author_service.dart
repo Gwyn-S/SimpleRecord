@@ -1,5 +1,11 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import 'image_storage_service.dart';
 import 'settings.dart';
 import 'supabase_service.dart';
 import '../models/record.dart';
@@ -120,16 +126,55 @@ class AuthorService {
     return url;
   }
 
-  /// 改头像：上传到公开桶，回写本机 + 云端 profile。返回公开 URL；失败返回 null。
+  /// 改头像：上传原图到公开桶，回写本机 + 云端 profile。
+  /// 返回公开 URL；失败返回 null。文件名带时间戳版本，保证每次 URL 不同
+  /// 以绕开客户端旧 URL 缓存。服务器存原图，本地展示缓存由 [_fetchAndCache] 压缩。
   Future<String?> changeAvatar(String localPath) async {
     final id = await ensureAuthorId();
-    final url = await SupabaseManager.instance.uploadAvatar(id, localPath);
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final ext = p.extension(localPath);
+    final url = await SupabaseManager.instance
+        .uploadAvatar(id, localPath, fileName: '${id}_$stamp$ext');
     if (url == null) return null;
     await Settings.setString(_keyOwnAvatar, url);
     await registerAvatar(id, url);
     await SupabaseManager.instance
         .upsertProfile(authorId: id, avatarUrl: url);
     return url;
+  }
+
+  /// 用 dart:ui 把图片字节缩放为最长边 [maxEdge] 的 PNG 字节。
+  /// dart:ui 仅支持 PNG 编码，故以 128px 控制体积（14/64px 显示足够）。
+  static Future<Uint8List?> _resizeBytes(Uint8List bytes,
+      {int maxEdge = 128}) async {
+    final ui.Image? decoded;
+    try {
+      decoded = await decodeImage(bytes);
+    } catch (e) {
+      debugPrint('[avatar] decode failed: $e');
+      return null;
+    }
+    if (decoded == null) return null;
+    final w = decoded.width;
+    final h = decoded.height;
+    final scale = maxEdge / (w > h ? w : h);
+    final targetW = (w * scale).round().clamp(1, 4096);
+    final targetH = (h * scale).round().clamp(1, 4096);
+    final codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: targetW,
+      targetHeight: targetH,
+    );
+    final frame = await codec.getNextFrame();
+    final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+    return data?.buffer.asUint8List();
+  }
+
+  /// 用 ui.ImageCodec 解码图像字节，返回 ui.Image（失败返回 null）。
+  static Future<ui.Image?> decodeImage(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    return frame.image;
   }
 
   /// 反查 author_id 的展示昵称；未知返回 null。
@@ -172,5 +217,92 @@ class AuthorService {
         else
           r,
     ];
+  }
+
+  /// 头像磁盘缓存目录路径（进程级缓存，只解析一次，避免每次走 path_provider）。
+  static String? _avatarCacheDirPath;
+
+  /// 启动时预热：解析缓存目录路径，使 [cachedAvatarPathSync] 在不依赖异步的情况下可用。
+  Future<void> initAvatarCache() async {
+    await _avatarCacheDir();
+  }
+
+  Future<Directory> _avatarCacheDir() async {
+    final cached = _avatarCacheDirPath;
+    if (cached != null) return Directory(cached);
+    final images = await imagesDirectory();
+    final dir = Directory(p.join(images.path, 'avatar_cache'));
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    _avatarCacheDirPath = dir.path;
+    return dir;
+  }
+
+  /// 同步查询 URL 对应的本地缓存路径；目录未就绪或文件不存在返回 null。
+  /// 供首帧 build 同步判断，避免先渲染默认头像再切换。
+  String? cachedAvatarPathSync(String url) {
+    if (url.isEmpty) return null;
+    final dir = _avatarCacheDirPath;
+    if (dir == null) return null;
+    final path = _avatarCacheFileIn(dir, url);
+    try {
+      return File(path).existsSync() ? path : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _avatarCacheFileIn(String dir, String url) =>
+      p.join(dir, '${url.hashCode}.img');
+
+  /// URL -> 本地缓存文件路径 内存缓存，避免同一 URL 重复查盘/下载。
+  static final Map<String, String> _urlPathCache = {};
+
+  /// URL -> 下载 Future，同 URL 并发去重：列表同时渲染多个同作者头像时只下载一次。
+  static final Map<String, Future<String?>> _urlFetching = {};
+
+  /// 按 URL 拉本地缓存文件；无缓存则从云端下载到缓存目录。
+  /// 返回本地文件路径；下载失败返回 null（调用方可回退 NetworkImage）。
+  Future<String?> avatarFileForUrl(String url) async {
+    if (url.isEmpty) return null;
+    final sync = cachedAvatarPathSync(url);
+    if (sync != null) {
+      _urlPathCache[url] = sync;
+      return sync;
+    }
+    final hit = _urlPathCache[url];
+    if (hit != null) return hit;
+    final inflight = _urlFetching[url];
+    if (inflight != null) return inflight;
+    final future = _fetchAndCache(url);
+    _urlFetching[url] = future;
+    try {
+      final path = await future;
+      if (path != null) _urlPathCache[url] = path;
+      return path;
+    } finally {
+      _urlFetching.remove(url);
+    }
+  }
+
+  Future<String?> _fetchAndCache(String url) async {
+    final dir = await _avatarCacheDir();
+    final file = File(_avatarCacheFileIn(dir.path, url));
+    if (file.existsSync()) return file.path;
+    try {
+      final req = await HttpClient()
+          .getUrl(Uri.parse(url))
+          .timeout(const Duration(seconds: 15));
+      final res = await req.close().timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) return null;
+      final bytes = await res.fold<List<int>>(
+          <int>[], (b, c) => b..addAll(c));
+      // 服务器存原图，本地只缓存压缩小图：下载后压缩为 128px PNG 再写盘。
+      final small = await _resizeBytes(Uint8List.fromList(bytes));
+      await file.writeAsBytes(small ?? bytes, flush: true);
+      return file.path;
+    } catch (e) {
+      debugPrint('[avatar] cache download failed: $e');
+      return null;
+    }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,11 +8,12 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../services/author_service.dart';
 import '../services/cloud_config.dart';
-import '../services/image_storage_service.dart';
+import '../services/record_service.dart';
 import '../services/settings.dart';
 import '../services/sync_service.dart';
 import '../utils/persist.dart';
 import '../utils/toast.dart';
+import '../widgets/author_avatar.dart';
 import '../widgets/common_app_bar.dart';
 
 /// Supabase 云同步配置页：填写项目地址与 anon key，保存后重建连接。
@@ -143,16 +146,27 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       return;
     }
     if (picked == null || !mounted) return;
-    // 复制到本地真实文件，避免直接上传临时虚拟路径（对齐记账传图流程）。
-    final String savedPath;
+    // 复制到系统临时目录，仅用于上传，避免污染记账 images 图库。
+    final String tmpPath;
     try {
-      savedPath = await saveImage(picked.path);
+      final ext = picked.path.contains('.')
+          ? picked.path.substring(picked.path.lastIndexOf('.'))
+          : '';
+      final tmp =
+          File('${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext');
+      await tmp.writeAsBytes(await File(picked.path).readAsBytes(), flush: true);
+      tmpPath = tmp.path;
     } catch (e) {
-      debugPrint('[avatar] saveImage failed: $e');
+      debugPrint('[avatar] copy failed: $e');
       if (mounted) showToast(context, '读取图片失败');
       return;
     }
-    final url = await AuthorService.instance.changeAvatar(savedPath);
+    final url = await AuthorService.instance.changeAvatar(tmpPath);
+    // 上传完成即清理临时副本。
+    try {
+      final tmp = File(tmpPath);
+      if (tmp.existsSync()) tmp.deleteSync();
+    } catch (_) {}
     if (!mounted) return;
     if (url == null) {
       showToast(context, '头像上传失败，请检查云端连接');
@@ -162,6 +176,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     final authorId = await AuthorService.instance.ensureAuthorId();
     await SyncService.instance
         .enqueueProfileChange(authorId: authorId, avatarUrl: url);
+    // 触发各页面重新加载并反查最新头像，保证条目头像即时刷新。
+    recordsVersion.value++;
     if (!mounted) return;
     showToast(context, '头像已更新');
   }
@@ -252,17 +268,10 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                       child: Stack(
                         alignment: Alignment.bottomRight,
                         children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: colorIconLightBackground,
-                            backgroundImage: _avatarUrl.isNotEmpty
-                                ? NetworkImage(_avatarUrl)
-                                : null,
-                            child: _avatarUrl.isNotEmpty
-                                ? null
-                                : const Icon(Icons.person,
-                                    size: 32, color: colorIconGray),
-                          ),
+                          if (_avatarUrl.isNotEmpty)
+                            AuthorAvatar(url: _avatarUrl, size: 64)
+                          else
+                            AuthorAvatar(url: null, size: 64),
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(

@@ -7,6 +7,7 @@ import 'services/database.dart';
 import 'services/ledger_service.dart';
 import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
+import 'services/author_service.dart';
 import 'services/sync_service.dart';
 import 'pages/main_page.dart';
 
@@ -25,6 +26,8 @@ void main() async {
   await backfillAccountIcons();
   await loadCurrentLedgerId();
   await ensureCurrentLedgerId();
+  // 预热头像缓存目录，使列表头像可同步命中本地缓存（首帧即显示）。
+  await AuthorService.instance.initAvatarCache();
   // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置时静默跳过）。
   SyncService.instance.start();
   runApp(const MyApp());

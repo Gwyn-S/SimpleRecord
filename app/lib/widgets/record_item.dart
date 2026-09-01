@@ -9,6 +9,7 @@ import '../services/record_service.dart';
 import '../services/image_storage_service.dart';
 import '../utils/formatters.dart';
 import 'bill_detail_sheet.dart';
+import 'author_avatar.dart';
 
 class RecordItem extends StatelessWidget {
   final Record record;
@@ -76,20 +77,11 @@ class RecordItem extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (record.authorAvatarUrl != null &&
-                                record.authorAvatarUrl!.isNotEmpty) ...[
-                              ClipOval(
-                                child: Image.network(
-                                  record.authorAvatarUrl!,
-                                  width: 14,
-                                  height: 14,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) =>
-                                      const SizedBox.shrink(),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
+                            AuthorAvatar(
+                              url: record.authorAvatarUrl,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               record.author!,
                               style:
