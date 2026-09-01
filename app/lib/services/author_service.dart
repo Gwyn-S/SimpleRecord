@@ -92,6 +92,24 @@ class AuthorService {
     return id;
   }
 
+  /// 只读本机 author_id；未生成过返回 null，不触发创建。
+  Future<String?> existingAuthorId() async {
+    final existing = await Settings.getString(_keyAuthorId);
+    if (existing == null || existing.isEmpty) return null;
+    return existing;
+  }
+
+  /// 主动生成并持久化一个全新的 author_id，并清空本机昵称/头像（全新身份）。
+  Future<String> createNewAuthorId() async {
+    final id = const Uuid().v4();
+    await Settings.setString(_keyAuthorId, id);
+    await Settings.remove(_keyOwnNickname);
+    await Settings.remove(_keyOwnAvatar);
+    _names.remove(id);
+    _avatars.remove(id);
+    return id;
+  }
+
   /// 把昵称同步到云端 profiles。未就绪时静默失败。
   Future<void> syncNicknameToCloud() async {
     final id = await ensureAuthorId();
@@ -180,8 +198,8 @@ class AuthorService {
   /// 反查 author_id 的展示昵称；未知返回 null。
   Future<String?> displayNameFor(String authorId) async {
     await _ensureLoaded();
-    final ownId = await ensureAuthorId();
-    if (ownId == authorId) {
+    final ownId = await existingAuthorId();
+    if (ownId != null && ownId == authorId) {
       final own = await ownNickname();
       if (own != null) _names[ownId] = own;
     }
@@ -191,8 +209,8 @@ class AuthorService {
   /// 反查 author_id 的展示头像 URL；未知返回 null。
   Future<String?> displayAvatarFor(String authorId) async {
     await _ensureLoaded();
-    final ownId = await ensureAuthorId();
-    if (ownId == authorId) {
+    final ownId = await existingAuthorId();
+    if (ownId != null && ownId == authorId) {
       final own = await ownAvatar();
       if (own != null) _avatars[ownId] = own;
     }
@@ -202,11 +220,13 @@ class AuthorService {
   /// 把记录列表的 author / authorAvatarUrl 替换为 author_id 对应最新值。
   Future<List<Record>> applyLatestNicknames(List<Record> records) async {
     await _ensureLoaded();
-    final ownId = await ensureAuthorId();
-    final ownName = await ownNickname();
-    if (ownName != null) _names[ownId] = ownName;
-    final myAvatar = await ownAvatar();
-    if (myAvatar != null) _avatars[ownId] = myAvatar;
+    final ownId = await existingAuthorId();
+    if (ownId != null) {
+      final ownName = await ownNickname();
+      if (ownName != null) _names[ownId] = ownName;
+      final myAvatar = await ownAvatar();
+      if (myAvatar != null) _avatars[ownId] = myAvatar;
+    }
     return [
       for (final r in records)
         if (r.authorId != null && _names.containsKey(r.authorId))
