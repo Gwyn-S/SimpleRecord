@@ -21,6 +21,7 @@ class AssetsPage extends StatefulWidget {
 
 class _AssetsPageState extends State<AssetsPage> {
   List<AssetAccount> _accounts = [];
+  List<MapEntry<String, List<AssetAccount>>> _categoryEntries = [];
 
   @override
   void initState() {
@@ -38,7 +39,14 @@ class _AssetsPageState extends State<AssetsPage> {
   Future<void> _loadAccounts() async {
     final accounts = await loadAssetAccounts();
     if (!mounted) return;
-    setState(() => _accounts = accounts);
+    final map = <String, List<AssetAccount>>{};
+    for (final a in accounts) {
+      map.putIfAbsent(a.categoryName, () => []).add(a);
+    }
+    setState(() {
+      _accounts = accounts;
+      _categoryEntries = map.entries.toList();
+    });
   }
 
   int get _totalAssets => _accounts
@@ -50,14 +58,6 @@ class _AssetsPageState extends State<AssetsPage> {
       .fold(0, (s, a) => s + a.balanceCents.abs());
 
   int get _netWorth => _totalAssets - _totalDebt;
-
-  Map<String, List<AssetAccount>> get _grouped {
-    final map = <String, List<AssetAccount>>{};
-    for (final a in _accounts) {
-      map.putIfAbsent(a.categoryName, () => []).add(a);
-    }
-    return map;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,12 +168,12 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   Widget _buildCategoryList() {
-    final grouped = _grouped;
+    final grouped = _categoryEntries;
     return ListView.builder(
       padding: const EdgeInsets.all(spacingM),
       itemCount: grouped.length,
       itemBuilder: (context, index) {
-        final entry = grouped.entries.elementAt(index);
+        final entry = grouped[index];
         final catName = entry.key;
         final accounts = entry.value;
         final color = categoryColorByName(catName);
