@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import 'settings.dart';
 
-final themeColorNotifier = ValueNotifier<Color>(const Color(0xFF3F9795));
+final themeColorNotifier = ValueNotifier<Color>(colorPrimaryDefault);
 
 class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color primary;

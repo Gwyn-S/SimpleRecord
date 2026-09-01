@@ -60,6 +60,9 @@ const List<Color> rainbowGradientColors = [
   Color(0xFF9C27B0),
 ];
 
+// ===================== 默认主题色 =====================
+const Color colorPrimaryDefault = Color(0xFF3F9795);
+
 // ===================== 主题色盘 =====================
 const List<Color> themeColorPalette = [
   Color(0xFFF44336),
