@@ -12,16 +12,16 @@ class Ledger {
   });
 
   Map<String, dynamic> toDbMap() => {
-        'id': id,
-        'name': name,
-        'created_at': createdAt,
-        'sync_mode': syncMode,
-      };
+    'id': id,
+    'name': name,
+    'created_at': createdAt,
+    'sync_mode': syncMode,
+  };
 
   factory Ledger.fromDbMap(Map<String, dynamic> map) => Ledger(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        createdAt: map['created_at'] as int? ?? 0,
-        syncMode: map['sync_mode'] as int? ?? 0,
-      );
+    id: map['id'] as String,
+    name: map['name'] as String,
+    createdAt: map['created_at'] as int? ?? 0,
+    syncMode: map['sync_mode'] as int? ?? 0,
+  );
 }

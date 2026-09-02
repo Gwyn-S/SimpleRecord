@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import 'settings.dart';
 
+/// 当前主题色；变更后各页面据此重建主题。
 final themeColorNotifier = ValueNotifier<Color>(colorPrimaryDefault);
 
+/// 自定义 ThemeExtension 扩展色（当前仅主色）。
 class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color primary;
 
@@ -19,17 +21,17 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   @override
   AppThemeColors lerp(ThemeExtension<AppThemeColors>? other, double t) {
     if (other is! AppThemeColors) return this;
-    return AppThemeColors(
-      primary: Color.lerp(primary, other.primary, t)!,
-    );
+    return AppThemeColors(primary: Color.lerp(primary, other.primary, t)!);
   }
 }
 
+/// 依据主色构建全局亮色主题。
 ThemeData buildAppTheme(Color primary) {
   return ThemeData(
     brightness: Brightness.light,
-    fontFamily:
-        defaultTargetPlatform == TargetPlatform.android ? 'sans-serif' : null,
+    fontFamily: defaultTargetPlatform == TargetPlatform.android
+        ? 'sans-serif'
+        : null,
     scaffoldBackgroundColor: colorBackgroundCard,
     colorScheme: ColorScheme.fromSeed(seedColor: primary),
     pageTransitionsTheme: const PageTransitionsTheme(

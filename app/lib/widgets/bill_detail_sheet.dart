@@ -31,7 +31,12 @@ class BillDetailSheet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingM),
+          padding: const EdgeInsets.fromLTRB(
+            spacingL,
+            spacingM,
+            spacingL,
+            spacingM,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -50,7 +55,11 @@ class BillDetailSheet extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+        const Divider(
+          height: 1,
+          thickness: borderWidthThin,
+          color: colorDivider,
+        ),
         Padding(padding: padH, child: _detailRow('分类', record.categoryName)),
         _buildDivider(),
         if (record.remark.isNotEmpty) ...[
@@ -61,13 +70,28 @@ class BillDetailSheet extends StatelessWidget {
           Padding(padding: padH, child: _detailRow('标签', record.tag!)),
           _buildDivider(),
         ],
-        Padding(padding: padH, child: _detailRow('金额', '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}')),
+        Padding(
+          padding: padH,
+          child: _detailRow(
+            '金额',
+            '${record.isExpense ? '-' : '+'}${formatAmount(record.amountCents)}',
+          ),
+        ),
         _buildDivider(),
-        Padding(padding: padH, child: _detailRow('账户', record.accountName ?? '未选择')),
+        Padding(
+          padding: padH,
+          child: _detailRow('账户', record.accountName ?? '未选择'),
+        ),
         _buildDivider(),
-        Padding(padding: padH, child: _detailRow('日期', formatDate(record.date))),
+        Padding(
+          padding: padH,
+          child: _detailRow('日期', formatDate(record.date)),
+        ),
         _buildDivider(),
-        Padding(padding: padH, child: _detailRow('录入时间', formatDateTime(record.createdAt))),
+        Padding(
+          padding: padH,
+          child: _detailRow('录入时间', formatDateTime(record.createdAt)),
+        ),
         if (imagePaths != null && imagePaths.isNotEmpty) ...[
           _buildDivider(),
           Padding(
@@ -99,7 +123,11 @@ class BillDetailSheet extends StatelessWidget {
     );
   }
 
-  void _showFullImage(BuildContext context, List<String> paths, int initialIndex) {
+  void _showFullImage(
+    BuildContext context,
+    List<String> paths,
+    int initialIndex,
+  ) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -130,6 +158,10 @@ class BillDetailSheet extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return const Divider(height: 1, thickness: borderWidthThin, color: colorDivider);
+    return const Divider(
+      height: 1,
+      thickness: borderWidthThin,
+      color: colorDivider,
+    );
   }
 }

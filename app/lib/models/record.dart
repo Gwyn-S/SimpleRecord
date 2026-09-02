@@ -50,20 +50,20 @@ class Record {
   });
 
   Map<String, dynamic> toDbMap() => {
-        'id': id,
-        'book_id': ledgerId,
-        'account_id': accountId,
-        'is_expense': isExpense ? 1 : 0,
-        'category_name': categoryName,
-        'amount_cents': amountCents,
-        'remark': remark,
-        'date': toEpochDay(date),
-        'created_at': createdAt.millisecondsSinceEpoch,
-        'tag': tag,
-        'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
-        'author': author,
-        'author_id': authorId,
-      };
+    'id': id,
+    'book_id': ledgerId,
+    'account_id': accountId,
+    'is_expense': isExpense ? 1 : 0,
+    'category_name': categoryName,
+    'amount_cents': amountCents,
+    'remark': remark,
+    'date': toEpochDay(date),
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'tag': tag,
+    'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
+    'author': author,
+    'author_id': authorId,
+  };
 
   factory Record.fromDbMap(Map<String, dynamic> map) {
     final raw = map['image_path'] as String?;
@@ -95,11 +95,7 @@ class Record {
       authorId: map['author_id'] as String?,
     );
   }
-  Record copyWith({
-    String? author,
-    String? authorId,
-    String? authorAvatarUrl,
-  }) {
+  Record copyWith({String? author, String? authorId, String? authorAvatarUrl}) {
     return Record(
       id: id,
       ledgerId: ledgerId,

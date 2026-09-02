@@ -62,7 +62,9 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
     }
 
     final config = configs[configIndex];
-    if (config.url.isEmpty || config.key.isEmpty || config.visionModel.isEmpty) {
+    if (config.url.isEmpty ||
+        config.key.isEmpty ||
+        config.visionModel.isEmpty) {
       safeShowToast(context, '请完善AI配置（需设置视觉模型）');
       return;
     }
@@ -135,7 +137,10 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('识别'),
               ),
@@ -182,7 +187,11 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -192,7 +201,11 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildPickButton(Icons.camera_alt, '拍照', ImageSource.camera),
-                _buildPickButton(Icons.photo_library, '相册', ImageSource.gallery),
+                _buildPickButton(
+                  Icons.photo_library,
+                  '相册',
+                  ImageSource.gallery,
+                ),
               ],
             ),
     );

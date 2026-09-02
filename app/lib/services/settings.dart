@@ -43,6 +43,7 @@ class Settings {
     );
   }
 
+  /// 读取字符串配置；不存在时返回 null。
   static Future<String?> getString(String key) async =>
       (await _ensureLoaded())[key] as String?;
 
@@ -56,6 +57,7 @@ class Settings {
     return result;
   }
 
+  /// 写入字符串配置并落盘。
   static Future<void> setString(String key, String value) async {
     await _ensureLoaded();
     _cache[key] = value;
@@ -69,24 +71,29 @@ class Settings {
     await _persist();
   }
 
+  /// 读取整型配置；不存在时返回 null。
   static Future<int?> getInt(String key) async =>
       (await _ensureLoaded())[key] as int?;
 
+  /// 写入整型配置并落盘。
   static Future<void> setInt(String key, int value) async {
     await _ensureLoaded();
     _cache[key] = value;
     await _persist();
   }
 
+  /// 读取布尔配置；不存在时返回 null。
   static Future<bool?> getBool(String key) async =>
       (await _ensureLoaded())[key] as bool?;
 
+  /// 写入布尔配置并落盘。
   static Future<void> setBool(String key, bool value) async {
     await _ensureLoaded();
     _cache[key] = value;
     await _persist();
   }
 
+  /// 删除指定配置项并落盘。
   static Future<void> remove(String key) async {
     await _ensureLoaded();
     _cache.remove(key);

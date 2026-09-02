@@ -39,7 +39,10 @@ class RecordItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: readonly ? null : () => _showActions(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingL,
+          vertical: spacingM,
+        ),
         child: Row(
           children: [
             Container(
@@ -57,42 +60,47 @@ class RecordItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        record.categoryName,
-                        style: textListItem,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (record.author != null && record.author!.isNotEmpty) ...[
-                      const SizedBox(width: spacingXS),
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorTagBackground,
-                          borderRadius: BorderRadius.circular(radiusXS),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AuthorAvatar(
-                              url: record.authorAvatarUrl,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              record.author!,
-                              style:
-                                  const TextStyle(color: colorTagText, fontSize: 12),
-                            ),
-                          ],
+                    children: [
+                      Flexible(
+                        child: Text(
+                          record.categoryName,
+                          style: textListItem,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (record.author != null &&
+                          record.author!.isNotEmpty) ...[
+                        const SizedBox(width: spacingXS),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorTagBackground,
+                            borderRadius: BorderRadius.circular(radiusXS),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AuthorAvatar(
+                                url: record.authorAvatarUrl,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                record.author!,
+                                style: const TextStyle(
+                                  color: colorTagText,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
                   if (record.tag != null || record.remark.isNotEmpty)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -139,14 +147,13 @@ class RecordItem extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: record.isExpense
                         ? colorExpense
-                        : Theme.of(context).extension<AppThemeColors>()!.primary,
+                        : Theme.of(
+                            context,
+                          ).extension<AppThemeColors>()!.primary,
                   ),
                 ),
                 if (record.accountName != null)
-                  Text(
-                    record.accountName!,
-                    style: textItemSub,
-                  ),
+                  Text(record.accountName!, style: textItemSub),
               ],
             ),
           ],
@@ -171,24 +178,28 @@ class RecordItem extends StatelessWidget {
         },
         onDeleteImage: (path) async {
           Navigator.pop(sheetContext);
-          final paths = (record.imagePaths ?? []).where((p) => p != path).toList();
+          final paths = (record.imagePaths ?? [])
+              .where((p) => p != path)
+              .toList();
           await deleteImage(path);
-          await updateRecord(Record(
-            id: record.id,
-            ledgerId: record.ledgerId,
-            accountId: record.accountId,
-            isExpense: record.isExpense,
-            categoryName: record.categoryName,
-            amountCents: record.amountCents,
-            remark: record.remark,
-            tag: record.tag,
-            date: record.date,
-            createdAt: record.createdAt,
-            accountName: record.accountName,
-            imagePaths: paths,
-            author: record.author,
-            authorId: record.authorId,
-          ));
+          await updateRecord(
+            Record(
+              id: record.id,
+              ledgerId: record.ledgerId,
+              accountId: record.accountId,
+              isExpense: record.isExpense,
+              categoryName: record.categoryName,
+              amountCents: record.amountCents,
+              remark: record.remark,
+              tag: record.tag,
+              date: record.date,
+              createdAt: record.createdAt,
+              accountName: record.accountName,
+              imagePaths: paths,
+              author: record.author,
+              authorId: record.authorId,
+            ),
+          );
         },
       ),
     );

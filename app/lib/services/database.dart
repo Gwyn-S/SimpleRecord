@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../utils/app_paths.dart';
 
+/// 全局唯一的 SQLite 数据库访问入口（懒打开单例）。
 class DatabaseHelper {
   DatabaseHelper._();
 
@@ -13,14 +14,17 @@ class DatabaseHelper {
   Future<Database>? _dbFuture;
   String? _dbPath;
 
+  /// 已打开的数据库文件路径；尚未打开时抛 StateError。
   String get dbPath {
     final p = _dbPath;
     if (p == null) throw StateError('数据库尚未打开');
     return p;
   }
 
+  /// 惰性打开并缓存数据库实例；首次访问时初始化。
   Future<Database> get database => _dbFuture ??= _open();
 
+  /// 关闭数据库并释放连接；可安全重复调用。
   Future<void> close() async {
     final future = _dbFuture;
     _dbFuture = null;
@@ -36,7 +40,8 @@ class DatabaseHelper {
     try {
       final db = await database;
       await db.execute(
-          'DELETE FROM records WHERE book_id NOT IN (SELECT id FROM books)');
+        'DELETE FROM records WHERE book_id NOT IN (SELECT id FROM books)',
+      );
       await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
       await db.execute('VACUUM');
       // WAL 模式下 VACUUM 的写入先进 WAL，需再次 checkpoint 才物理缩小主库文件
@@ -120,7 +125,9 @@ class DatabaseHelper {
         sort_order INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_records_book_date ON records(book_id, date)');
+    await db.execute(
+      'CREATE INDEX idx_records_book_date ON records(book_id, date)',
+    );
     await _createSyncTables(db);
   }
 
@@ -144,7 +151,9 @@ class DatabaseHelper {
         state INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_sync_outbox_state ON sync_outbox(state)');
+    await db.execute(
+      'CREATE INDEX idx_sync_outbox_state ON sync_outbox(state)',
+    );
     await db.execute('''
       CREATE TABLE sync_state (
         key TEXT PRIMARY KEY,

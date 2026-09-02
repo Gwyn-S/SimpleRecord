@@ -26,7 +26,9 @@ int yuanToCents(String s) {
   final parts = s.split('.');
   final yuanD = double.tryParse(parts[0] == '' ? '0' : parts[0]);
   if (yuanD == null || !yuanD.isFinite || yuanD.abs() > 9.0e16) return 0;
-  final frac = (parts.length > 1 ? parts[1] : '').padRight(2, '0').substring(0, 2);
+  final frac = (parts.length > 1 ? parts[1] : '')
+      .padRight(2, '0')
+      .substring(0, 2);
   return yuanD.toInt() * 100 + int.parse(frac);
 }
 

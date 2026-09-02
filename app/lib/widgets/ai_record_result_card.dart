@@ -9,7 +9,11 @@ class AiRecordResultCard extends StatelessWidget {
   final AiRecordResult result;
   final List<AssetAccount> accounts;
 
-  const AiRecordResultCard({super.key, required this.result, this.accounts = const []});
+  const AiRecordResultCard({
+    super.key,
+    required this.result,
+    this.accounts = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,11 +30,23 @@ class AiRecordResultCard extends StatelessWidget {
           _buildRow('类型', _typeLabel),
           _buildRow('分类', result.categoryName),
           _buildRow('金额', '${(result.amountCents / 100).toStringAsFixed(2)}元'),
-          if (result.accountId.isNotEmpty) _buildRow('账户', _accountDisplay(result.accountId, accountNames)),
-          if (result.fromAccountId.isNotEmpty) _buildRow('转出账户', _accountDisplay(result.fromAccountId, accountNames)),
-          if (result.toAccountId.isNotEmpty) _buildRow('转入账户', _accountDisplay(result.toAccountId, accountNames)),
+          if (result.accountId.isNotEmpty)
+            _buildRow('账户', _accountDisplay(result.accountId, accountNames)),
+          if (result.fromAccountId.isNotEmpty)
+            _buildRow(
+              '转出账户',
+              _accountDisplay(result.fromAccountId, accountNames),
+            ),
+          if (result.toAccountId.isNotEmpty)
+            _buildRow(
+              '转入账户',
+              _accountDisplay(result.toAccountId, accountNames),
+            ),
           if (result.remark.isNotEmpty) _buildRow('备注', result.remark),
-          _buildRow('日期', '${result.date.year}-${pad2(result.date.month)}-${pad2(result.date.day)}'),
+          _buildRow(
+            '日期',
+            '${result.date.year}-${pad2(result.date.month)}-${pad2(result.date.day)}',
+          ),
         ],
       ),
     );
@@ -58,13 +74,8 @@ class AiRecordResultCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: spacingS),
       child: Row(
         children: [
-          SizedBox(
-            width: 60,
-            child: Text(label, style: textItemSub),
-          ),
-          Expanded(
-            child: Text(value, style: textListItem),
-          ),
+          SizedBox(width: 60, child: Text(label, style: textItemSub)),
+          Expanded(child: Text(value, style: textListItem)),
         ],
       ),
     );

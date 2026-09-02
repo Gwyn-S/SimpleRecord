@@ -69,9 +69,16 @@ class BackupPage extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(title, style: textListItem.copyWith(color: Colors.black)),
+                child: Text(
+                  title,
+                  style: textListItem.copyWith(color: Colors.black),
+                ),
               ),
-              Icon(Icons.chevron_right, size: iconSizeDefault, color: colorTextSecondary),
+              Icon(
+                Icons.chevron_right,
+                size: iconSizeDefault,
+                color: colorTextSecondary,
+              ),
             ],
           ),
         ),

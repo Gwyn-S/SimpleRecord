@@ -88,37 +88,41 @@ class _StatsDetailPageState extends State<StatsDetailPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _records.isEmpty
-              ? const SizedBox()
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.only(bottom: spacingXS),
-                        children: sortedKeys.asMap().entries.map((entry) {
-                          final key = entry.value;
-                          final dayRecords = grouped[key]!;
-                          final expanded = _expandedDays.contains(key);
-                          return DayCard(
-                            dayRecords: dayRecords,
-                            expanded: expanded,
-                            isShared: _isShared,
-                            margin: const EdgeInsets.fromLTRB(spacingM, 5, spacingM, 5),
-                            onToggle: () => setState(() {
-                              if (_expandedDays.contains(key)) {
-                                _expandedDays.remove(key);
-                              } else {
-                                _expandedDays.add(key);
-                              }
-                            }),
-                            recordBuilder: (context, r) =>
-                                RecordItem(record: r, readonly: true),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
+          ? const SizedBox()
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: spacingXS),
+                    children: sortedKeys.asMap().entries.map((entry) {
+                      final key = entry.value;
+                      final dayRecords = grouped[key]!;
+                      final expanded = _expandedDays.contains(key);
+                      return DayCard(
+                        dayRecords: dayRecords,
+                        expanded: expanded,
+                        isShared: _isShared,
+                        margin: const EdgeInsets.fromLTRB(
+                          spacingM,
+                          5,
+                          spacingM,
+                          5,
+                        ),
+                        onToggle: () => setState(() {
+                          if (_expandedDays.contains(key)) {
+                            _expandedDays.remove(key);
+                          } else {
+                            _expandedDays.add(key);
+                          }
+                        }),
+                        recordBuilder: (context, r) =>
+                            RecordItem(record: r, readonly: true),
+                      );
+                    }).toList(),
+                  ),
                 ),
+              ],
+            ),
     );
   }
-
 }

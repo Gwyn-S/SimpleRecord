@@ -31,12 +31,13 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
 
   Future<void> _refresh() async {
     final dir = await backupDirectory();
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.srb'))
-        .toList()
-      ..sort((a, b) => b.path.compareTo(a.path));
+    final files =
+        dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.srb'))
+            .toList()
+          ..sort((a, b) => b.path.compareTo(a.path));
     if (!mounted) return;
     setState(() => _files = files);
   }
@@ -74,7 +75,10 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
         title: const Text('恢复备份'),
         content: const Text('将用备份覆盖当前全部数据，且不可撤销。确定恢复吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('恢复', style: TextStyle(color: colorDelete)),
@@ -137,7 +141,9 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
                       icon: const Icon(Icons.backup_outlined),
                       label: const Text('立即备份'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).extension<AppThemeColors>()!.primary,
                       ),
                     ),
                   ),
@@ -161,17 +167,20 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
                 ? const SizedBox.shrink()
                 : ListView.separated(
                     itemCount: _files.length,
-                    separatorBuilder: (_, _) =>
-                        const Divider(height: 1, thickness: 0.5, color: colorDivider),
+                    separatorBuilder: (_, _) => const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: colorDivider,
+                    ),
                     itemBuilder: (context, index) {
                       final file = _files[index];
-                      final name =
-                          file.path.split(Platform.pathSeparator).last;
+                      final name = file.path.split(Platform.pathSeparator).last;
                       return ListTile(
-                        title: Text(name,
-                            style: textBody),
-                        subtitle: Text(formatFileSize(file.lengthSync()),
-                            style: textItemSub),
+                        title: Text(name, style: textBody),
+                        subtitle: Text(
+                          formatFileSize(file.lengthSync()),
+                          style: textItemSub,
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -181,8 +190,11 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
                               tooltip: '恢复',
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  size: 20, color: colorTextSecondary),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: colorTextSecondary,
+                              ),
                               onPressed: () => _doDelete(file),
                               tooltip: '删除',
                             ),

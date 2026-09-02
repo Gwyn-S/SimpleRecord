@@ -46,7 +46,14 @@ Future<void> insertTransfer({
       'date': toEpochDay(date ?? now),
       'created_at': now.millisecondsSinceEpoch,
     });
-    await _applyTransfer(txn, fromAccountId, toAccountId, amountCents, feeCents, 1);
+    await _applyTransfer(
+      txn,
+      fromAccountId,
+      toAccountId,
+      amountCents,
+      feeCents,
+      1,
+    );
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
@@ -73,22 +80,36 @@ Future<void> _applyTransfer(
 Future<void> updateTransfer(Transfer transfer) async {
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
-    final rows = await txn.query('transfers',
-        where: 'id = ?', whereArgs: [transfer.id]);
+    final rows = await txn.query(
+      'transfers',
+      where: 'id = ?',
+      whereArgs: [transfer.id],
+    );
     if (rows.isNotEmpty) {
       final old = Transfer.fromDbMap(rows.first);
       await _applyTransfer(
-          txn, old.fromAccountId, old.toAccountId, old.amountCents, old.feeCents, -1);
-    }
-    await txn.update('transfers', transfer.toDbMap(),
-        where: 'id = ?', whereArgs: [transfer.id]);
-    await _applyTransfer(
         txn,
-        transfer.fromAccountId,
-        transfer.toAccountId,
-        transfer.amountCents,
-        transfer.feeCents,
-        1);
+        old.fromAccountId,
+        old.toAccountId,
+        old.amountCents,
+        old.feeCents,
+        -1,
+      );
+    }
+    await txn.update(
+      'transfers',
+      transfer.toDbMap(),
+      where: 'id = ?',
+      whereArgs: [transfer.id],
+    );
+    await _applyTransfer(
+      txn,
+      transfer.fromAccountId,
+      transfer.toAccountId,
+      transfer.amountCents,
+      transfer.feeCents,
+      1,
+    );
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
@@ -97,12 +118,18 @@ Future<void> updateTransfer(Transfer transfer) async {
 Future<void> deleteTransfer(String id) async {
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
-    final rows = await txn.query('transfers',
-        where: 'id = ?', whereArgs: [id]);
+    final rows = await txn.query('transfers', where: 'id = ?', whereArgs: [id]);
     await txn.delete('transfers', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
       final t = Transfer.fromDbMap(rows.first);
-      await _applyTransfer(txn, t.fromAccountId, t.toAccountId, t.amountCents, t.feeCents, -1);
+      await _applyTransfer(
+        txn,
+        t.fromAccountId,
+        t.toAccountId,
+        t.amountCents,
+        t.feeCents,
+        -1,
+      );
     }
   });
   transfersVersion.value++;

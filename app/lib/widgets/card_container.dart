@@ -29,11 +29,11 @@ class CardContainer extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(title, style: textTitleBold.copyWith(fontWeight: FontWeight.w500)),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing!,
-              ],
+              Text(
+                title,
+                style: textTitleBold.copyWith(fontWeight: FontWeight.w500),
+              ),
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           const SizedBox(height: spacingM),

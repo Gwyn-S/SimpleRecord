@@ -78,16 +78,19 @@ class _MainPageState extends State<MainPage> with RouteAware {
           scrolledUnderElevation: 0,
         ),
       ),
-      body: IndexedStack(
-        index: _tab,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _tab, children: _pages),
       floatingActionButton: SpeedDialFAB(
         onPressed: () {
           if (_tab == 4) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAssetAccountPage()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddAssetAccountPage()),
+            );
           } else {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualEntryPage()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ManualEntryPage()),
+            );
           }
         },
         icon: Icons.add,
@@ -96,19 +99,28 @@ class _MainPageState extends State<MainPage> with RouteAware {
           SpeedDialAction(
             icon: Icons.edit,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiTextRecordPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiTextRecordPage()),
+              );
             },
           ),
           SpeedDialAction(
             icon: Icons.mic,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiVoiceRecordPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiVoiceRecordPage()),
+              );
             },
           ),
           SpeedDialAction(
             icon: Icons.camera_alt,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiImageRecordPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiImageRecordPage()),
+              );
             },
           ),
         ],
@@ -117,7 +129,9 @@ class _MainPageState extends State<MainPage> with RouteAware {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: colorBackgroundCard,
-          border: Border(top: BorderSide(color: colorDivider, width: borderWidthDefault)),
+          border: Border(
+            top: BorderSide(color: colorDivider, width: borderWidthDefault),
+          ),
         ),
         child: _buildBottomBar(),
       ),
@@ -131,16 +145,31 @@ class _MainPageState extends State<MainPage> with RouteAware {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _tabItem(0, Icons.home_outlined, Icons.home, '账单'),
-          _tabItem(1, Icons.calendar_today_outlined, Icons.calendar_today, '日历'),
+          _tabItem(
+            1,
+            Icons.calendar_today_outlined,
+            Icons.calendar_today,
+            '日历',
+          ),
           const SizedBox(width: 56),
           _tabItem(3, Icons.bar_chart_outlined, Icons.bar_chart, '统计'),
-          _tabItem(4, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, '资产'),
+          _tabItem(
+            4,
+            Icons.account_balance_wallet_outlined,
+            Icons.account_balance_wallet,
+            '资产',
+          ),
         ],
       ),
     );
   }
 
-  Widget _tabItem(int index, IconData outlineIcon, IconData fillIcon, String label) {
+  Widget _tabItem(
+    int index,
+    IconData outlineIcon,
+    IconData fillIcon,
+    String label,
+  ) {
     final selected = _tab == index;
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return GestureDetector(

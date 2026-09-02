@@ -22,8 +22,11 @@ const _iconByTypeName = {
 /// 优先按账户名匹配具体类型图标（微信/支付宝/银行等），否则回退到分类图标。
 Future<void> backfillAccountIcons() async {
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query('asset_accounts',
-      where: 'icon_path = \'\'', columns: ['id', 'category_name', 'name']);
+  final rows = await db.query(
+    'asset_accounts',
+    where: 'icon_path = \'\'',
+    columns: ['id', 'category_name', 'name'],
+  );
   for (final row in rows) {
     final icon =
         _iconByTypeName[row['name']] ??
@@ -32,8 +35,12 @@ Future<void> backfillAccountIcons() async {
             .map((c) => c.iconPath)
             .firstOrNull;
     if (icon == null) continue;
-    await db.update('asset_accounts', {'icon_path': icon},
-        where: 'id = ?', whereArgs: [row['id']]);
+    await db.update(
+      'asset_accounts',
+      {'icon_path': icon},
+      where: 'id = ?',
+      whereArgs: [row['id']],
+    );
   }
   if (rows.isNotEmpty) assetAccountsVersion.value++;
 }
@@ -46,15 +53,22 @@ Future<List<AssetAccount>> loadAssetAccounts() async {
 
 Future<void> insertAssetAccount(AssetAccount account) async {
   final db = await DatabaseHelper.instance.database;
-  await db.insert('asset_accounts', account.toDbMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace);
+  await db.insert(
+    'asset_accounts',
+    account.toDbMap(),
+    conflictAlgorithm: ConflictAlgorithm.replace,
+  );
   assetAccountsVersion.value++;
 }
 
 Future<void> updateAssetAccount(AssetAccount account) async {
   final db = await DatabaseHelper.instance.database;
-  await db.update('asset_accounts', account.toDbMap(),
-      where: 'id = ?', whereArgs: [account.id]);
+  await db.update(
+    'asset_accounts',
+    account.toDbMap(),
+    where: 'id = ?',
+    whereArgs: [account.id],
+  );
   assetAccountsVersion.value++;
 }
 
@@ -63,7 +77,9 @@ Future<void> deleteAssetAccount(String id) async {
   await db.transaction((txn) async {
     await txn.delete('asset_accounts', where: 'id = ?', whereArgs: [id]);
     await txn.rawUpdate(
-        'UPDATE records SET account_id = NULL WHERE account_id = ?', [id]);
+      'UPDATE records SET account_id = NULL WHERE account_id = ?',
+      [id],
+    );
   });
   assetAccountsVersion.value++;
   recordsVersion.value++;

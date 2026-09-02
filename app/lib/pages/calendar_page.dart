@@ -23,7 +23,8 @@ class CalendarPage extends StatefulWidget {
   State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
+class _CalendarPageState extends State<CalendarPage>
+    with SingleTickerProviderStateMixin {
   late PageController _pageController;
   late PageController _weekPageController;
   late DateTime _currentMonth;
@@ -53,7 +54,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     _selectedDay = DateTime.now();
     _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
     _weekPageController = PageController(initialPage: _foldWeekPage);
-    _foldController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _foldController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     _foldController.addListener(_onFoldTick);
     _load();
     recordsVersion.addListener(_load);
@@ -91,7 +95,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       _selCacheKey = selKey;
       _monthGridCache.clear();
     }
-    final grid = _monthGridCache.putIfAbsent(page, () => _buildMonthGrid(month));
+    final grid = _monthGridCache.putIfAbsent(
+      page,
+      () => _buildMonthGrid(month),
+    );
     // 只保留相邻 3 个月，翻页时逐页淘汰远处条目，避免长期累积
     _monthGridCache.removeWhere((key, _) => (key - page).abs() > 1);
     return grid;
@@ -140,7 +147,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     }
     _load();
     setState(() {});
-  }  String get _monthLabel => formatMonthLabel(_currentMonth);
+  }
+
+  String get _monthLabel => formatMonthLabel(_currentMonth);
 
   void _changeMonth(int delta) {
     final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
@@ -154,7 +163,8 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Future<void> _openMonthPicker(BuildContext context) async {
     final target = await showMonthYearPicker(context, _currentMonth);
     if (target == null || !mounted) return;
-    if (target.year == _currentMonth.year && target.month == _currentMonth.month) {
+    if (target.year == _currentMonth.year &&
+        target.month == _currentMonth.month) {
       return;
     }
     setState(() {
@@ -178,24 +188,33 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         sel.month == _currentMonth.month) {
       return weekPageFromDay(sel);
     }
-    return weekPageFromDay(DateTime(_currentMonth.year, _currentMonth.month, 1));
+    return weekPageFromDay(
+      DateTime(_currentMonth.year, _currentMonth.month, 1),
+    );
   }
 
   int get _currentRowCount {
     final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final daysInMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month + 1,
+      0,
+    ).day;
     final totalCells = (firstDay.weekday - 1) + daysInMonth;
     return (totalCells + 6) ~/ 7;
   }
 
   int get _selectedRowIndex {
     final day = _effectiveSelectedDay;
-    if (day.year != _currentMonth.year || day.month != _currentMonth.month) return 0;
+    if (day.year != _currentMonth.year || day.month != _currentMonth.month) {
+      return 0;
+    }
     final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
     return (firstDay.weekday - 1 + day.day - 1) ~/ 7;
   }
 
-  double get _rowHeight => heightCalendarGrid / (_currentRowCount < 5 ? 5 : _currentRowCount);
+  double get _rowHeight =>
+      heightCalendarGrid / (_currentRowCount < 5 ? 5 : _currentRowCount);
   double get _weekViewHeight => heightCalendarGrid / 5;
   double get _maxOffset => heightCalendarGrid - _weekViewHeight;
 
@@ -205,7 +224,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
     final deltaProgress = -details.delta.dy / _maxOffset;
-    _foldController.value = (_foldController.value + deltaProgress).clamp(0.0, 1.0);
+    _foldController.value = (_foldController.value + deltaProgress).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   void _onVerticalDragEnd(DragEndDetails details) {
@@ -227,43 +249,52 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       onVerticalDragEnd: _onVerticalDragEnd,
       child: Container(
         color: colorBackgroundPage,
-      child: Column(
-        children: [
-          Builder(builder: (context) {
-            final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
-            return Container(
-              color: themeColor,
-              child: Column(
-                children: [
-                  SizedBox(height: MediaQuery.of(context).padding.top),
-                  HomeTopBar(
-                    monthLabel: _monthLabel,
-                    onPrevMonth: () => _changeMonth(-1),
-                    onNextMonth: () => _changeMonth(1),
-                    onMonthLabelTap: () => _openMonthPicker(context),
-                    onLedgerTap: () => openLedgerList(context),
-                    onBackupTap: () => openBackup(context),
-                    onSearchTap: () => openSearch(context),
-                    onUserTap: () => openUser(context),
+        child: Column(
+          children: [
+            Builder(
+              builder: (context) {
+                final themeColor = Theme.of(
+                  context,
+                ).extension<AppThemeColors>()!.primary;
+                return Container(
+                  color: themeColor,
+                  child: Column(
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).padding.top),
+                      HomeTopBar(
+                        monthLabel: _monthLabel,
+                        onPrevMonth: () => _changeMonth(-1),
+                        onNextMonth: () => _changeMonth(1),
+                        onMonthLabelTap: () => _openMonthPicker(context),
+                        onLedgerTap: () => openLedgerList(context),
+                        onBackupTap: () => openBackup(context),
+                        onSearchTap: () => openSearch(context),
+                        onUserTap: () => openUser(context),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          spacingXXL,
+                          0,
+                          spacingXXL,
+                          spacingS,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _summaryItem('本月支出', _monthExpense),
+                            const SizedBox(width: spacingXXL),
+                            _summaryItem('本月收入', _monthIncome),
+                            const SizedBox(width: spacingXXL),
+                            _summaryItem('本月结余', _monthBalance),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, spacingS),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _summaryItem('本月支出', _monthExpense),
-                        const SizedBox(width: spacingXXL),
-                        _summaryItem('本月收入', _monthIncome),
-                        const SizedBox(width: spacingXXL),
-                        _summaryItem('本月结余', _monthBalance),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          Container(
+                );
+              },
+            ),
+            Container(
               color: colorBackgroundCard,
               child: SizedBox(
                 height: heightHeaderBar,
@@ -271,12 +302,7 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                   children: [
                     ...weekdaysShort.map((label) {
                       return Expanded(
-                        child: Center(
-                          child: Text(
-                            label,
-                            style: textCaption,
-                          ),
-                        ),
+                        child: Center(child: Text(label, style: textCaption)),
                       );
                     }),
                   ],
@@ -293,16 +319,24 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                     child: Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        Positioned.fill(child: Container(color: colorBackgroundCard)),
+                        Positioned.fill(
+                          child: Container(color: colorBackgroundCard),
+                        ),
                         Positioned(
-                          top: t >= 0.999 ? 0 : -t * _selectedRowIndex * _rowHeight,
+                          top: t >= 0.999
+                              ? 0
+                              : -t * _selectedRowIndex * _rowHeight,
                           left: 0,
                           right: 0,
-                          height: t >= 0.999 ? calendarHeight : heightCalendarGrid,
+                          height: t >= 0.999
+                              ? calendarHeight
+                              : heightCalendarGrid,
                           child: RepaintBoundary(
                             child: Container(
                               color: colorBackgroundCard,
-                              child: t >= 0.999 ? _buildWeekView() : _buildMonthPageView(),
+                              child: t >= 0.999
+                                  ? _buildWeekView()
+                                  : _buildMonthPageView(),
                             ),
                           ),
                         ),
@@ -346,17 +380,17 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
               : const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: spacingS),
           children: [
-          DayCard(
-            dayRecords: records,
-            headerDate: day,
-            expanded: true,
-            isShared: _isShared,
-            recordBuilder: (context, r) => RecordItem(
-              record: r,
-              onEdit: () => openEditRecord(context, r),
+            DayCard(
+              dayRecords: records,
+              headerDate: day,
+              expanded: true,
+              isShared: _isShared,
+              recordBuilder: (context, r) => RecordItem(
+                record: r,
+                onEdit: () => openEditRecord(context, r),
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -365,10 +399,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Widget _buildMonthPageView() {
     _pendingWeekJump = true;
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-      }),
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+      ),
       child: PageView.builder(
         key: const ValueKey('month_pager'),
         controller: _pageController,
@@ -387,10 +420,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Widget _buildWeekView() {
     _pendingMonthJump = true;
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-      }),
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+      ),
       child: PageView.builder(
         key: const ValueKey('week_pager'),
         controller: _weekPageController,
@@ -402,7 +434,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
             height: _weekViewHeight,
             child: Row(
               children: List.generate(7, (i) {
-                return Expanded(child: _buildDayCell(monday.add(Duration(days: i))));
+                return Expanded(
+                  child: _buildDayCell(monday.add(Duration(days: i))),
+                );
               }),
             ),
           );
@@ -444,7 +478,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         if (_pendingMonthJump) {
           _pendingMonthJump = false;
           _pageController.dispose();
-          _pageController = PageController(initialPage: pageFromMonth(_currentMonth));
+          _pageController = PageController(
+            initialPage: pageFromMonth(_currentMonth),
+          );
         }
       }
       setState(() => _folded = nowFolded);
@@ -498,7 +534,9 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
           return SizedBox(
             height: rowHeight,
             child: Row(
-              children: rowCells.map((day) => Expanded(child: _buildDayCell(day))).toList(),
+              children: rowCells
+                  .map((day) => Expanded(child: _buildDayCell(day)))
+                  .toList(),
             ),
           );
         }),
@@ -509,7 +547,8 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Widget _buildDayCell(DateTime? day) {
     if (day == null) return const SizedBox();
 
-    final selected = _selectedDay != null &&
+    final selected =
+        _selectedDay != null &&
         day.year == _selectedDay!.year &&
         day.month == _selectedDay!.month &&
         day.day == _selectedDay!.day;
@@ -559,10 +598,17 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: lunarText.split('').map((char) => Text(
-                        char,
-                        style: isSpecial ? textLunarFestival : textLunarDay,
-                      )).toList(),
+                      children: lunarText
+                          .split('')
+                          .map(
+                            (char) => Text(
+                              char,
+                              style: isSpecial
+                                  ? textLunarFestival
+                                  : textLunarDay,
+                            ),
+                          )
+                          .toList(),
                     ),
                   ),
                 ],

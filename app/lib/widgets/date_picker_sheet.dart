@@ -52,7 +52,8 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     super.dispose();
   }
 
-  int get _pageIndex => (_month.year * 12 + _month.month) -
+  int get _pageIndex =>
+      (_month.year * 12 + _month.month) -
       (_baseMonth.year * 12 + _baseMonth.month);
 
   void _changeMonth(int delta) {
@@ -106,7 +107,12 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     return Container(
       width: double.infinity,
       color: themeColor,
-      padding: const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingM),
+      padding: const EdgeInsets.fromLTRB(
+        spacingL,
+        spacingM,
+        spacingL,
+        spacingM,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -176,9 +182,11 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
       padding: const EdgeInsets.symmetric(vertical: spacingXS),
       child: Row(
         children: weekdaysShort
-            .map((w) => Expanded(
-                  child: Center(child: Text(w, style: textCaption)),
-                ))
+            .map(
+              (w) => Expanded(
+                child: Center(child: Text(w, style: textCaption)),
+              ),
+            )
             .toList(),
       ),
     );
@@ -188,10 +196,9 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     return SizedBox(
       height: 6 * _rowHeight,
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(dragDevices: {
-          PointerDeviceKind.touch,
-          PointerDeviceKind.mouse,
-        }),
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+        ),
         child: PageView.builder(
           controller: _pageController,
           onPageChanged: (page) {
@@ -238,7 +245,8 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
   Widget _buildDayCell(DateTime? day) {
     if (day == null) return const SizedBox();
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
-    final selected = day.year == _selected.year &&
+    final selected =
+        day.year == _selected.year &&
         day.month == _selected.month &&
         day.day == _selected.day;
     final now = DateTime.now();
@@ -289,11 +297,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _actionButton(
-            '取消',
-            themeColor,
-            () => Navigator.pop(context),
-          ),
+          _actionButton('取消', themeColor, () => Navigator.pop(context)),
           const SizedBox(width: spacingL),
           _actionButton(
             '确定',
@@ -310,7 +314,10 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingL,
+          vertical: spacingS,
+        ),
         child: Text(
           text,
           style: TextStyle(

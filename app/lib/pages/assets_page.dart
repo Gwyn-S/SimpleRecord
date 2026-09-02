@@ -77,7 +77,9 @@ class _AssetsPageState extends State<AssetsPage> {
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AssetStatisticsPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const AssetStatisticsPage(),
+                        ),
                       ),
                       child: SizedBox(
                         width: iconSizeLarge,
@@ -229,16 +231,17 @@ class _AssetsPageState extends State<AssetsPage> {
         ),
         child: Row(
           children: [
-            AccountAvatar(account: account, size: iconSizeDefault, color: color),
+            AccountAvatar(
+              account: account,
+              size: iconSizeDefault,
+              color: color,
+            ),
             const SizedBox(width: spacingM),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    account.displayName,
-                    style: textListItem,
-                  ),
+                  Text(account.displayName, style: textListItem),
                   if (account.remark.isNotEmpty) ...[
                     const SizedBox(height: spacingXXS),
                     Text(account.remark, style: textItemSub),

@@ -47,7 +47,8 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
     }
 
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav';
+    final path =
+        '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav';
     try {
       await _recorder.start(
         const RecordConfig(
@@ -107,12 +108,17 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
         return;
       }
       final config = configs[voiceIndex];
-      if (config.url.isEmpty || config.key.isEmpty || config.voiceModel.isEmpty) {
+      if (config.url.isEmpty ||
+          config.key.isEmpty ||
+          config.voiceModel.isEmpty) {
         safeShowToast(context, '请完善AI配置');
         return;
       }
 
-      final transcript = await recognizeSpeech(config: asrConfig, audioFile: audioFile);
+      final transcript = await recognizeSpeech(
+        config: asrConfig,
+        audioFile: audioFile,
+      );
       if (!mounted) return;
 
       final results = await analyzeTextList(

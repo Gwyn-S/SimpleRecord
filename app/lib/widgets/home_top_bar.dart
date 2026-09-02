@@ -35,11 +35,19 @@ class HomeTopBar extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: onLedgerTap,
-            child: const Icon(Icons.book_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
+            child: const Icon(
+              Icons.book_outlined,
+              size: iconSizeLarge,
+              color: colorTextOnPrimary,
+            ),
           ),
           GestureDetector(
             onTap: onBackupTap,
-            child: const Icon(Icons.backup_outlined, size: iconSizeLarge, color: colorTextOnPrimary),
+            child: const Icon(
+              Icons.backup_outlined,
+              size: iconSizeLarge,
+              color: colorTextOnPrimary,
+            ),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -51,7 +59,11 @@ class HomeTopBar extends StatelessWidget {
                   height: 40,
                   child: Align(
                     alignment: Alignment.center,
-                    child: Icon(Icons.keyboard_arrow_left, size: iconSizeSmall, color: colorTextOnPrimary),
+                    child: Icon(
+                      Icons.keyboard_arrow_left,
+                      size: iconSizeSmall,
+                      color: colorTextOnPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -62,10 +74,7 @@ class HomeTopBar extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      monthLabel,
-                      style: textTitle,
-                    ),
+                    child: Text(monthLabel, style: textTitle),
                   ),
                 ),
               ),
@@ -76,7 +85,11 @@ class HomeTopBar extends StatelessWidget {
                   height: 40,
                   child: Align(
                     alignment: Alignment.center,
-                    child: Icon(Icons.keyboard_arrow_right, size: iconSizeSmall, color: colorTextOnPrimary),
+                    child: Icon(
+                      Icons.keyboard_arrow_right,
+                      size: iconSizeSmall,
+                      color: colorTextOnPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -84,11 +97,19 @@ class HomeTopBar extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onSearchTap,
-            child: const Icon(Icons.search, size: iconSizeLarge, color: colorTextOnPrimary),
+            child: const Icon(
+              Icons.search,
+              size: iconSizeLarge,
+              color: colorTextOnPrimary,
+            ),
           ),
           GestureDetector(
             onTap: onUserTap,
-            child: const Icon(Icons.person_outline, size: iconSizeLarge, color: colorTextOnPrimary),
+            child: const Icon(
+              Icons.person_outline,
+              size: iconSizeLarge,
+              color: colorTextOnPrimary,
+            ),
           ),
         ],
       ),

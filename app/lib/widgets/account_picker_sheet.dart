@@ -34,14 +34,19 @@ class _AccountPickerSheet extends StatelessWidget {
     return SafeArea(
       top: false,
       child: ConstrainedBox(
-        constraints:
-            BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingS),
+              padding: const EdgeInsets.fromLTRB(
+                spacingL,
+                spacingM,
+                spacingL,
+                spacingS,
+              ),
               child: Row(
                 children: [
                   const Text('选择账户', style: textTitleBold),
@@ -53,7 +58,10 @@ class _AccountPickerSheet extends StatelessWidget {
                       padding: const EdgeInsets.all(spacingS),
                       child: Text(
                         '取消',
-                        style: TextStyle(fontSize: 16, color: colorTextSecondary),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorTextSecondary,
+                        ),
                       ),
                     ),
                   ),
@@ -122,16 +130,21 @@ class _AccountPickerSheet extends StatelessWidget {
               child: icon != null
                   ? Icon(icon, size: iconSizeXLarge, color: themeColor)
                   : iconPath != null
-                      ? SvgPicture.asset(
-                          iconPath,
-                          width: iconSizeXLarge,
-                          height: iconSizeXLarge,
-                          fit: BoxFit.contain,
-                          colorFilter:
-                              ColorFilter.mode(themeColor, BlendMode.srcIn),
-                        )
-                      : Icon(Icons.account_balance_wallet,
-                          size: iconSizeXLarge, color: themeColor),
+                  ? SvgPicture.asset(
+                      iconPath,
+                      width: iconSizeXLarge,
+                      height: iconSizeXLarge,
+                      fit: BoxFit.contain,
+                      colorFilter: ColorFilter.mode(
+                        themeColor,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Icon(
+                      Icons.account_balance_wallet,
+                      size: iconSizeXLarge,
+                      color: themeColor,
+                    ),
             ),
             const SizedBox(width: spacingM),
             Expanded(

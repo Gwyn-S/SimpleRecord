@@ -34,7 +34,8 @@ class StatsCacheKey {
 class StatsData {
   final int totalExpense;
   final int totalIncome;
-  final List<({String categoryName, int amountCents, int count})> expenseByCategory;
+  final List<({String categoryName, int amountCents, int count})>
+  expenseByCategory;
   final List<({String label, int amountCents})> periodData;
   final List<({String label, int amountCents})> weekSummary;
   final List<({String label, int amountCents})> monthSummary;
@@ -56,8 +57,13 @@ class StatsData {
   final jan1 = DateTime(now.year, 1, 1);
   final jan1Monday = jan1.subtract(Duration(days: jan1.weekday - 1));
   final currentMonday = now.subtract(Duration(days: now.weekday - 1));
-  final currentWeek = ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
-  return (jan1Monday: jan1Monday, currentMonday: currentMonday, currentWeek: currentWeek);
+  final currentWeek =
+      ((currentMonday.difference(jan1Monday).inDays) / 7).floor() + 1;
+  return (
+    jan1Monday: jan1Monday,
+    currentMonday: currentMonday,
+    currentWeek: currentWeek,
+  );
 }
 
 /// 计算日期范围
@@ -137,11 +143,7 @@ Future<StatsData?> loadStatsData({
   }
 
   final results = await Future.wait([
-    loadRecordsByDateRange(
-      ledgerId: ledgerId,
-      start: loadStart,
-      end: loadEnd,
-    ),
+    loadRecordsByDateRange(ledgerId: ledgerId, start: loadStart, end: loadEnd),
     loadExpenseByCategory(
       ledgerId: ledgerId,
       start: dateRange.start,
@@ -150,7 +152,8 @@ Future<StatsData?> loadStatsData({
   ]);
 
   final records = results[0] as List<Record>;
-  final expenseByCategory = results[1] as List<({String categoryName, int amountCents, int count})>;
+  final expenseByCategory =
+      results[1] as List<({String categoryName, int amountCents, int count})>;
 
   // 只统计当前所选区间内的记录。
   // loadStart/loadEnd 是为下方的周/月/年汇总图按更大范围取数，
@@ -194,7 +197,8 @@ List<({String label, int amountCents})> _buildPeriodData(
     case StatsRange.week:
       start = dateRange.start;
       days = dateRange.end.difference(dateRange.start).inDays;
-      labelFn = (d) => '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+      labelFn = (d) =>
+          '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
       break;
     case StatsRange.month:
       start = dateRange.start;
@@ -204,12 +208,14 @@ List<({String label, int amountCents})> _buildPeriodData(
     case StatsRange.year:
       start = dateRange.start;
       days = dateRange.end.difference(dateRange.start).inDays + 1;
-      labelFn = (d) => '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+      labelFn = (d) =>
+          '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
       break;
     case StatsRange.custom:
       start = dateRange.start;
       days = dateRange.end.difference(dateRange.start).inDays + 1;
-      labelFn = (d) => '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+      labelFn = (d) =>
+          '${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
       break;
   }
 
@@ -229,12 +235,18 @@ List<({String label, int amountCents})> _buildPeriodData(
   });
 }
 
-List<({String label, int amountCents})> _buildWeekSummaryData(List<Record> records) {
+List<({String label, int amountCents})> _buildWeekSummaryData(
+  List<Record> records,
+) {
   final wi = _weekInfo();
   final weeklyExpense = List.filled(wi.currentWeek, 0);
   for (final r in records) {
     if (!r.isExpense) continue;
-    final rMonday = DateTime(r.date.year, r.date.month, r.date.day).subtract(Duration(days: r.date.weekday - 1));
+    final rMonday = DateTime(
+      r.date.year,
+      r.date.month,
+      r.date.day,
+    ).subtract(Duration(days: r.date.weekday - 1));
     final weekIndex = ((rMonday.difference(wi.jan1Monday).inDays) / 7).floor();
     if (weekIndex >= 0 && weekIndex < wi.currentWeek) {
       weeklyExpense[weekIndex] += r.amountCents;
@@ -243,12 +255,18 @@ List<({String label, int amountCents})> _buildWeekSummaryData(List<Record> recor
   return List.generate(wi.currentWeek, (i) {
     final isLastWeek = i == wi.currentWeek - 2;
     final isThisWeek = i == wi.currentWeek - 1;
-    final label = isThisWeek ? '本周' : isLastWeek ? '上周' : '${i + 1}周';
+    final label = isThisWeek
+        ? '本周'
+        : isLastWeek
+        ? '上周'
+        : '${i + 1}周';
     return (label: label, amountCents: weeklyExpense[i]);
   });
 }
 
-List<({String label, int amountCents})> _buildMonthSummaryData(List<Record> records) {
+List<({String label, int amountCents})> _buildMonthSummaryData(
+  List<Record> records,
+) {
   final now = DateTime.now();
   final monthlyExpense = List.filled(now.month, 0);
   for (final r in records) {
@@ -261,12 +279,18 @@ List<({String label, int amountCents})> _buildMonthSummaryData(List<Record> reco
   return List.generate(now.month, (i) {
     final isLastMonth = i == now.month - 2;
     final isThisMonth = i == now.month - 1;
-    final label = isThisMonth ? '本月' : isLastMonth ? '上月' : '${i + 1}月';
+    final label = isThisMonth
+        ? '本月'
+        : isLastMonth
+        ? '上月'
+        : '${i + 1}月';
     return (label: label, amountCents: monthlyExpense[i]);
   });
 }
 
-List<({String label, int amountCents})> _buildYearSummaryData(List<Record> records) {
+List<({String label, int amountCents})> _buildYearSummaryData(
+  List<Record> records,
+) {
   final now = DateTime.now();
   final startYear = now.year - 5;
   const yearCount = 6;
@@ -280,7 +304,13 @@ List<({String label, int amountCents})> _buildYearSummaryData(List<Record> recor
   }
   return List.generate(yearCount, (i) {
     final year = startYear + i;
-    final label = year == now.year ? '今年' : year == now.year - 1 ? '去年' : year == now.year - 2 ? '前年' : '$year';
+    final label = year == now.year
+        ? '今年'
+        : year == now.year - 1
+        ? '去年'
+        : year == now.year - 2
+        ? '前年'
+        : '$year';
     return (label: label, amountCents: yearlyExpense[i]);
   });
 }
@@ -291,17 +321,9 @@ List<String> getRangeLabels(StatsRange range, DateTime customPreset) {
   switch (range) {
     case StatsRange.week:
       final wi = _weekInfo();
-      return [
-        for (var i = 1; i <= wi.currentWeek - 1; i++) '$i周',
-        '上周',
-        '本周',
-      ];
+      return [for (var i = 1; i <= wi.currentWeek - 1; i++) '$i周', '上周', '本周'];
     case StatsRange.month:
-      return [
-        for (var i = 1; i <= now.month - 2; i++) '$i月',
-        '上月',
-        '本月',
-      ];
+      return [for (var i = 1; i <= now.month - 2; i++) '$i月', '上月', '本月'];
     case StatsRange.year:
       final y = now.year;
       return ['${y - 5}', '${y - 4}', '${y - 3}', '前年', '去年', '今年'];

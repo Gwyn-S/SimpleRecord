@@ -17,9 +17,8 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   }) : assert(title != null || titleWidget != null);
 
   @override
-  Size get preferredSize => Size.fromHeight(
-    kToolbarHeight + (bottom?.preferredSize.height ?? 0),
-  );
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 
   @override
   Widget build(BuildContext context) {

@@ -32,8 +32,11 @@ class DayCard extends StatelessWidget {
 
   bool get _collapsible => onToggle != null;
 
-  int get _dayExp => dayRecords.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
-  int get _dayInc => dayRecords.where((r) => !r.isExpense).fold(0, (s, r) => s + r.amountCents);
+  int get _dayExp =>
+      dayRecords.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
+  int get _dayInc => dayRecords
+      .where((r) => !r.isExpense)
+      .fold(0, (s, r) => s + r.amountCents);
 
   @override
   Widget build(BuildContext context) {
@@ -61,11 +64,22 @@ class DayCard extends StatelessWidget {
           else
             _buildHeader(date),
           if (showBody) ...[
-            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+            const Divider(
+              height: 1,
+              thickness: borderWidthThin,
+              color: colorDivider,
+            ),
             ...dayRecords.map((r) => recordBuilder(context, r)),
-            const Divider(height: 1, thickness: borderWidthThin, color: colorDivider),
+            const Divider(
+              height: 1,
+              thickness: borderWidthThin,
+              color: colorDivider,
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingL,
+                vertical: spacingS,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -120,18 +134,21 @@ class DayCard extends StatelessWidget {
     final map = <String, int>{};
     for (final r in dayRecords) {
       final name = r.author ?? '';
-      map[name] = (map[name] ?? 0) + (r.isExpense ? -r.amountCents : r.amountCents);
+      map[name] =
+          (map[name] ?? 0) + (r.isExpense ? -r.amountCents : r.amountCents);
     }
     final spans = <InlineSpan>[TextSpan(text: formatAmount(total))];
     map.forEach((name, bal) {
       spans
-        ..add(TextSpan(
-          text: ' $name',
-          style: const TextStyle(
-            fontWeight: FontWeight.w400,
-            color: colorTextSecondary,
+        ..add(
+          TextSpan(
+            text: ' $name',
+            style: const TextStyle(
+              fontWeight: FontWeight.w400,
+              color: colorTextSecondary,
+            ),
           ),
-        ))
+        )
         ..add(TextSpan(text: '：${formatAmount(bal)}'));
     });
     return TextSpan(style: textBalance, children: spans);

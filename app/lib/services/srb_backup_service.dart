@@ -28,13 +28,25 @@ void _xor(Uint8List data, List<int> key, int offset) {
 Future<Uint8List> _encodeImages() async {
   final images = await listImages();
   final builder = BytesBuilder();
-  builder.add((ByteData(4)..setUint32(0, images.length, Endian.little)).buffer.asUint8List());
+  builder.add(
+    (ByteData(
+      4,
+    )..setUint32(0, images.length, Endian.little)).buffer.asUint8List(),
+  );
   for (final file in images) {
     final nameBytes = utf8.encode(p.basename(file.path));
-    builder.add((ByteData(2)..setUint16(0, nameBytes.length, Endian.little)).buffer.asUint8List());
+    builder.add(
+      (ByteData(
+        2,
+      )..setUint16(0, nameBytes.length, Endian.little)).buffer.asUint8List(),
+    );
     builder.add(nameBytes);
     final data = file.readAsBytesSync();
-    builder.add((ByteData(4)..setUint32(0, data.length, Endian.little)).buffer.asUint8List());
+    builder.add(
+      (ByteData(
+        4,
+      )..setUint32(0, data.length, Endian.little)).buffer.asUint8List(),
+    );
     builder.add(data);
   }
   return builder.toBytes();
@@ -45,26 +57,43 @@ Future<String> createSrbBackup({Directory? dir}) async {
   await DatabaseHelper.instance.vacuum();
   final dbFile = File(DatabaseHelper.instance.dbPath);
   final now = DateTime.now();
-  final stamp = '${now.year}${pad2(now.month)}${pad2(now.day)}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}';
+  final stamp =
+      '${now.year}${pad2(now.month)}${pad2(now.day)}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}';
   final targetDir = dir ?? await backupDirectory();
-  final meta = utf8.encode(jsonEncode({
-    'exportedAt': now.toIso8601String(),
-    'currentBookId': currentLedgerId.value,
-    'version': 1,
-    'dbSize': dbFile.lengthSync(),
-  }));
+  final meta = utf8.encode(
+    jsonEncode({
+      'exportedAt': now.toIso8601String(),
+      'currentBookId': currentLedgerId.value,
+      'version': 1,
+      'dbSize': dbFile.lengthSync(),
+    }),
+  );
   final header = BytesBuilder()
     ..add(utf8.encode(_magic))
-    ..add((ByteData(4)..setUint32(0, meta.length, Endian.little)).buffer.asUint8List())
+    ..add(
+      (ByteData(
+        4,
+      )..setUint32(0, meta.length, Endian.little)).buffer.asUint8List(),
+    )
     ..add(meta);
   final target = File(p.join(targetDir.path, 'backup_$stamp.srb'));
-  await _encryptToSrb(DatabaseHelper.instance.dbPath, header.toBytes(), target.path, imagesBytes: await _encodeImages());
+  await _encryptToSrb(
+    DatabaseHelper.instance.dbPath,
+    header.toBytes(),
+    target.path,
+    imagesBytes: await _encodeImages(),
+  );
   return target.path;
 }
 
 /// 用 .srb 备份文件恢复全部数据。
 Future<void> restoreSrbBackup(String filePath) async {
-  final tmp = File(p.join((await getTemporaryDirectory()).path, 'sr_${DateTime.now().microsecondsSinceEpoch}.db'));
+  final tmp = File(
+    p.join(
+      (await getTemporaryDirectory()).path,
+      'sr_${DateTime.now().microsecondsSinceEpoch}.db',
+    ),
+  );
   Map<String, dynamic> meta;
   Uint8List? imagesBytes;
   try {
@@ -116,7 +145,12 @@ Future<void> _restoreImages(Uint8List bytes) async {
   }
 }
 
-Future<void> _encryptToSrb(String dbPath, Uint8List header, String targetPath, {Uint8List? imagesBytes}) {
+Future<void> _encryptToSrb(
+  String dbPath,
+  Uint8List header,
+  String targetPath, {
+  Uint8List? imagesBytes,
+}) {
   return Isolate.run(() {
     final key = utf8.encode(_xorKey);
     final out = File(targetPath).openSync(mode: FileMode.write);
@@ -135,7 +169,9 @@ Future<void> _encryptToSrb(String dbPath, Uint8List header, String targetPath, {
       if (imagesBytes != null && imagesBytes.isNotEmpty) {
         var w = 0;
         while (w < imagesBytes.length) {
-          final n = (w + chunk < imagesBytes.length) ? chunk : imagesBytes.length - w;
+          final n = (w + chunk < imagesBytes.length)
+              ? chunk
+              : imagesBytes.length - w;
           for (var i = 0; i < n; i++) {
             buf[i] = imagesBytes[w + i] ^ key[(off + i) % key.length];
           }
@@ -150,7 +186,13 @@ Future<void> _encryptToSrb(String dbPath, Uint8List header, String targetPath, {
   });
 }
 
-void _xorChunks(File inF, RandomAccessFile outF, List<int> key, Uint8List buf, int off) {
+void _xorChunks(
+  File inF,
+  RandomAccessFile outF,
+  List<int> key,
+  Uint8List buf,
+  int off,
+) {
   final inp = inF.openSync();
   try {
     int n;
@@ -166,7 +208,10 @@ void _xorChunks(File inF, RandomAccessFile outF, List<int> key, Uint8List buf, i
   }
 }
 
-Future<({String? metaJson, Uint8List? imagesBytes, String? error})> _decryptSrb(String srbPath, String tmpPath) {
+Future<({String? metaJson, Uint8List? imagesBytes, String? error})> _decryptSrb(
+  String srbPath,
+  String tmpPath,
+) {
   return Isolate.run(() {
     try {
       final key = utf8.encode(_xorKey);
@@ -178,8 +223,14 @@ Future<({String? metaJson, Uint8List? imagesBytes, String? error})> _decryptSrb(
         _xor(head, key, 0);
         final magic = String.fromCharCodes(head.sublist(0, 4));
         if (magic != _magic) throw const FormatException('不是有效的备份文件');
-        final metaLen = ByteData.sublistView(head, 4, 8).getUint32(0, Endian.little);
-        if (metaLen < 1 || metaLen > 1 << 20) throw const FormatException('备份文件已损坏');
+        final metaLen = ByteData.sublistView(
+          head,
+          4,
+          8,
+        ).getUint32(0, Endian.little);
+        if (metaLen < 1 || metaLen > 1 << 20) {
+          throw const FormatException('备份文件已损坏');
+        }
         // meta
         final metaRaw = input.readSync(metaLen);
         if (metaRaw.length < metaLen) throw const FormatException('备份文件已损坏');
@@ -196,8 +247,15 @@ Future<({String? metaJson, Uint8List? imagesBytes, String? error})> _decryptSrb(
         _xor(allData, key, headMetaTotal);
         // split
         final hasImages = dbSize != null && allData.length > dbSize;
-        File(tmpPath).writeAsBytesSync(hasImages ? allData.sublist(0, dbSize) : allData, flush: true);
-        return (metaJson: metaJson, imagesBytes: hasImages ? allData.sublist(dbSize) : null, error: null);
+        File(tmpPath).writeAsBytesSync(
+          hasImages ? allData.sublist(0, dbSize) : allData,
+          flush: true,
+        );
+        return (
+          metaJson: metaJson,
+          imagesBytes: hasImages ? allData.sublist(dbSize) : null,
+          error: null,
+        );
       } finally {
         input.closeSync();
       }

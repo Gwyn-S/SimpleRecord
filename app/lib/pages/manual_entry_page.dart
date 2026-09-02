@@ -219,13 +219,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             width: sizeCategoryCircle,
                             height: sizeCategoryCircle,
                             decoration: BoxDecoration(
-                              color: selected ? themeColor : colorIconLightBackground,
+                              color: selected
+                                  ? themeColor
+                                  : colorIconLightBackground,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               cat.icon,
                               size: iconSizeXLarge,
-                              color: selected ? colorTextOnPrimary : colorIconGray,
+                              color: selected
+                                  ? colorTextOnPrimary
+                                  : colorIconGray,
                             ),
                           ),
                           const SizedBox(height: spacingXS),
@@ -244,7 +248,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               ),
             ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           Container(
             height: heightOptionBar,
             padding: const EdgeInsets.symmetric(horizontal: spacingL),
@@ -257,10 +265,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     controller: _remarkController,
                     maxLength: 20,
                     style: textBody,
-                    cursorColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    cursorColor: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
                     decoration: InputDecoration(
                       hintText: '备注',
-                      hintStyle: TextStyle(fontSize: 14, color: colorTextHintLight),
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: colorTextHintLight,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       counterText: '',
@@ -274,9 +287,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               ],
             ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           _buildOptionBar(),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           CalcKeyboard(
             amount: _amount,
             onChanged: (v) => setState(() => _amount = v),
@@ -312,37 +333,42 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         scrollDirection: Axis.horizontal,
         child: Row(
           mainAxisSize: MainAxisSize.min,
-            children: [
-              OptionBarItem(
-                icon: Icons.calendar_today_outlined,
-                label: formatSelectedDate(_selectedDate),
-                onTap: () async {
-                  final picked = await showDatePickerSheet(context, _selectedDate);
-                  if (picked == null || !mounted) return;
-                  setState(() => _selectedDate = picked);
-                },
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.account_balance_wallet_outlined,
-                label: _selectedAccount?.name ?? '账户',
-                onTap: _pickAccount,
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.label_outline,
-                label: _selectedTag ?? '标签',
-                onTap: _pickTag,
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.camera_alt_outlined,
-                label: '图片',
-                onTap: _showImagePicker,
-              ),
-              if (_imagePaths.isNotEmpty) ...[
-                const SizedBox(width: spacingM),
-                ...List.generate(_imagePaths.length, (index) => Padding(
+          children: [
+            OptionBarItem(
+              icon: Icons.calendar_today_outlined,
+              label: formatSelectedDate(_selectedDate),
+              onTap: () async {
+                final picked = await showDatePickerSheet(
+                  context,
+                  _selectedDate,
+                );
+                if (picked == null || !mounted) return;
+                setState(() => _selectedDate = picked);
+              },
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.account_balance_wallet_outlined,
+              label: _selectedAccount?.name ?? '账户',
+              onTap: _pickAccount,
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.label_outline,
+              label: _selectedTag ?? '标签',
+              onTap: _pickTag,
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.camera_alt_outlined,
+              label: '图片',
+              onTap: _showImagePicker,
+            ),
+            if (_imagePaths.isNotEmpty) ...[
+              const SizedBox(width: spacingM),
+              ...List.generate(
+                _imagePaths.length,
+                (index) => Padding(
                   padding: const EdgeInsets.only(left: spacingXS),
                   child: GestureDetector(
                     onTap: () => _showImageViewer(index),
@@ -353,12 +379,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                )),
-              ],
+                ),
+              ),
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   void _showImageViewer(int index) {
@@ -405,4 +432,3 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     }
   }
 }
-

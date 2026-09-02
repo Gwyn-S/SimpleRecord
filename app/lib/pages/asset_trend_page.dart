@@ -64,25 +64,22 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+          padding: const EdgeInsets.symmetric(
+            horizontal: spacingM,
+            vertical: spacingXS,
+          ),
           decoration: BoxDecoration(
             color: colorDivider,
             borderRadius: BorderRadius.circular(radiusSmall),
           ),
-          child: Text(
-            formatMonthLabel(_selectedMonth),
-            style: textTagSmall,
-          ),
+          child: Text(formatMonthLabel(_selectedMonth), style: textTagSmall),
         ),
       ),
     );
   }
 
   Future<void> _pickMonth() async {
-    final picked = await showMonthYearPicker(
-      context,
-      _selectedMonth,
-    );
+    final picked = await showMonthYearPicker(context, _selectedMonth);
     if (picked != null && mounted) {
       setState(() => _selectedMonth = DateTime(picked.year, picked.month));
     }
@@ -91,10 +88,7 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
   Widget _buildTrendCard(List<_DailyPoint> points) {
     return CardContainer(
       title: '余额走势图',
-      child: SizedBox(
-        height: 160,
-        child: _DailyTrendChart(points: points),
-      ),
+      child: SizedBox(height: 160, child: _DailyTrendChart(points: points)),
     );
   }
 
@@ -109,7 +103,10 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
           itemBuilder: (context, index) {
             final p = points[index];
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingM,
+                vertical: spacingS,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -163,20 +160,30 @@ class _DailyTrendChart extends StatelessWidget {
       activationMode: ActivationMode.singleTap,
       tooltipPosition: TooltipPosition.pointer,
       animationDuration: 0,
-      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
-        final p = points[pointIndex];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
-          decoration: BoxDecoration(
-            color: colorTextPrimary,
-            borderRadius: BorderRadius.circular(radiusTiny),
-          ),
-          child: Text(
-            '${p.date.month}/${p.date.day} ${formatAmount(p.value)}',
-            style: textChartTooltip,
-          ),
-        );
-      },
+      builder:
+          (
+            dynamic data,
+            dynamic point,
+            dynamic series,
+            int pointIndex,
+            int seriesIndex,
+          ) {
+            final p = points[pointIndex];
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingS,
+                vertical: spacingXS,
+              ),
+              decoration: BoxDecoration(
+                color: colorTextPrimary,
+                borderRadius: BorderRadius.circular(radiusTiny),
+              ),
+              child: Text(
+                '${p.date.month}/${p.date.day} ${formatAmount(p.value)}',
+                style: textChartTooltip,
+              ),
+            );
+          },
     );
 
     return SfCartesianChart(
@@ -192,16 +199,14 @@ class _DailyTrendChart extends StatelessWidget {
         labelStyle: textChartLabel,
         axisLabelFormatter: (details) {
           final idx = (double.tryParse(details.text) ?? 0).toInt();
-          if (idx < 0 || idx >= points.length) return ChartAxisLabel('', details.textStyle);
+          if (idx < 0 || idx >= points.length) {
+            return ChartAxisLabel('', details.textStyle);
+          }
           final d = points[idx].date;
           return ChartAxisLabel('${d.month}/${d.day}', details.textStyle);
         },
       ),
-      primaryYAxis: NumericAxis(
-        minimum: minY,
-        maximum: maxY,
-        isVisible: false,
-      ),
+      primaryYAxis: NumericAxis(minimum: minY, maximum: maxY, isVisible: false),
       tooltipBehavior: tooltip,
       series: <LineSeries<_DailyPoint, num>>[
         LineSeries<_DailyPoint, num>(

@@ -126,9 +126,7 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
               child: TextField(
                 controller: _textController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                ),
+                decoration: const InputDecoration(border: InputBorder.none),
               ),
             ),
             const SizedBox(height: spacingM),
@@ -140,7 +138,10 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('识别'),
               ),

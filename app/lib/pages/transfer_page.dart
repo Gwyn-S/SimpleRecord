@@ -93,16 +93,18 @@ class _TransferPageState extends State<TransferPage> {
     }
     final t = widget.initialTransfer;
     if (t != null) {
-      await updateTransfer(Transfer(
-        id: t.id,
-        fromAccountId: fromAccount.id,
-        toAccountId: toAccount.id,
-        amountCents: amountCents,
-        feeCents: feeCents,
-        remark: _remarkController.text,
-        date: _selectedDate,
-        createdAt: t.createdAt,
-      ));
+      await updateTransfer(
+        Transfer(
+          id: t.id,
+          fromAccountId: fromAccount.id,
+          toAccountId: toAccount.id,
+          amountCents: amountCents,
+          feeCents: feeCents,
+          remark: _remarkController.text,
+          date: _selectedDate,
+          createdAt: t.createdAt,
+        ),
+      );
     } else {
       await insertTransfer(
         fromAccountId: fromAccount.id,
@@ -165,9 +167,7 @@ class _TransferPageState extends State<TransferPage> {
             ),
             focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Theme.of(
-                  context,
-                ).extension<AppThemeColors>()!.primary,
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
               ),
             ),
           ),
@@ -240,7 +240,11 @@ class _TransferPageState extends State<TransferPage> {
       body: Column(
         children: [
           _buildAccountSection(),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           Container(
             height: heightOptionBar,
             color: colorBackgroundCard,
@@ -256,7 +260,10 @@ class _TransferPageState extends State<TransferPage> {
                     cursorColor: themeColor,
                     decoration: InputDecoration(
                       hintText: '备注',
-                      hintStyle: TextStyle(fontSize: 14, color: colorTextHintLight),
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: colorTextHintLight,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       counterText: '',
@@ -273,9 +280,17 @@ class _TransferPageState extends State<TransferPage> {
               ],
             ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           _buildOptionBar(),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           CalcKeyboard(
             amount: _amount,
             onChanged: (v) => setState(() => _amount = v),
@@ -308,7 +323,10 @@ class _TransferPageState extends State<TransferPage> {
     return Container(
       width: double.infinity,
       color: colorBackgroundLight,
-      padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+      padding: const EdgeInsets.symmetric(
+        horizontal: spacingL,
+        vertical: spacingS,
+      ),
       child: Text(label, style: textItemSub),
     );
   }
@@ -316,7 +334,10 @@ class _TransferPageState extends State<TransferPage> {
   Widget _buildAccountValue(AssetAccount? account, {VoidCallback? onTap}) {
     return Container(
       color: colorBackgroundCard,
-      padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+      padding: const EdgeInsets.symmetric(
+        horizontal: spacingL,
+        vertical: spacingS,
+      ),
       child: InkWell(
         onTap: onTap,
         child: Row(
@@ -330,14 +351,13 @@ class _TransferPageState extends State<TransferPage> {
                 color: Theme.of(context).extension<AppThemeColors>()!.primary,
               ),
             const SizedBox(width: spacingM),
-            Expanded(
-              child: Text(
-                account?.name ?? '请选择',
-                style: textListItem,
-              ),
-            ),
+            Expanded(child: Text(account?.name ?? '请选择', style: textListItem)),
             if (onTap != null)
-              Icon(Icons.chevron_right, size: iconSizeMedium, color: colorGrey300),
+              Icon(
+                Icons.chevron_right,
+                size: iconSizeMedium,
+                color: colorGrey300,
+              ),
           ],
         ),
       ),
@@ -371,4 +391,3 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 }
-

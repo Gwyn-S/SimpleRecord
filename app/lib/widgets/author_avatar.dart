@@ -11,11 +11,7 @@ const String defaultAvatarAsset = 'assets/icons/default_avatar.svg';
 /// 作者头像：优先本地磁盘缓存（避免重复网络下载），无缓存时下载；
 /// 无头像 / 下载中 / 下载失败统一显示 [defaultAvatarAsset]。
 class AuthorAvatar extends StatefulWidget {
-  const AuthorAvatar({
-    super.key,
-    this.url,
-    this.size = 14,
-  });
+  const AuthorAvatar({super.key, this.url, this.size = 14});
 
   /// 头像 URL；为空表示未设置头像，直接显示默认头像。
   final String? url;
@@ -92,15 +88,15 @@ class _AuthorAvatarState extends State<AuthorAvatar> {
               fit: BoxFit.cover,
             )
           : _done
-              ? Image.network(
-                  url,
-                  width: size,
-                  height: size,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => _fallback(size),
-                )
-              // 下载中，先用默认头像兜底，避免空白。
-              : _fallback(size),
+          ? Image.network(
+              url,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _fallback(size),
+            )
+          // 下载中，先用默认头像兜底，避免空白。
+          : _fallback(size),
     );
   }
 
