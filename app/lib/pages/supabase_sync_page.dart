@@ -13,6 +13,7 @@ import '../models/cloud_config.dart';
 import '../services/cloud_config.dart';
 import '../services/record_service.dart';
 import '../services/settings.dart';
+import '../services/supabase_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../utils/log.dart';
@@ -37,6 +38,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   String _authorId = '';
   String _avatarUrl = '';
   bool _loading = true;
+  bool _cloudReady = false;
+  bool _dialogOpen = false;
 
   @override
   void initState() {
@@ -65,21 +68,52 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     _authorId = authorId ?? '';
     _avatarUrl = avatar ?? '';
     setState(() => _loading = false);
-    // 未保存过连接配置时进入页面即弹出填写弹窗；已有配置则不再打扰。
+    // 已保存配置则校验连通性解锁功能；未保存则弹配置弹窗（必填，锁住不进入）。
     final hasConfig =
         config.supabaseUrl.trim().isNotEmpty &&
         config.supabaseAnonKey.trim().isNotEmpty;
-    if (!hasConfig) {
+    if (hasConfig) {
+      _verifyCloud();
+    } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _onSyncTap();
       });
     }
   }
 
-  /// 点击「同步」后先弹窗填写 URL 与 key，确认后保存配置并重建连接。
+  /// 用已保存配置做连通性校验，成功才解锁功能。
+  /// 已就绪且已登录则直接解锁；否则才重新建立连接验证（避免每次进页都重连）。
+  Future<void> _verifyCloud() async {
+    final mgr = SupabaseManager.instance;
+    if (mgr.isReady && mgr.uid != null) {
+      if (!mounted) return;
+      setState(() => _cloudReady = true);
+      return;
+    }
+    bool ok;
+    try {
+      ok = await SyncService.instance.reconfigure();
+    } catch (e) {
+      appLog('[sync] verify failed: $e');
+      ok = false;
+    }
+    if (!mounted) return;
+    setState(() => _cloudReady = ok);
+    if (!ok) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onSyncTap();
+      });
+    }
+  }
+
+  /// 点击「同步」先弹窗填写 URL 与 key。未连通时模态锁死（不能点开别处、不能关），
+  /// 连接成功才关闭并解锁。已有弹窗打开时不重复弹。
   void _onSyncTap() {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
     showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -108,11 +142,14 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
         actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
         actions: [
           OutlinedButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.pop(context);
+            },
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               final url = _urlController.text.trim();
               final key = _keyController.text.trim();
               if (url.isEmpty || key.isEmpty) {
@@ -120,18 +157,47 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                 return;
               }
               Navigator.pop(dialogContext);
-              showToast(context, '正在连接…');
-              _connect(url, key);
+              await _connect(url, key);
+              if (!mounted) return;
+              if (!_cloudReady) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _onSyncTap();
+                });
+              }
             },
             child: const Text('连接'),
           ),
         ],
       ),
-    );
+    ).whenComplete(() => _dialogOpen = false);
   }
 
-  Future<void> _connect(String url, String key) async {
+  /// 校验 URL/KEY 连通性：阻塞转圈等待，成功后解锁。
+  Future<bool> _connect(String url, String key) async {
     await saveCloudConfig(CloudConfig(supabaseUrl: url, supabaseAnonKey: key));
+    if (!mounted) return false;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Dialog(
+        child: Padding(
+          padding: EdgeInsets.all(spacingXXL),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: spacingL),
+              Text('正在连接…', style: textBody),
+            ],
+          ),
+        ),
+      ),
+    );
     bool ok;
     try {
       ok = await SyncService.instance.reconfigure();
@@ -139,105 +205,136 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       appLog('[sync] reconfigure failed: $e');
       ok = false;
     }
-    if (!mounted) return;
-    showToast(context, ok ? '云端连接成功' : '云端连接未就绪，请检查项目地址和密钥');
-    // 连接成功后：尚无用户ID则让用户选择身份（生成新ID / 使用旧ID）。
-    if (ok && _authorId.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showIdentityDialog();
-      });
+    if (!mounted) return ok;
+    navigator.pop();
+    if (ok) {
+      setState(() => _cloudReady = true);
+      showToast(context, '云端连接成功');
+    } else {
+      showToast(context, '云端连接未就绪，请检查项目地址和密钥');
     }
+    return ok;
   }
 
-  /// 无用户ID时弹身份选择：生成新ID / 使用旧ID。
-  void _showIdentityDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('设置身份'),
-        content: const Text('你是新用户还是老用户？'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              final id = await AuthorService.instance.createNewAuthorId();
-              if (!mounted) return;
-              setState(() {
-                _authorId = id;
-                _nicknameController.text = '';
-                _lastNickname = '';
-                _avatarUrl = '';
-              });
-              showToast(context, '已生成新的用户ID');
-            },
-            child: const Text('生成新ID'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              if (!mounted) return;
-              _showOldIdDialog();
-            },
-            child: const Text('使用旧ID'),
-          ),
-        ],
-      ),
-    );
+  /// 开启同步 / 退出同步按钮。未登录则唤醒账号窗；已登录则登出回到未登录态。
+  Future<void> _onSyncToggle() async {
+    if (_authorId.isEmpty) {
+      _showAccountDialog();
+      return;
+    }
+    await AuthorService.instance.logout();
+    if (!mounted) return;
+    setState(() {
+      _authorId = '';
+      _nicknameController.text = '';
+      _lastNickname = '';
+      _avatarUrl = '';
+    });
+    showToast(context, '已退出同步');
   }
 
-  /// 用旧设备 author_id 从云端恢复身份（换设备 / 使用旧ID）。
-  void _showOldIdDialog() {
+  /// 注册 / 登录共用账号输入弹窗：填账号后可选「注册」或「登录」。
+  void _showAccountDialog() {
     final controller = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('使用旧设备用户ID'),
+        title: const Text('注册或登录账号'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: '粘贴旧用户ID',
-            border: OutlineInputBorder(),
+          autofocus: true,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.transparent),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+              ),
+            ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
+            onPressed: () {
               final id = controller.text.trim();
               if (id.isEmpty) {
-                showToast(context, '请输入旧设备的用户ID');
+                showToast(context, '请输入账号');
                 return;
               }
               Navigator.pop(dialogContext);
-              await _applyOldId(id);
+              _register(id);
             },
-            child: const Text('恢复'),
+            child: const Text('注册'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final id = controller.text.trim();
+              if (id.isEmpty) {
+                showToast(context, '请输入账号');
+                return;
+              }
+              Navigator.pop(dialogContext);
+              _login(id);
+            },
+            child: const Text('登录'),
           ),
         ],
       ),
     );
   }
 
-  /// 用旧 author_id 从云端拉昵称/头像写回本机。
-  Future<void> _applyOldId(String id) async {
-    final nickname = await AuthorService.instance.restoreNickname(id);
+  /// 注册：校验账号不重复后绑定本机。
+  Future<void> _register(String id) async {
+    final exists = await AuthorService.instance.accountExists(id);
     if (!mounted) return;
-    if (nickname == null) {
-      showToast(context, '未找到该ID的昵称，请检查连接后重试');
+    if (exists == true) {
+      showToast(context, '该账号已被注册，请直接登录');
       return;
     }
-    final avatar = await AuthorService.instance.restoreAvatar(id);
+    if (exists == null) {
+      showToast(context, '云端未连接，请先检查项目地址和密钥');
+      return;
+    }
+    final ok = await AuthorService.instance.registerAccount(id);
+    if (!mounted) return;
+    if (!ok) {
+      showToast(context, '注册失败，请重试');
+      return;
+    }
+    setState(() {
+      _authorId = id;
+      _nicknameController.text = '';
+      _lastNickname = '';
+      _avatarUrl = '';
+    });
+    showToast(context, '注册成功');
+  }
+
+  /// 登录：校验账号存在后拉回昵称/头像。
+  Future<void> _login(String id) async {
+    final exists = await AuthorService.instance.accountExists(id);
+    if (!mounted) return;
+    if (exists == null) {
+      showToast(context, '云端未连接，请先检查项目地址和密钥');
+      return;
+    }
+    if (exists != true) {
+      showToast(context, '该账号不存在，请先注册');
+      return;
+    }
+    await AuthorService.instance.loginAccount(id);
+    if (!mounted) return;
+    final nickname = await AuthorService.instance.ownNickname() ?? '';
+    final avatar = await AuthorService.instance.ownAvatar() ?? '';
     if (!mounted) return;
     setState(() {
       _authorId = id;
       _nicknameController.text = nickname;
-      _lastNickname = nickname;
-      _avatarUrl = avatar ?? '';
+      _avatarUrl = avatar;
     });
-    showToast(context, '已恢复到昵称：$nickname');
+    showToast(context, '登录成功');
   }
 
   /// 编辑昵称：弹窗输入（样式对齐新增/编辑账本弹窗）。
@@ -308,7 +405,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   /// 改昵称后：存云端 profiles + 向共享账本广播 profile 事件。
   void _broadcastNickname(String nickname) async {
     await AuthorService.instance.syncNicknameToCloud();
-    final authorId = await AuthorService.instance.ensureAuthorId();
+    final authorId = await AuthorService.instance.existingAuthorId();
+    if (authorId == null) return;
     if (nickname.isEmpty) return;
     await SyncService.instance.enqueueProfileChange(
       authorId: authorId,
@@ -358,7 +456,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       return;
     }
     setState(() => _avatarUrl = url);
-    final authorId = await AuthorService.instance.ensureAuthorId();
+    final authorId = await AuthorService.instance.existingAuthorId();
+    if (authorId == null) return;
     await SyncService.instance.enqueueProfileChange(
       authorId: authorId,
       avatarUrl: url,
@@ -379,7 +478,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('从相册选择'),
+              title: const Text('相册'),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _pickAvatar(ImageSource.gallery);
@@ -397,6 +496,89 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
         ),
       ),
     );
+  }
+
+  /// 身份区（账号/头像/昵称）。无 author_id 时不显示。
+  List<Widget> _buildIdentitySection() {
+    if (_authorId.isEmpty) return [];
+    Widget row({
+      required String label,
+      required Widget? trailing,
+      required VoidCallback onTap,
+      bool showChevron = true,
+    }) {
+      return Container(
+        decoration: BoxDecoration(
+          color: colorBackgroundCard,
+          borderRadius: BorderRadius.circular(radiusMedium),
+        ),
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            height: heightOptionBar,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: spacingL),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: textListItem.copyWith(color: Colors.black),
+                    ),
+                  ),
+                  ?trailing,
+                  if (showChevron) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right,
+                      size: iconSizeDefault,
+                      color: colorTextSecondary,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return [
+      row(
+        label: '账号',
+        onTap: () {},
+        showChevron: false,
+        trailing: Flexible(
+          child: Text(
+            _authorId,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, color: colorTextSecondary),
+          ),
+        ),
+      ),
+      const SizedBox(height: spacingM),
+      row(
+        label: '头像',
+        onTap: _showAvatarPicker,
+        trailing: AuthorAvatar(
+          url: _avatarUrl.isEmpty ? null : _avatarUrl,
+          size: 32,
+          cornerRadius: radiusXS,
+        ),
+      ),
+      const SizedBox(height: spacingM),
+      row(
+        label: '昵称',
+        onTap: _showNicknameDialog,
+        trailing: _nicknameController.text.isNotEmpty
+            ? Text(
+                _nicknameController.text,
+                style: const TextStyle(fontSize: 16, color: Colors.black),
+              )
+            : null,
+      ),
+    ];
   }
 
   @override
@@ -428,61 +610,23 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : !_cloudReady
+          ? const SizedBox.shrink()
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: spacingL),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: spacingXS),
-                  Center(
-                    child: GestureDetector(
-                      onTap: _showAvatarPicker,
-                      child: _avatarUrl.isNotEmpty
-                          ? AuthorAvatar(url: _avatarUrl, size: 64)
-                          : AuthorAvatar(url: null, size: 64),
-                    ),
-                  ),
+                  ..._buildIdentitySection(),
                   const SizedBox(height: spacingM),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorBackgroundCard,
-                      borderRadius: BorderRadius.circular(radiusMedium),
-                    ),
-                    child: GestureDetector(
-                      onTap: _showNicknameDialog,
-                      behavior: HitTestBehavior.opaque,
-                      child: SizedBox(
-                        height: heightOptionBar,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: spacingL,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '昵称',
-                                  style: textListItem.copyWith(
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                              if (_nicknameController.text.isNotEmpty)
-                                Text(
-                                  _nicknameController.text,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.chevron_right,
-                                size: iconSizeDefault,
-                                color: colorTextSecondary,
-                              ),
-                            ],
-                          ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: spacingL),
+                    child: SizedBox(
+                      height: heightOptionBar,
+                      child: OutlinedButton(
+                        onPressed: _onSyncToggle,
+                        child: Text(
+                          _authorId.isNotEmpty ? '退出同步' : '开启同步',
                         ),
                       ),
                     ),

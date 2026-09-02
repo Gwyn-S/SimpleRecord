@@ -80,6 +80,7 @@ class SyncService {
   /// 记录写入钩子：本地已落库后调用，把变更推进 outbox。
   /// [op] 取值 insert / update / delete。
   Future<void> enqueueRecord(Record record, {required String op}) async {
+    if (record.authorId == null) return;
     final bookId = record.ledgerId;
     if (bookId == null) return;
     if (!await isSharedBook(bookId)) return;

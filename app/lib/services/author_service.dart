@@ -84,13 +84,9 @@ class AuthorService {
     return u.trim();
   }
 
-  /// 取本机 author_id，不存在则生成一个永久的 UUID 并存进 Settings。
-  Future<String> ensureAuthorId() async {
-    final existing = await Settings.getString(_keyAuthorId);
-    if (existing != null && existing.isNotEmpty) return existing;
-    final id = const Uuid().v4();
-    await Settings.setString(_keyAuthorId, id);
-    return id;
+  /// 取本机 author_id；未注册/登录（无 author_id）时返回 null，不自动生成。
+  Future<String?> ensureAuthorId() async {
+    return existingAuthorId();
   }
 
   /// 只读本机 author_id；未生成过返回 null，不触发创建。
@@ -98,6 +94,50 @@ class AuthorService {
     final existing = await Settings.getString(_keyAuthorId);
     if (existing == null || existing.isEmpty) return null;
     return existing;
+  }
+
+  /// 账号（author_id）是否已在云端存在。返回三态：
+  /// null=云端未就绪/查询失败，true=存在，false=不存在。
+  Future<bool?> accountExists(String authorId) {
+    return SupabaseManager.instance.isProfileExists(authorId);
+  }
+
+  /// 注册账号：把用户指定账号绑定为本机 author_id，并在云端占位一条 profile。
+  /// 返回是否成功。
+  Future<bool> registerAccount(String authorId) async {
+    final id = authorId.trim();
+    if (id.isEmpty) return false;
+    await Settings.setString(_keyAuthorId, id);
+    await Settings.remove(_keyOwnNickname);
+    await Settings.remove(_keyOwnAvatar);
+    await registerNickname(id, '');
+    await SupabaseManager.instance.upsertProfile(authorId: id);
+    return true;
+  }
+
+  /// 登录账号：校验云端存在后，把账号绑定为本机并拉回昵称/头像。
+  /// 存在且成功返回 true；不存在/查询失败返回 false。
+  Future<bool> loginAccount(String authorId) async {
+    final exists = await accountExists(authorId);
+    if (exists != true) return false;
+    await Settings.setString(_keyAuthorId, authorId.trim());
+    await restoreNickname(authorId);
+    await restoreAvatar(authorId);
+    return true;
+  }
+
+  /// 退出同步：清空本机 author_id、昵称、头像及其 mapping 缓存，回到未登录状态。
+  Future<void> logout() async {
+    final current = await Settings.getString(_keyAuthorId);
+    if (current != null && current.isNotEmpty) {
+      await Settings.remove('$_keyNamePrefix$current');
+      await Settings.remove('$_keyAvatarPrefix$current');
+      _names.remove(current);
+      _avatars.remove(current);
+    }
+    await Settings.remove(_keyAuthorId);
+    await Settings.remove(_keyOwnNickname);
+    await Settings.remove(_keyOwnAvatar);
   }
 
   /// 主动生成并持久化一个全新的 author_id，并清空本机昵称/头像（全新身份）。
@@ -114,6 +154,7 @@ class AuthorService {
   /// 把昵称同步到云端 profiles。未就绪时静默失败。
   Future<void> syncNicknameToCloud() async {
     final id = await ensureAuthorId();
+    if (id == null) return;
     final nickname = await ownNickname();
     if (nickname == null) return;
     await registerNickname(id, nickname);
@@ -151,6 +192,7 @@ class AuthorService {
   /// 以绕开客户端旧 URL 缓存。服务器存原图，本地展示缓存由 [_fetchAndCache] 压缩。
   Future<String?> changeAvatar(String localPath) async {
     final id = await ensureAuthorId();
+    if (id == null) return null;
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final ext = p.extension(localPath);
     final url = await SupabaseManager.instance.uploadAvatar(
