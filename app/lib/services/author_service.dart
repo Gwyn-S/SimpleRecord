@@ -9,6 +9,7 @@ import 'image_storage_service.dart';
 import 'settings.dart';
 import 'supabase_service.dart';
 import '../models/record.dart';
+import '../utils/log.dart';
 
 // 昵称/头像本地与云端的上传、恢复与展示反查。author_id 绑定换设备身份。
 //
@@ -124,8 +125,9 @@ class AuthorService {
 
   /// 用旧 author_id 从云端拉昵称并写回本地（换设备恢复）。
   Future<String?> restoreNickname(String authorId) async {
-    final nickname =
-        await SupabaseManager.instance.getProfileNickname(authorId);
+    final nickname = await SupabaseManager.instance.getProfileNickname(
+      authorId,
+    );
     if (nickname == null || nickname.trim().isEmpty) return null;
     final n = nickname.trim();
     await Settings.setString(_keyOwnNickname, n);
@@ -151,25 +153,29 @@ class AuthorService {
     final id = await ensureAuthorId();
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final ext = p.extension(localPath);
-    final url = await SupabaseManager.instance
-        .uploadAvatar(id, localPath, fileName: '${id}_$stamp$ext');
+    final url = await SupabaseManager.instance.uploadAvatar(
+      id,
+      localPath,
+      fileName: '${id}_$stamp$ext',
+    );
     if (url == null) return null;
     await Settings.setString(_keyOwnAvatar, url);
     await registerAvatar(id, url);
-    await SupabaseManager.instance
-        .upsertProfile(authorId: id, avatarUrl: url);
+    await SupabaseManager.instance.upsertProfile(authorId: id, avatarUrl: url);
     return url;
   }
 
   /// 用 dart:ui 把图片字节缩放为最长边 [maxEdge] 的 PNG 字节。
   /// dart:ui 仅支持 PNG 编码，故以 128px 控制体积（14/64px 显示足够）。
-  static Future<Uint8List?> _resizeBytes(Uint8List bytes,
-      {int maxEdge = 128}) async {
+  static Future<Uint8List?> _resizeBytes(
+    Uint8List bytes, {
+    int maxEdge = 128,
+  }) async {
     final ui.Image? decoded;
     try {
       decoded = await decodeImage(bytes);
     } catch (e) {
-      debugPrint('[avatar] decode failed: $e');
+      appLog('[avatar] decode failed: $e');
       return null;
     }
     if (decoded == null) return null;
@@ -314,14 +320,13 @@ class AuthorService {
           .timeout(const Duration(seconds: 15));
       final res = await req.close().timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) return null;
-      final bytes = await res.fold<List<int>>(
-          <int>[], (b, c) => b..addAll(c));
+      final bytes = await res.fold<List<int>>(<int>[], (b, c) => b..addAll(c));
       // 服务器存原图，本地只缓存压缩小图：下载后压缩为 128px PNG 再写盘。
       final small = await _resizeBytes(Uint8List.fromList(bytes));
       await file.writeAsBytes(small ?? bytes, flush: true);
       return file.path;
     } catch (e) {
-      debugPrint('[avatar] cache download failed: $e');
+      appLog('[avatar] cache download failed: $e');
       return null;
     }
   }

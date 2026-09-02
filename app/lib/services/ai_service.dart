@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import '../models/ai_config.dart';
 import '../models/ai_record_result.dart';
 import '../models/asset_account.dart';
 import '../models/category.dart';
@@ -10,6 +11,7 @@ import '../services/settings.dart';
 import '../services/transfer_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../utils/log.dart';
 
 const aiRecordKey = 'ai_bookkeeping_enabled';
 const _aiConfigsKey = 'ai_configs';
@@ -90,51 +92,17 @@ final defaultAiPrompt = '''你是一个记账助手。解析用户的消费/收�
 - 无法匹配账户时留空，由用户手动选择
 ''';
 
-/// AI 配置模型
-class AiConfig {
-  String name;
-  String url;
-  String key;
-  String textModel;
-  String visionModel;
-  String voiceModel;
-
-  AiConfig({
-    required this.name,
-    required this.url,
-    required this.key,
-    this.textModel = '',
-    this.visionModel = '',
-    this.voiceModel = '',
-  });
-
-  Map<String, dynamic> toMap() => {
-    'name': name,
-    'url': url,
-    'key': key,
-    'textModel': textModel,
-    'visionModel': visionModel,
-    'voiceModel': voiceModel,
-  };
-
-  factory AiConfig.fromMap(Map<String, dynamic> m) => AiConfig(
-    name: m['name'] as String? ?? '',
-    url: m['url'] as String? ?? '',
-    key: m['key'] as String? ?? '',
-    textModel: m['textModel'] as String? ?? '',
-    visionModel: m['visionModel'] as String? ?? '',
-    voiceModel: m['voiceModel'] as String? ?? '',
-  );
-}
-
 /// 加载 AI 配置列表
 Future<List<AiConfig>> loadAiConfigs() async {
   final json = await Settings.getString(_aiConfigsKey);
   if (json == null || json.isEmpty) return [];
   try {
     final list = jsonDecode(json) as List;
-    return list.map((e) => AiConfig.fromMap(e as Map<String, dynamic>)).toList();
-  } catch (_) {
+    return list
+        .map((e) => AiConfig.fromMap(e as Map<String, dynamic>))
+        .toList();
+  } catch (e) {
+    appLog('[ai] loadAiConfigs parse failed: $e');
     return [];
   }
 }
@@ -169,9 +137,11 @@ String buildAiPrompt({
   required List<AssetAccount> accounts,
 }) {
   final now = DateTime.now();
-  final currentTime = '${now.year}-${pad2(now.month)}-${pad2(now.day)} ${pad2(now.hour)}:${pad2(now.minute)}:${pad2(now.second)}';
+  final currentTime =
+      '${now.year}-${pad2(now.month)}-${pad2(now.day)} ${pad2(now.hour)}:${pad2(now.minute)}:${pad2(now.second)}';
 
-  final categories = '''
+  final categories =
+      '''
 ## 可用分类
 支出：${expenseCategories.map((c) => c.name).join('、')}
 收入：${incomeCategories.map((c) => c.name).join('、')}
@@ -206,7 +176,9 @@ List<Map<String, dynamic>> parseAiJsonList(String text) {
             .toList();
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    appLog('[ai] parseAiJsonList failed: $e');
+  }
 
   // 降级：尝试解析单个对象
   final single = parseAiJson(text);
@@ -228,7 +200,9 @@ Map<String, dynamic> parseAiJson(String text) {
         return Map<String, dynamic>.from(decoded);
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    appLog('[ai] parseAiJson failed: $e');
+  }
 
   // 降级：手动解析（处理 AI 返回非标准 JSON 的情况）
   try {
@@ -274,9 +248,7 @@ Future<void> testAiConnection({
   final response = await _dio.get(
     '$baseUrl/models',
     options: Options(
-      headers: {
-        'Authorization': 'Bearer $key',
-      },
+      headers: {'Authorization': 'Bearer $key'},
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
@@ -295,7 +267,9 @@ Future<List<AiRecordResult>> analyzeTextList({
   List<AssetAccount> accounts = const [],
   required String model,
 }) async {
-  final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
+  final template = (customPrompt?.isNotEmpty == true)
+      ? customPrompt!
+      : defaultAiPrompt;
   final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
   final content = await _chatCompletion(
@@ -355,7 +329,9 @@ Future<List<AiRecordResult>> analyzeImage({
   String? customPrompt,
   List<AssetAccount> accounts = const [],
 }) async {
-  final template = (customPrompt?.isNotEmpty == true) ? customPrompt! : defaultAiPrompt;
+  final template = (customPrompt?.isNotEmpty == true)
+      ? customPrompt!
+      : defaultAiPrompt;
   final systemPrompt = buildAiPrompt(template: template, accounts: accounts);
 
   final bytes = await imageFile.readAsBytes();
@@ -374,7 +350,7 @@ Future<List<AiRecordResult>> analyzeImage({
           {'type': 'text', 'text': '请识别这张图片中的消费/收入信息，返回记账JSON'},
           {
             'type': 'image_url',
-            'image_url': {'url': 'data:$mimeType;base64,$base64Image'}
+            'image_url': {'url': 'data:$mimeType;base64,$base64Image'},
           },
         ],
       },
@@ -409,11 +385,7 @@ Future<String> _chatCompletion({
           connectTimeout: const Duration(seconds: 30),
           receiveTimeout: receiveTimeout,
         ),
-        data: {
-          'model': model,
-          'messages': messages,
-          'temperature': 0,
-        },
+        data: {'model': model, 'messages': messages, 'temperature': 0},
       );
       break;
     } on DioException catch (e) {
@@ -436,8 +408,13 @@ Future<String> _chatCompletion({
 
 /// 解析模型输出文本为记账结果
 List<AiRecordResult> _parseResults(
-    String content, List<AssetAccount> accounts) {
-  final jsonStr = content.replaceAll('```json', '').replaceAll('```', '').trim();
+  String content,
+  List<AssetAccount> accounts,
+) {
+  final jsonStr = content
+      .replaceAll('```json', '')
+      .replaceAll('```', '')
+      .trim();
   final parsedList = parseAiJsonList(jsonStr);
 
   if (parsedList.isEmpty) {
@@ -449,7 +426,9 @@ List<AiRecordResult> _parseResults(
 
 /// 将 AI 返回的账户名/账户id解析为真实账户id
 List<AiRecordResult> _resolveAccounts(
-    List<AiRecordResult> results, List<AssetAccount> accounts) {
+  List<AiRecordResult> results,
+  List<AssetAccount> accounts,
+) {
   if (accounts.isEmpty) return results;
   final byId = {for (final a in accounts) a.id: a};
   final byName = {
@@ -475,16 +454,18 @@ List<AiRecordResult> _resolveAccounts(
   }
 
   return results
-      .map((r) => AiRecordResult(
-            type: r.type,
-            amountCents: r.amountCents,
-            categoryName: r.categoryName,
-            accountId: resolve(r.accountId),
-            fromAccountId: resolve(r.fromAccountId),
-            toAccountId: resolve(r.toAccountId),
-            remark: r.remark,
-            date: r.date,
-          ))
+      .map(
+        (r) => AiRecordResult(
+          type: r.type,
+          amountCents: r.amountCents,
+          categoryName: r.categoryName,
+          accountId: resolve(r.accountId),
+          fromAccountId: resolve(r.fromAccountId),
+          toAccountId: resolve(r.toAccountId),
+          remark: r.remark,
+          date: r.date,
+        ),
+      )
       .toList();
 }
 

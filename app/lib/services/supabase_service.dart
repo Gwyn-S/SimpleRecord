@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'cloud_config.dart';
+import '../utils/log.dart';
 
 /// Supabase 基础设施：初始化、匿名登录、rooms/oplogs 存取、Realtime 订阅。
 ///
@@ -31,10 +31,12 @@ class SupabaseManager {
     if (!config.isConfigured) return;
     try {
       await Supabase.initialize(
-          url: config.supabaseUrl, publishableKey: config.supabaseAnonKey);
+        url: config.supabaseUrl,
+        publishableKey: config.supabaseAnonKey,
+      );
       _ready = true;
     } catch (e) {
-      debugPrint('[sync] init failed: $e');
+      appLog('[sync] init failed: $e');
       _ready = false;
     }
   }
@@ -79,7 +81,7 @@ class SupabaseManager {
       }
       return false;
     } catch (e) {
-      debugPrint('[sync] signInAnonymously failed: $e');
+      appLog('[sync] signInAnonymously failed: $e');
       return false;
     }
   }
@@ -112,7 +114,7 @@ class SupabaseManager {
       });
       return inviteCode;
     } catch (e) {
-      debugPrint('[sync] createRoom failed: $e');
+      appLog('[sync] createRoom failed: $e');
       final existing = await fetchRoom(roomId);
       return existing?['invite_code']?.toString();
     }
@@ -123,12 +125,9 @@ class SupabaseManager {
     final client = this.client;
     if (client == null) return null;
     try {
-      return await client
-          .from('rooms')
-          .select()
-          .eq('id', roomId)
-          .maybeSingle();
-    } catch (_) {
+      return await client.from('rooms').select().eq('id', roomId).maybeSingle();
+    } catch (e) {
+      appLog('[sync] fetchRoom failed: $e');
       return null;
     }
   }
@@ -143,7 +142,8 @@ class SupabaseManager {
           .select()
           .eq('invite_code', inviteCode.trim())
           .maybeSingle();
-    } catch (_) {
+    } catch (e) {
+      appLog('[sync] fetchRoomByInvite failed: $e');
       return null;
     }
   }
@@ -153,21 +153,23 @@ class SupabaseManager {
     final client = this.client;
     final myUid = uid;
     if (client == null || myUid == null) {
-      debugPrint('[sync] joinRoom: client/uid unavailable');
+      appLog('[sync] joinRoom: client/uid unavailable');
       return false;
     }
     try {
       final room = await fetchRoom(roomId);
       if (room == null) {
-        debugPrint('[sync] joinRoom: room not found $roomId');
+        appLog('[sync] joinRoom: room not found $roomId');
         return false;
       }
       final rawMembers = room['members'];
       final existing = <String>[];
       if (rawMembers is List) {
-        existing.addAll(rawMembers.map((e) => e.toString()).where((e) => e.isNotEmpty));
+        existing.addAll(
+          rawMembers.map((e) => e.toString()).where((e) => e.isNotEmpty),
+        );
       } else {
-        debugPrint('[sync] joinRoom: members type ${rawMembers.runtimeType}');
+        appLog('[sync] joinRoom: members type ${rawMembers.runtimeType}');
       }
       if (existing.contains(myUid)) return true;
       await client
@@ -179,7 +181,7 @@ class SupabaseManager {
           .eq('id', roomId);
       return true;
     } catch (e) {
-      debugPrint('[sync] joinRoom failed: $e');
+      appLog('[sync] joinRoom failed: $e');
       return false;
     }
   }
@@ -191,10 +193,14 @@ class SupabaseManager {
     try {
       await client
           .from('rooms')
-          .update({'name': name, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+          .update({
+            'name': name,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
           .eq('id', roomId);
       return true;
-    } catch (_) {
+    } catch (e) {
+      appLog('[sync] renameRoom failed: $e');
       return false;
     }
   }
@@ -217,18 +223,21 @@ class SupabaseManager {
       final row = await client
           .from('oplogs')
           .insert({
-        'room_id': roomId,
-        'entity_type': entityType,
-        'entity_id': entityId,
-        'op': op,
-        'payload': payload,
-        'uid': myUid,
-        'device_id': deviceId,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      }).select('id').single();
+            'room_id': roomId,
+            'entity_type': entityType,
+            'entity_id': entityId,
+            'op': op,
+            'payload': payload,
+            'uid': myUid,
+            'device_id': deviceId,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .select('id')
+          .single();
       final id = row['id'];
       return id is int ? id : int.tryParse(id.toString());
-    } catch (_) {
+    } catch (e) {
+      appLog('[sync] appendOplog failed: $e');
       return null;
     }
   }
@@ -249,7 +258,8 @@ class SupabaseManager {
           .gt('id', afterId)
           .order('id', ascending: true)
           .limit(limit);
-    } catch (_) {
+    } catch (e) {
+      appLog('[sync] fetchOplogs failed: $e');
       return const [];
     }
   }
@@ -331,21 +341,22 @@ class SupabaseManager {
   /// 上传头像到公开桶，返回公开 URL；失败返回 null。
   /// 文件名建议带版本（如 authorId_时间戳），使每次头像 URL 不同，
   /// 以避开同名覆盖后客户端仍命中旧 URL 缓存的刷新问题。
-  Future<String?> uploadAvatar(String authorId, String localPath,
-      {String? fileName}) async {
+  Future<String?> uploadAvatar(
+    String authorId,
+    String localPath, {
+    String? fileName,
+  }) async {
     final client = this.client;
     if (client == null) return null;
     try {
       final path = fileName ?? '$authorId.jpg';
       final file = File(localPath);
-      await client.storage.from(_avatarsBucket).upload(
-            path,
-            file,
-            fileOptions: const FileOptions(upsert: true),
-          );
+      await client.storage
+          .from(_avatarsBucket)
+          .upload(path, file, fileOptions: const FileOptions(upsert: true));
       return client.storage.from(_avatarsBucket).getPublicUrl(path);
     } catch (e) {
-      debugPrint('[sync] uploadAvatar failed: $e');
+      appLog('[sync] uploadAvatar failed: $e');
       return null;
     }
   }
@@ -365,7 +376,7 @@ class SupabaseManager {
         'avatar_url': ?avatarUrl,
       });
     } catch (e) {
-      debugPrint('[sync] upsertProfile failed: $e');
+      appLog('[sync] upsertProfile failed: $e');
     }
   }
 
@@ -381,7 +392,7 @@ class SupabaseManager {
           .maybeSingle();
       return res?['nickname'] as String?;
     } catch (e) {
-      debugPrint('[sync] getProfileNickname failed: $e');
+      appLog('[sync] getProfileNickname failed: $e');
       return null;
     }
   }
@@ -399,7 +410,7 @@ class SupabaseManager {
       final url = res?['avatar_url'] as String?;
       return (url == null || url.isEmpty) ? null : url;
     } catch (e) {
-      debugPrint('[sync] getProfileAvatar failed: $e');
+      appLog('[sync] getProfileAvatar failed: $e');
       return null;
     }
   }

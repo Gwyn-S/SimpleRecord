@@ -9,18 +9,22 @@ import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
 import 'services/author_service.dart';
 import 'services/sync_service.dart';
+import 'utils/log.dart';
 import 'pages/main_page.dart';
 
-final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: colorBackgroundPage,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: colorBackgroundPage,
+    ),
+  );
   await DatabaseHelper.instance.database;
   await loadThemeColor();
   await backfillAccountIcons();
@@ -29,7 +33,11 @@ void main() async {
   // 预热头像缓存目录，使列表头像可同步命中本地缓存（首帧即显示）。
   await AuthorService.instance.initAvatarCache();
   // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置时静默跳过）。
-  SyncService.instance.start();
+  // 失败仅打日志兜底，避免多次 async 步骤失败成为无人接住的全局异常。
+  SyncService.instance.start().catchError((Object e) {
+    appLog('[sync] start failed: $e');
+    return false;
+  });
   runApp(const MyApp());
 }
 

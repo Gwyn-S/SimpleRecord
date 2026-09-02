@@ -5,11 +5,13 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/ledger.dart';
+import '../models/ledger_stats.dart';
 import '../services/record_service.dart';
 import '../services/ledger_service.dart';
 import '../services/author_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../utils/log.dart';
 import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
 import '../services/cloud_config.dart';
@@ -68,27 +70,31 @@ class _LedgerListPageState extends State<LedgerListPage> {
   }
 
   Future<void> _loadStats() async {
-    final results = await Future.wait([
-      loadLedgerStats(),
-      loadLedgerPerAuthorBalance(),
-    ]);
-    final perAuthor = results[1] as Map<String, Map<String, int>>;
-    // 把分组的 author_id 键反查为最新昵称后展示。
-    final remapped = <String, Map<String, int>>{};
-    for (final entry in perAuthor.entries) {
-      final bookMap = <String, int>{};
-      for (final ae in entry.value.entries) {
-        final name =
-            await AuthorService.instance.displayNameFor(ae.key) ?? ae.key;
-        bookMap[name] = ae.value;
+    try {
+      final results = await Future.wait([
+        loadLedgerStats(),
+        loadLedgerPerAuthorBalance(),
+      ]);
+      final perAuthor = results[1] as Map<String, Map<String, int>>;
+      // 把分组的 author_id 键反查为最新昵称后展示。
+      final remapped = <String, Map<String, int>>{};
+      for (final entry in perAuthor.entries) {
+        final bookMap = <String, int>{};
+        for (final ae in entry.value.entries) {
+          final name =
+              await AuthorService.instance.displayNameFor(ae.key) ?? ae.key;
+          bookMap[name] = ae.value;
+        }
+        remapped[entry.key] = bookMap;
       }
-      remapped[entry.key] = bookMap;
+      if (!mounted) return;
+      setState(() {
+        _stats = results[0] as Map<String, LedgerStats>;
+        _perAuthor = remapped;
+      });
+    } catch (e) {
+      appLog('[ledger] loadStats failed: $e');
     }
-    if (!mounted) return;
-    setState(() {
-      _stats = results[0] as Map<String, LedgerStats>;
-      _perAuthor = remapped;
-    });
   }
 
   /// 多人账本结余行：总结余 + 按作者分组，如「总结余：-17.00 A：-8.00 B：-9.00」。
@@ -100,14 +106,24 @@ class _LedgerListPageState extends State<LedgerListPage> {
     return buf.toString();
   }
 
-void _showAddDialog() {
+  void _showAddDialog() {
     final nameController = TextEditingController();
     final codeController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,7 +139,9 @@ void _showAddDialog() {
                 ),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
-                    color: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
                   ),
                 ),
               ),
@@ -139,7 +157,9 @@ void _showAddDialog() {
                 ),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
-                    color: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
                   ),
                 ),
               ),
@@ -156,8 +176,8 @@ void _showAddDialog() {
               final code = codeController.text.trim().toUpperCase();
               final name = nameController.text.trim();
               if (code.isNotEmpty) {
-                final (result, ledger) =
-                    await SyncService.instance.joinByInvite(code);
+                final (result, ledger) = await SyncService.instance
+                    .joinByInvite(code);
                 if (!context.mounted) return;
                 Navigator.pop(context);
                 switch (result) {
@@ -197,8 +217,18 @@ void _showAddDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -213,7 +243,9 @@ void _showAddDialog() {
                 ),
                 focusedBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
-                    color: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
                   ),
                 ),
               ),
@@ -243,7 +275,9 @@ void _showAddDialog() {
                         Navigator.pop(context);
                         _disableShared(index);
                       },
-                      activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                      activeTrackColor: Theme.of(
+                        context,
+                      ).extension<AppThemeColors>()!.primary,
                       inactiveTrackColor: Colors.grey.shade300,
                       thumbColor: WidgetStateProperty.all(Colors.white),
                     ),
@@ -267,7 +301,9 @@ void _showAddDialog() {
                       trailing: Text(
                         snap.data ?? '',
                         style: textCardMeta.copyWith(
-                          color: Theme.of(context).extension<AppThemeColors>()!.primary,
+                          color: Theme.of(
+                            context,
+                          ).extension<AppThemeColors>()!.primary,
                         ),
                       ),
                       dense: true,
@@ -306,7 +342,9 @@ void _showAddDialog() {
                     Navigator.pop(context);
                     _enableShared(index);
                   },
-                  activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                  activeTrackColor: Theme.of(
+                    context,
+                  ).extension<AppThemeColors>()!.primary,
                   inactiveTrackColor: Colors.grey.shade300,
                   thumbColor: WidgetStateProperty.all(Colors.white),
                 ),
@@ -436,7 +474,10 @@ void _showAddDialog() {
         title: '账本',
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
+          child: Container(
+            color: colorTextOnPrimary.withValues(alpha: 0.3),
+            height: 1,
+          ),
         ),
         actions: [
           IconButton(
@@ -450,10 +491,8 @@ void _showAddDialog() {
           : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: _ledgers.length,
-              separatorBuilder: (_, _) => Container(
-                height: 1,
-                color: colorDivider,
-              ),
+              separatorBuilder: (_, _) =>
+                  Container(height: 1, color: colorDivider),
               itemBuilder: (context, index) {
                 final ledger = _ledgers[index];
                 final isCurrent = currentLedgerId.value == ledger.id;
@@ -467,85 +506,119 @@ void _showAddDialog() {
                     Navigator.pop(context);
                   },
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
+                    padding: const EdgeInsets.fromLTRB(
+                      spacingL,
+                      10,
+                      spacingL,
+                      10,
+                    ),
                     child: SizedBox(
                       height: 100,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                        Column(
-                          children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: themeColor,
-                                    borderRadius: BorderRadius.circular(radiusSmall),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      ledger.name,
-                                      style: textCardTitle,
-                                      overflow: TextOverflow.ellipsis,
+                          Column(
+                            children: [
+                              Stack(
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 100,
+                                    decoration: BoxDecoration(
+                                      color: themeColor,
+                                      borderRadius: BorderRadius.circular(
+                                        radiusSmall,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        ledger.name,
+                                        style: textCardTitle,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                if (ledger.syncMode == 1)
-                                  const Positioned(
-                                    top: 4,
-                                    left: 4,
-                                    child: Icon(Icons.people, color: colorTextOnPrimary, size: iconSizeSmall),
-                                  ),
-                                if (isCurrent)
-                                  const Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeSmall),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: spacingL),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('记录数：$count', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text('总收入：${formatAmount(income)}', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text('总支出：${formatAmount(expense)}', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text(ledger.syncMode == 1
-                          ? _sharedBalanceLine(ledger.id, income - expense)
-                          : '总结余：${formatAmount(income - expense)}',
-                      style: textCardMeta),
+                                  if (ledger.syncMode == 1)
+                                    const Positioned(
+                                      top: 4,
+                                      left: 4,
+                                      child: Icon(
+                                        Icons.people,
+                                        color: colorTextOnPrimary,
+                                        size: iconSizeSmall,
+                                      ),
+                                    ),
+                                  if (isCurrent)
+                                    const Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Icon(
+                                        Icons.check,
+                                        color: colorTextOnPrimary,
+                                        size: iconSizeSmall,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
-                        ),
-                        SizedBox(
-                          height: 100,
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          const SizedBox(width: spacingL),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                GestureDetector(
-                                  onTap: () => _showEditDialog(index),
-                                  child: Icon(Icons.edit, size: 30, color: themeColor),
+                                Text('记录数：$count', style: textCardMeta),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  '总收入：${formatAmount(income)}',
+                                  style: textCardMeta,
                                 ),
-                                const SizedBox(width: spacingL),
-                                GestureDetector(
-                                  onTap: () => _showDeleteDialog(index),
-                                  child: Icon(Icons.delete_outline, size: 30, color: themeColor),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  '总支出：${formatAmount(expense)}',
+                                  style: textCardMeta,
+                                ),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  ledger.syncMode == 1
+                                      ? _sharedBalanceLine(
+                                          ledger.id,
+                                          income - expense,
+                                        )
+                                      : '总结余：${formatAmount(income - expense)}',
+                                  style: textCardMeta,
                                 ),
                               ],
                             ),
                           ),
-                        ),
+                          SizedBox(
+                            height: 100,
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _showEditDialog(index),
+                                    child: Icon(
+                                      Icons.edit,
+                                      size: 30,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: spacingL),
+                                  GestureDetector(
+                                    onTap: () => _showDeleteDialog(index),
+                                    child: Icon(
+                                      Icons.delete_outline,
+                                      size: 30,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

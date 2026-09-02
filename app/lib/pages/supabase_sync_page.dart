@@ -9,11 +9,13 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/author_service.dart';
+import '../models/cloud_config.dart';
 import '../services/cloud_config.dart';
 import '../services/record_service.dart';
 import '../services/settings.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
+import '../utils/log.dart';
 import '../utils/persist.dart';
 import '../utils/toast.dart';
 import '../widgets/author_avatar.dart';
@@ -64,7 +66,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     _avatarUrl = avatar ?? '';
     setState(() => _loading = false);
     // 未保存过连接配置时进入页面即弹出填写弹窗；已有配置则不再打扰。
-    final hasConfig = config.supabaseUrl.trim().isNotEmpty &&
+    final hasConfig =
+        config.supabaseUrl.trim().isNotEmpty &&
         config.supabaseAnonKey.trim().isNotEmpty;
     if (!hasConfig) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -133,12 +136,11 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     try {
       ok = await SyncService.instance.reconfigure();
     } catch (e) {
-      debugPrint('[sync] reconfigure failed: $e');
+      appLog('[sync] reconfigure failed: $e');
       ok = false;
     }
     if (!mounted) return;
-    showToast(context,
-        ok ? '云端连接成功' : '云端连接未就绪，请检查项目地址和密钥');
+    showToast(context, ok ? '云端连接成功' : '云端连接未就绪，请检查项目地址和密钥');
     // 连接成功后：尚无用户ID则让用户选择身份（生成新ID / 使用旧ID）。
     if (ok && _authorId.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -245,8 +247,17 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         contentPadding: const EdgeInsets.fromLTRB(
-            spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -284,8 +295,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
   void _onNicknameChanged(String value) {
     final t = value.trim();
-    _lastNickname = persistIfChanged(
-        t, _lastNickname, (v) {
+    _lastNickname = persistIfChanged(t, _lastNickname, (v) {
       if (v.isEmpty) {
         Settings.remove('nickname');
       } else {
@@ -300,8 +310,10 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     await AuthorService.instance.syncNicknameToCloud();
     final authorId = await AuthorService.instance.ensureAuthorId();
     if (nickname.isEmpty) return;
-    await SyncService.instance
-        .enqueueProfileChange(authorId: authorId, nickname: nickname);
+    await SyncService.instance.enqueueProfileChange(
+      authorId: authorId,
+      nickname: nickname,
+    );
   }
 
   /// 选头像（相册/拍照）→ 上传 → 更新本机 + 云端 + 广播。
@@ -310,7 +322,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     try {
       picked = await ImagePicker().pickImage(source: source);
     } catch (e) {
-      debugPrint('[avatar] pickImage failed: $e');
+      appLog('[avatar] pickImage failed: $e');
       if (mounted) showToast(context, '选择图片失败');
       return;
     }
@@ -321,12 +333,16 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       final ext = picked.path.contains('.')
           ? picked.path.substring(picked.path.lastIndexOf('.'))
           : '';
-      final tmp =
-          File('${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext');
-      await tmp.writeAsBytes(await File(picked.path).readAsBytes(), flush: true);
+      final tmp = File(
+        '${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext',
+      );
+      await tmp.writeAsBytes(
+        await File(picked.path).readAsBytes(),
+        flush: true,
+      );
       tmpPath = tmp.path;
     } catch (e) {
-      debugPrint('[avatar] copy failed: $e');
+      appLog('[avatar] copy failed: $e');
       if (mounted) showToast(context, '读取图片失败');
       return;
     }
@@ -343,8 +359,10 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     }
     setState(() => _avatarUrl = url);
     final authorId = await AuthorService.instance.ensureAuthorId();
-    await SyncService.instance
-        .enqueueProfileChange(authorId: authorId, avatarUrl: url);
+    await SyncService.instance.enqueueProfileChange(
+      authorId: authorId,
+      avatarUrl: url,
+    );
     // 触发各页面重新加载并反查最新头像，保证条目头像即时刷新。
     recordsVersion.value++;
     if (!mounted) return;
@@ -419,10 +437,9 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                   Center(
                     child: GestureDetector(
                       onTap: _showAvatarPicker,
-                      child:
-                          _avatarUrl.isNotEmpty
-                              ? AuthorAvatar(url: _avatarUrl, size: 64)
-                              : AuthorAvatar(url: null, size: 64),
+                      child: _avatarUrl.isNotEmpty
+                          ? AuthorAvatar(url: _avatarUrl, size: 64)
+                          : AuthorAvatar(url: null, size: 64),
                     ),
                   ),
                   const SizedBox(height: spacingM),
@@ -438,24 +455,32 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                         height: heightOptionBar,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: spacingL),
+                            horizontal: spacingL,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text('昵称',
-                                    style: textListItem.copyWith(
-                                        color: Colors.black)),
+                                child: Text(
+                                  '昵称',
+                                  style: textListItem.copyWith(
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
-if (_nicknameController.text.isNotEmpty)
-                              Text(
-                                _nicknameController.text,
-                                style: const TextStyle(
-                                    fontSize: 16, color: Colors.black),
-                              ),
+                              if (_nicknameController.text.isNotEmpty)
+                                Text(
+                                  _nicknameController.text,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               const SizedBox(width: 8),
-                              Icon(Icons.chevron_right,
-                                  size: iconSizeDefault,
-                                  color: colorTextSecondary),
+                              Icon(
+                                Icons.chevron_right,
+                                size: iconSizeDefault,
+                                color: colorTextSecondary,
+                              ),
                             ],
                           ),
                         ),
