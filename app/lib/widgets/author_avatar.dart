@@ -11,11 +11,14 @@ const String defaultAvatarAsset = 'assets/icons/default_avatar.svg';
 /// 作者头像：优先本地磁盘缓存（避免重复网络下载），无缓存时下载；
 /// 无头像 / 下载中 / 下载失败统一显示 [defaultAvatarAsset]。
 class AuthorAvatar extends StatefulWidget {
-  const AuthorAvatar({super.key, this.url, this.size = 14});
+  const AuthorAvatar({super.key, this.url, this.size = 14, this.cornerRadius});
 
   /// 头像 URL；为空表示未设置头像，直接显示默认头像。
   final String? url;
   final double size;
+
+  /// 圆角半径；为 null 时全圆（ClipOval），设值时用小圆角矩形（ClipRRect）。
+  final double? cornerRadius;
 
   @override
   State<AuthorAvatar> createState() => _AuthorAvatarState();
@@ -74,13 +77,19 @@ class _AuthorAvatarState extends State<AuthorAvatar> {
     });
   }
 
+  Widget _clip(Widget child) {
+    final r = widget.cornerRadius;
+    if (r != null) return ClipRRect(borderRadius: BorderRadius.circular(r), child: child);
+    return ClipOval(child: child);
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = widget.size;
     final url = widget.url;
     if (url == null || url.isEmpty) return _fallback(size);
-    return ClipOval(
-      child: _localPath != null
+    return _clip(
+      _localPath != null
           ? Image.file(
               File(_localPath!),
               width: size,
@@ -101,8 +110,8 @@ class _AuthorAvatarState extends State<AuthorAvatar> {
   }
 
   Widget _fallback(double size) {
-    return ClipOval(
-      child: SvgPicture.asset(
+    return _clip(
+      SvgPicture.asset(
         defaultAvatarAsset,
         width: size,
         height: size,
