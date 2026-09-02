@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/ledger.dart';
 import '../models/record.dart';
@@ -236,6 +237,13 @@ class SyncService {
     recordsVersion.value++;
   }
 
+  /// 收到 oplog INSERT 回调：按房间拉取增量（三处订阅统一入口）。
+  /// Realtime 虽已按 room_id 服务端过滤，这里保留 room_id 再判作兜底。
+  Future<void> _onOplogInsert(PostgresChangePayload payload) async {
+    final roomId = payload.newRecord['room_id']?.toString();
+    if (roomId != null) await pullForRoom(roomId);
+  }
+
   /// 把一条远端 oplog 应用到本地（整行替换，幂等）。
   Future<void> _applyRemoteOp(Database db, Map<String, dynamic> op) async {
     final entityType = op['entity_type'] as String? ?? '';
@@ -346,13 +354,7 @@ class SyncService {
     if (!ok) return false;
     _inviteCodeCache[ledger.id] = invite;
     await _setSharedFlag(ledger.id, 1);
-    await supabase.subscribeOplogs(
-      roomId: ledger.id,
-      callback: (payload) {
-        final roomId = payload.newRecord['room_id']?.toString();
-        if (roomId != null) pullForRoom(roomId);
-      },
-    );
+    await supabase.subscribeOplogs(roomId: ledger.id, callback: _onOplogInsert);
     final records = await _loadRecords(ledger.id);
     for (final r in records) {
       final bookId = r.ledgerId;
@@ -416,13 +418,7 @@ class SyncService {
       );
       await db.insert('books', ledger.toDbMap());
     }
-    await supabase.subscribeOplogs(
-      roomId: roomId,
-      callback: (payload) {
-        final id = payload.newRecord['room_id']?.toString();
-        if (id != null) pullForRoom(id);
-      },
-    );
+    await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
     final inviteCode = room['invite_code']?.toString();
     if (inviteCode != null && inviteCode.isNotEmpty) {
       _inviteCodeCache[roomId] = inviteCode;
@@ -527,13 +523,7 @@ class SyncService {
     final supabase = SupabaseManager.instance;
     for (final row in rows) {
       final roomId = row['id'] as String;
-      await supabase.subscribeOplogs(
-        roomId: roomId,
-        callback: (payload) {
-          final id = payload.newRecord['room_id']?.toString();
-          if (id != null) pullForRoom(id);
-        },
-      );
+      await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
     }
   }
 
