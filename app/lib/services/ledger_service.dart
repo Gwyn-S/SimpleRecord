@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/ledger.dart';
+import '../models/ledger_stats.dart';
 import '../models/record.dart';
 import '../utils/id.dart';
 import 'database.dart';
@@ -10,13 +11,6 @@ import 'image_storage_service.dart';
 import 'record_service.dart';
 import 'supabase_service.dart';
 import 'sync_service.dart';
-
-class LedgerStats {
-  const LedgerStats({required this.count, required this.income, required this.expense});
-  final int count;
-  final int income;
-  final int expense;
-}
 
 /// 各账本记录数与收支合计，SQL 一次聚合，
 /// 避免全表加载后在 Dart 内存里重复过滤统计。
@@ -76,15 +70,18 @@ Future<void> insertLedger(Ledger ledger) async {
   await db.insert('books', {
     ...ledger.toDbMap(),
     'created_at': ledger.createdAt != 0 ? ledger.createdAt : now,
-  },
-      conflictAlgorithm: ConflictAlgorithm.replace);
+  }, conflictAlgorithm: ConflictAlgorithm.replace);
   SyncService.instance.enqueueLedger(ledger, op: 'insert');
 }
 
 Future<void> updateLedger(Ledger ledger) async {
   final db = await DatabaseHelper.instance.database;
-  await db.update('books', ledger.toDbMap(),
-      where: 'id = ?', whereArgs: [ledger.id]);
+  await db.update(
+    'books',
+    ledger.toDbMap(),
+    where: 'id = ?',
+    whereArgs: [ledger.id],
+  );
   SyncService.instance.enqueueLedger(ledger, op: 'update');
   if (ledger.syncMode == 1) {
     // 共享账本改名：云端房间名同步更新（oplog 改名由 enqueueLedger 走 flush）。
@@ -95,14 +92,22 @@ Future<void> updateLedger(Ledger ledger) async {
 Future<void> deleteLedger(String id) async {
   final db = await DatabaseHelper.instance.database;
   bool wasShared = false;
-  final bookRow = await db.query('books',
-      columns: ['sync_mode'], where: 'id = ?', whereArgs: [id]);
+  final bookRow = await db.query(
+    'books',
+    columns: ['sync_mode'],
+    where: 'id = ?',
+    whereArgs: [id],
+  );
   if (bookRow.isNotEmpty) {
     wasShared = (bookRow.first['sync_mode'] as int) == 1;
   }
   // 先查询该账本下所有记录的图片路径
-  final rows = await db.query('records',
-      columns: ['image_path'], where: 'book_id = ?', whereArgs: [id]);
+  final rows = await db.query(
+    'records',
+    columns: ['image_path'],
+    where: 'book_id = ?',
+    whereArgs: [id],
+  );
   for (final row in rows) {
     final imagePath = row['image_path'] as String?;
     if (imagePath != null && imagePath.isNotEmpty) {
@@ -135,7 +140,8 @@ Future<String> ensureCurrentLedgerId() async {
     await saveCurrentLedgerId(ledger.id);
     return ledger.id;
   }
-  if (currentLedgerId.value == null || !ledgers.any((l) => l.id == currentLedgerId.value)) {
+  if (currentLedgerId.value == null ||
+      !ledgers.any((l) => l.id == currentLedgerId.value)) {
     await saveCurrentLedgerId(ledgers.first.id);
   }
   return currentLedgerId.value!;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/tag.dart';
 import '../services/tag_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';

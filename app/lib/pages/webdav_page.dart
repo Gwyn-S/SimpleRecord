@@ -9,6 +9,7 @@ import '../constants/app_text_styles.dart';
 import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
+import '../models/webdav_config.dart';
 import '../services/webdav_service.dart';
 import '../utils/toast.dart';
 import '../widgets/common_app_bar.dart';
@@ -102,12 +103,14 @@ class _WebDavPageState extends State<WebDavPage> {
       showToast(context, '配置为空');
       return;
     }
-    await saveWebDavConfig(WebDavConfig(
-      server: server,
-      username: username,
-      password: password,
-      directory: directory,
-    ));
+    await saveWebDavConfig(
+      WebDavConfig(
+        server: server,
+        username: username,
+        password: password,
+        directory: directory,
+      ),
+    );
     if (!mounted) return;
     showToast(context, '配置已保存');
   }
@@ -174,7 +177,10 @@ class _WebDavPageState extends State<WebDavPage> {
         title: const Text('恢复备份'),
         content: const Text('将从云端下载此备份并覆盖当前全部数据，且不可撤销。确定恢复吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('恢复', style: TextStyle(color: colorDelete)),
@@ -377,7 +383,12 @@ class _WebDavPageState extends State<WebDavPage> {
           ),
         ),
         const SizedBox(height: spacingXS),
-        Text('服务器：${_config!.server}', style: textItemSub, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(
+          '服务器：${_config!.server}',
+          style: textItemSub,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         if (_busy && _files.isEmpty && _error == null)
           const Padding(
             padding: EdgeInsets.all(spacingXL),
@@ -388,7 +399,11 @@ class _WebDavPageState extends State<WebDavPage> {
             padding: const EdgeInsets.all(spacingXL),
             child: Column(
               children: [
-                Text('连接失败：$_error', style: textItemSub, textAlign: TextAlign.center),
+                Text(
+                  '连接失败：$_error',
+                  style: textItemSub,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: spacingM),
                 OutlinedButton(
                   onPressed: () => _refresh(_config!),
@@ -409,10 +424,7 @@ class _WebDavPageState extends State<WebDavPage> {
                 final file = _files[index];
                 return ListTile(
                   title: Text(file.name, style: textBody),
-                  subtitle: Text(
-                    formatFileSize(file.size),
-                    style: textItemSub,
-                  ),
+                  subtitle: Text(formatFileSize(file.size), style: textItemSub),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -422,7 +434,11 @@ class _WebDavPageState extends State<WebDavPage> {
                         tooltip: '恢复',
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20, color: colorTextSecondary),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: colorTextSecondary,
+                        ),
                         onPressed: () => _deleteFile(file),
                         tooltip: '删除',
                       ),

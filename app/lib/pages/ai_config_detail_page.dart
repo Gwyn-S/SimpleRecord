@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/ai_config.dart';
 import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
@@ -31,9 +32,15 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
     _nameController = TextEditingController(text: widget.config?.name ?? '');
     _urlController = TextEditingController(text: widget.config?.url ?? '');
     _keyController = TextEditingController(text: widget.config?.key ?? '');
-    _textModelController = TextEditingController(text: widget.config?.textModel ?? '');
-    _visionModelController = TextEditingController(text: widget.config?.visionModel ?? '');
-    _voiceModelController = TextEditingController(text: widget.config?.voiceModel ?? '');
+    _textModelController = TextEditingController(
+      text: widget.config?.textModel ?? '',
+    );
+    _visionModelController = TextEditingController(
+      text: widget.config?.visionModel ?? '',
+    );
+    _voiceModelController = TextEditingController(
+      text: widget.config?.voiceModel ?? '',
+    );
   }
 
   @override
@@ -48,7 +55,8 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
   }
 
   Future<void> _save() async {
-    final allEmpty = _nameController.text.isEmpty &&
+    final allEmpty =
+        _nameController.text.isEmpty &&
         _urlController.text.isEmpty &&
         _keyController.text.isEmpty &&
         _textModelController.text.isEmpty &&
