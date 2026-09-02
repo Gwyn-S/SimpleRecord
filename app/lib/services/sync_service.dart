@@ -161,8 +161,12 @@ class SyncService {
   Future<void> flush() async {
     if (!_online) return;
     final db = await DatabaseHelper.instance.database;
-    final rows = await db.query('sync_outbox',
-        where: 'state = 0', orderBy: 'id', limit: 200);
+    final rows = await db.query(
+      'sync_outbox',
+      where: 'state = 0',
+      orderBy: 'id',
+      limit: 200,
+    );
     if (rows.isEmpty) return;
     final supabase = SupabaseManager.instance;
     final deviceId = _deviceId ?? await getOrCreateDeviceId();
@@ -181,8 +185,12 @@ class SyncService {
     if (done.isEmpty) return;
     final batch = db.batch();
     for (final id in done) {
-      batch.update('sync_outbox', {'state': 1},
-          where: 'id = ?', whereArgs: [id]);
+      batch.update(
+        'sync_outbox',
+        {'state': 1},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
     await batch.commit(noResult: true);
   }
@@ -207,8 +215,11 @@ class SyncService {
     final db = await DatabaseHelper.instance.database;
     var cursor = await _getCursor(roomId);
     while (true) {
-      final ops =
-          await supabase.fetchOplogs(roomId, afterId: cursor, limit: 200);
+      final ops = await supabase.fetchOplogs(
+        roomId,
+        afterId: cursor,
+        limit: 200,
+      );
       if (ops.isEmpty) break;
       var maxId = cursor;
       for (final op in ops) {
@@ -230,8 +241,9 @@ class SyncService {
     final entityType = op['entity_type'] as String? ?? '';
     final entityId = op['entity_id'] as String? ?? '';
     final entityOp = op['op'] as String? ?? '';
-    final payload =
-        op['payload'] is Map ? Map<String, dynamic>.from(op['payload'] as Map) : null;
+    final payload = op['payload'] is Map
+        ? Map<String, dynamic>.from(op['payload'] as Map)
+        : null;
     if (payload == null) return;
 
     if (entityType == 'record') {
@@ -241,26 +253,42 @@ class SyncService {
       switch (entityOp) {
         case 'insert':
         case 'update':
-          await db.insert('records', payload,
-              conflictAlgorithm: ConflictAlgorithm.replace);
+          await db.insert(
+            'records',
+            payload,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          break;
         case 'delete':
-          await db.delete('records',
-              where: 'id = ?', whereArgs: [entityId]);
+          await db.delete('records', where: 'id = ?', whereArgs: [entityId]);
+          break;
       }
     } else if (entityType == 'ledger') {
       switch (entityOp) {
         case 'insert':
           payload['sync_mode'] = 1;
-          await db.insert('books', payload,
-              conflictAlgorithm: ConflictAlgorithm.replace);
+          await db.insert(
+            'books',
+            payload,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          break;
         case 'update':
-          await db.update('books',
-              {'name': payload['name'], 'sync_mode': 1},
-              where: 'id = ?', whereArgs: [entityId]);
+          await db.update(
+            'books',
+            {'name': payload['name'], 'sync_mode': 1},
+            where: 'id = ?',
+            whereArgs: [entityId],
+          );
+          break;
         case 'delete':
-          await db.delete('records',
-              where: 'book_id = ?', whereArgs: [entityId]);
+          await db.delete(
+            'records',
+            where: 'book_id = ?',
+            whereArgs: [entityId],
+          );
           await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
+          break;
       }
     } else if (entityType == 'profile') {
       // 昵称/头像变更：更新本地 author_id -> 值 映射并触发界面刷新。
@@ -269,12 +297,10 @@ class SyncService {
       final authorId = payload['author_id'] as String?;
       if (authorId != null && authorId.isNotEmpty) {
         if (payload.containsKey('nickname')) {
-          await _setNicknameMapping(
-              authorId, payload['nickname'] as String?);
+          await _setNicknameMapping(authorId, payload['nickname'] as String?);
         }
         if (payload.containsKey('avatar_url')) {
-          await _setAvatarMapping(
-              authorId, payload['avatar_url'] as String?);
+          await _setAvatarMapping(authorId, payload['avatar_url'] as String?);
         }
       }
       version.value++;
@@ -367,11 +393,20 @@ class SyncService {
     }
 
     final db = await DatabaseHelper.instance.database;
-    final existing = await db.query('books', where: 'id = ?', whereArgs: [roomId]);
+    final existing = await db.query(
+      'books',
+      where: 'id = ?',
+      whereArgs: [roomId],
+    );
     late final Ledger ledger;
     if (existing.isNotEmpty) {
       ledger = Ledger.fromDbMap(existing.first)..syncMode = 1;
-      await db.update('books', {'sync_mode': 1}, where: 'id = ?', whereArgs: [roomId]);
+      await db.update(
+        'books',
+        {'sync_mode': 1},
+        where: 'id = ?',
+        whereArgs: [roomId],
+      );
     } else {
       ledger = Ledger(
         id: roomId,
@@ -421,49 +456,68 @@ class SyncService {
 
   // ==================== 本地辅助 ====================
 
+  /// 判断账本是否为共享账本（本地 sync_mode=1）。
   Future<bool> isSharedBook(String bookId) async {
     final db = await DatabaseHelper.instance.database;
-    final rows =
-        await db.query('books', columns: ['sync_mode'], where: 'id = ?', whereArgs: [bookId]);
+    final rows = await db.query(
+      'books',
+      columns: ['sync_mode'],
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
     if (rows.isEmpty) return false;
     return rows.first['sync_mode'] == 1;
   }
 
   Future<void> _setSharedFlag(String bookId, int mode) async {
     final db = await DatabaseHelper.instance.database;
-    await db.update('books', {'sync_mode': mode}, where: 'id = ?', whereArgs: [bookId]);
+    await db.update(
+      'books',
+      {'sync_mode': mode},
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
   }
 
   Future<List<Record>> _loadRecords(String bookId) async {
     final db = await DatabaseHelper.instance.database;
-    final rows = await db.query('records',
-        where: 'book_id = ?', whereArgs: [bookId], orderBy: 'created_at');
+    final rows = await db.query(
+      'records',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'created_at',
+    );
     return rows.map(Record.fromDbMap).toList();
   }
 
   Future<int> _getCursor(String roomId) async {
     final db = await DatabaseHelper.instance.database;
-    final rows = await db.query('sync_state',
-        where: 'key = ?', whereArgs: ['oplog_cursor:$roomId']);
+    final rows = await db.query(
+      'sync_state',
+      where: 'key = ?',
+      whereArgs: ['oplog_cursor:$roomId'],
+    );
     if (rows.isEmpty) return 0;
     return int.tryParse(rows.first['value'] as String) ?? 0;
   }
 
   Future<void> _setCursor(String roomId, int cursor) async {
     final db = await DatabaseHelper.instance.database;
-    await db.insert(
-      'sync_state',
-      {'key': 'oplog_cursor:$roomId', 'value': '$cursor'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('sync_state', {
+      'key': 'oplog_cursor:$roomId',
+      'value': '$cursor',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 删除共享账本时清理本机同步位点与实时订阅（账本记录已被 deleteLedger
   /// 删掉，云端删除 oplog 已由 enqueueLedger 入队，会随下次 flush 推送）。
   Future<void> removeSharedState(String bookId) async {
     final db = await DatabaseHelper.instance.database;
-    await db.delete('sync_state',
-        where: 'key = ?', whereArgs: ['oplog_cursor:$bookId']);
+    await db.delete(
+      'sync_state',
+      where: 'key = ?',
+      whereArgs: ['oplog_cursor:$bookId'],
+    );
     await SupabaseManager.instance.unsubscribeOplogs(bookId);
   }
 
@@ -485,18 +539,24 @@ class SyncService {
 
   Future<void> _subscribeRooms() async {
     final supabase = SupabaseManager.instance;
-    await supabase.subscribeRooms(callback: (payload) async {
-      final roomId = payload.newRecord['id']?.toString();
-      if (roomId == null) return;
-      // 房间元数据变化（改名/成员）落地本地 books.name
-      final name = payload.newRecord['name']?.toString();
-      final db = await DatabaseHelper.instance.database;
-      if (name != null && name.isNotEmpty) {
-        await db.update('books', {'name': name},
-            where: 'id = ? AND sync_mode = 1', whereArgs: [roomId]);
-        version.value++;
-      }
-    });
+    await supabase.subscribeRooms(
+      callback: (payload) async {
+        final roomId = payload.newRecord['id']?.toString();
+        if (roomId == null) return;
+        // 房间元数据变化（改名/成员）落地本地 books.name
+        final name = payload.newRecord['name']?.toString();
+        final db = await DatabaseHelper.instance.database;
+        if (name != null && name.isNotEmpty) {
+          await db.update(
+            'books',
+            {'name': name},
+            where: 'id = ? AND sync_mode = 1',
+            whereArgs: [roomId],
+          );
+          version.value++;
+        }
+      },
+    );
   }
 
   String _generateInviteCode() {
@@ -507,6 +567,8 @@ class SyncService {
 
   static Map<String, dynamic> _decodePayload(String raw) {
     final decoded = jsonDecode(raw);
-    return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+    return decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : <String, dynamic>{};
   }
 }

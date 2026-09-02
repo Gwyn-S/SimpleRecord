@@ -57,26 +57,35 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     switch (_selectedType) {
       case 0:
         _filteredAccounts = _accounts.where((a) => !a.isDebtAccount).toList();
+        break;
       case 1:
         _filteredAccounts = _accounts.where((a) => a.isDebtAccount).toList();
+        break;
       default:
         _filteredAccounts = _accounts;
+        break;
     }
 
-    _filteredByCategory = _filteredAccounts
-        .where((a) => a.balanceCents != 0)
-        .map((a) => _CategorySummary(
-              name: a.displayName,
-              amount: a.balanceCents.abs(),
-              color: categoryColorByName(a.categoryName),
-            ))
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    _filteredByCategory =
+        _filteredAccounts
+            .where((a) => a.balanceCents != 0)
+            .map(
+              (a) => _CategorySummary(
+                name: a.displayName,
+                amount: a.balanceCents.abs(),
+                color: categoryColorByName(a.categoryName),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
     _filteredRanking = List<AssetAccount>.from(_filteredAccounts)
       ..sort((a, b) => b.balanceCents.abs().compareTo(a.balanceCents.abs()));
 
-    _filteredTotal = _filteredAccounts.fold(0, (s, a) => s + a.balanceCents.abs());
+    _filteredTotal = _filteredAccounts.fold(
+      0,
+      (s, a) => s + a.balanceCents.abs(),
+    );
   }
 
   @override
@@ -96,19 +105,19 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       ),
       backgroundColor: colorBackgroundPage,
       body: ListView(
-              padding: const EdgeInsets.all(spacingM),
-              children: [
-                _buildSummarySection(),
-                const SizedBox(height: spacingM),
-                _buildTrendCard(themeColor),
-                if (_selectedType != 2) ...[
-                  const SizedBox(height: spacingM),
-                  _buildPieCard(),
-                  const SizedBox(height: spacingM),
-                  _buildRankingCard(),
-                ],
-              ],
-            ),
+        padding: const EdgeInsets.all(spacingM),
+        children: [
+          _buildSummarySection(),
+          const SizedBox(height: spacingM),
+          _buildTrendCard(themeColor),
+          if (_selectedType != 2) ...[
+            const SizedBox(height: spacingM),
+            _buildPieCard(),
+            const SizedBox(height: spacingM),
+            _buildRankingCard(),
+          ],
+        ],
+      ),
     );
   }
 
@@ -144,15 +153,15 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       trailing: GestureDetector(
         onTap: _showYearPicker,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+          padding: const EdgeInsets.symmetric(
+            horizontal: spacingM,
+            vertical: spacingXS,
+          ),
           decoration: BoxDecoration(
             color: colorDivider,
             borderRadius: BorderRadius.circular(radiusSmall),
           ),
-          child: Text(
-            _yearLabel,
-            style: textTagSmall,
-          ),
+          child: Text(_yearLabel, style: textTagSmall),
         ),
       ),
       child: SizedBox(
@@ -185,21 +194,26 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final title = _selectedType == 0
         ? '资产余额占比'
         : _selectedType == 1
-            ? '负债余额占比'
-            : '净资产占比';
+        ? '负债余额占比'
+        : '净资产占比';
     if (data.isEmpty) {
-      return CardContainer(
-        title: title,
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: title, child: const SizedBox.shrink());
     }
     return CardContainer(
       title: title,
-        child: SizedBox(
+      child: SizedBox(
         height: 220,
         child: DonutPieChart(
           key: const ValueKey('pie'),
-          data: data.map((s) => PieSectorData(name: s.name, amount: s.amount, color: s.color)).toList(),
+          data: data
+              .map(
+                (s) => PieSectorData(
+                  name: s.name,
+                  amount: s.amount,
+                  color: s.color,
+                ),
+              )
+              .toList(),
           total: total,
         ),
       ),
@@ -213,13 +227,10 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final title = _selectedType == 0
         ? '资产排行榜'
         : _selectedType == 1
-            ? '负债排行榜'
-            : '净资产排行榜';
+        ? '负债排行榜'
+        : '净资产排行榜';
     if (ranking.isEmpty) {
-      return CardContainer(
-        title: title,
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: title, child: const SizedBox.shrink());
     }
     final totalAmount = _filteredTotal;
     return CardContainer(
@@ -230,10 +241,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
           final ratio = totalAmount > 0
               ? account.balanceCents.abs() / totalAmount
               : 0.0;
-          return _RankingRow(
-            account: account,
-            ratio: ratio,
-          );
+          return _RankingRow(account: account, ratio: ratio);
         }).toList(),
       ),
     );
@@ -248,10 +256,7 @@ class _TrendLineChart extends StatelessWidget {
   final List<AssetAccount> accounts;
   final bool showFlatZero;
 
-  const _TrendLineChart({
-    required this.accounts,
-    this.showFlatZero = false,
-  });
+  const _TrendLineChart({required this.accounts, this.showFlatZero = false});
 
   @override
   Widget build(BuildContext context) {
@@ -291,20 +296,30 @@ class _TrendLineChart extends StatelessWidget {
       activationMode: ActivationMode.singleTap,
       tooltipPosition: TooltipPosition.pointer,
       animationDuration: 0,
-      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
-        final p = points[pointIndex];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
-          decoration: BoxDecoration(
-            color: colorTextPrimary,
-            borderRadius: BorderRadius.circular(radiusTiny),
-          ),
-          child: Text(
-            '${p.month}月 ${formatAmount(p.value)}',
-            style: textChartTooltip,
-          ),
-        );
-      },
+      builder:
+          (
+            dynamic data,
+            dynamic point,
+            dynamic series,
+            int pointIndex,
+            int seriesIndex,
+          ) {
+            final p = points[pointIndex];
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingS,
+                vertical: spacingXS,
+              ),
+              decoration: BoxDecoration(
+                color: colorTextPrimary,
+                borderRadius: BorderRadius.circular(radiusTiny),
+              ),
+              child: Text(
+                '${p.month}月 ${formatAmount(p.value)}',
+                style: textChartTooltip,
+              ),
+            );
+          },
     );
 
     return SfCartesianChart(
@@ -323,11 +338,7 @@ class _TrendLineChart extends StatelessWidget {
           return ChartAxisLabel('$month月', details.textStyle);
         },
       ),
-      primaryYAxis: NumericAxis(
-        minimum: minY,
-        maximum: maxY,
-        isVisible: false,
-      ),
+      primaryYAxis: NumericAxis(minimum: minY, maximum: maxY, isVisible: false),
       tooltipBehavior: tooltip,
       series: <LineSeries<_TrendPoint, num>>[
         LineSeries<_TrendPoint, num>(
@@ -366,10 +377,7 @@ class _RankingRow extends StatelessWidget {
   final AssetAccount account;
   final double ratio;
 
-  const _RankingRow({
-    required this.account,
-    required this.ratio,
-  });
+  const _RankingRow({required this.account, required this.ratio});
 
   @override
   Widget build(BuildContext context) {
@@ -381,15 +389,14 @@ class _RankingRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              AccountAvatar(account: account, size: iconSizeSmall, color: themeColor),
+              AccountAvatar(
+                account: account,
+                size: iconSizeSmall,
+                color: themeColor,
+              ),
               const SizedBox(width: spacingS),
-              Expanded(
-                child: Text(account.displayName, style: textBody),
-              ),
-              Text(
-                '$percent%',
-                style: textItemSub,
-              ),
+              Expanded(child: Text(account.displayName, style: textBody)),
+              Text('$percent%', style: textItemSub),
               const SizedBox(width: spacingS),
               Text(
                 formatAmount(account.balanceCents),
