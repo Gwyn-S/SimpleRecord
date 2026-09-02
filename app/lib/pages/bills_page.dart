@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../constants/app_dimensions.dart';
 import '../services/theme_service.dart';
 import '../models/record.dart';
-import '../services/ledger_service.dart';
 import '../services/record_service.dart';
 import '../services/settings.dart';
+import '../services/sync_service.dart';
 import '../utils/calendar_utils.dart';
 import 'budget_page.dart';
 import '../utils/formatters.dart';
@@ -63,16 +63,14 @@ class _BillsPageState extends State<BillsPage> {
       ledgerId: currentLedgerId.value,
       month: month,
     );
-    final monthBudget = await Settings.getInt(
-      'budget_${currentLedgerId.value ?? 'none'}_month_${month.year}-${month.month}',
-    ) ?? 0;
-    var shared = false;
-    for (final l in await loadLedgers()) {
-      if (l.id == currentLedgerId.value) {
-        shared = l.syncMode == 1;
-        break;
-      }
-    }
+    final monthBudget =
+        await Settings.getInt(
+          'budget_${currentLedgerId.value ?? 'none'}_month_${month.year}-${month.month}',
+        ) ??
+        0;
+    final ledgerId = currentLedgerId.value;
+    var shared =
+        ledgerId != null && await SyncService.instance.isSharedBook(ledgerId);
     if (seq != _loadSeq || !mounted) return;
     setState(() {
       _isShared = shared;
@@ -95,8 +93,14 @@ class _BillsPageState extends State<BillsPage> {
   }
 
   void _changeMonth(int delta) {
-    final next = DateTime(currentMonth.value.year, currentMonth.value.month + delta);
-    if (next.year == currentMonth.value.year && next.month == currentMonth.value.month) return;
+    final next = DateTime(
+      currentMonth.value.year,
+      currentMonth.value.month + delta,
+    );
+    if (next.year == currentMonth.value.year &&
+        next.month == currentMonth.value.month) {
+      return;
+    }
     currentMonth.value = next;
     setState(() {
       _expandedDays.clear();
@@ -107,7 +111,8 @@ class _BillsPageState extends State<BillsPage> {
   Future<void> _openMonthPicker(BuildContext context) async {
     final target = await showMonthYearPicker(context, currentMonth.value);
     if (target == null || !mounted) return;
-    if (target.year == currentMonth.value.year && target.month == currentMonth.value.month) {
+    if (target.year == currentMonth.value.year &&
+        target.month == currentMonth.value.month) {
       return;
     }
     currentMonth.value = target;
@@ -129,50 +134,97 @@ class _BillsPageState extends State<BillsPage> {
         Container(
           color: themeColor,
           child: Column(
-                children: [
-                  SizedBox(height: MediaQuery.of(context).padding.top),
-                  HomeTopBar(
-                    monthLabel: _monthLabel,
-                    onPrevMonth: () => _changeMonth(-1),
-                    onNextMonth: () => _changeMonth(1),
-                    onMonthLabelTap: () => _openMonthPicker(context),
-                    onLedgerTap: () => openLedgerList(context),
-                    onBackupTap: () => openBackup(context),
-                    onSearchTap: () => openSearch(context),
-                    onUserTap: () => openUser(context),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingXXL, 0, spacingXXL, 0),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final halfW = constraints.maxWidth / 2;
-                        return SizedBox(
-                          height: heightSummaryArea,
-                          child: Stack(
-                            children: [
-                              Positioned(left: 0, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月结余', formatAmount(_monthBalance), large: true)),
-                              Positioned(left: halfW, top: 0, width: halfW, height: heightSummaryLarge, child: SummaryBlock('本月收入', formatAmount(_monthIncome))),
-                              Positioned(left: 0, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('剩余预算', _monthBudget > 0 ? formatAmount(_monthBudget - _monthExpense) : null, emptyText: _monthBudget > 0 ? null : '点此设置', onTap: () => openBudget(context))),
-                              Positioned(left: halfW, top: heightSummaryLarge, width: halfW, height: heightSummaryArea - heightSummaryLarge, child: SummaryBlock('本月支出', formatAmount(_monthExpense))),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+            children: [
+              SizedBox(height: MediaQuery.of(context).padding.top),
+              HomeTopBar(
+                monthLabel: _monthLabel,
+                onPrevMonth: () => _changeMonth(-1),
+                onNextMonth: () => _changeMonth(1),
+                onMonthLabelTap: () => _openMonthPicker(context),
+                onLedgerTap: () => openLedgerList(context),
+                onBackupTap: () => openBackup(context),
+                onSearchTap: () => openSearch(context),
+                onUserTap: () => openUser(context),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  spacingXXL,
+                  0,
+                  spacingXXL,
+                  0,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final halfW = constraints.maxWidth / 2;
+                    return SizedBox(
+                      height: heightSummaryArea,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            width: halfW,
+                            height: heightSummaryLarge,
+                            child: SummaryBlock(
+                              '本月结余',
+                              formatAmount(_monthBalance),
+                              large: true,
+                            ),
+                          ),
+                          Positioned(
+                            left: halfW,
+                            top: 0,
+                            width: halfW,
+                            height: heightSummaryLarge,
+                            child: SummaryBlock(
+                              '本月收入',
+                              formatAmount(_monthIncome),
+                            ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            top: heightSummaryLarge,
+                            width: halfW,
+                            height: heightSummaryArea - heightSummaryLarge,
+                            child: SummaryBlock(
+                              '剩余预算',
+                              _monthBudget > 0
+                                  ? formatAmount(_monthBudget - _monthExpense)
+                                  : null,
+                              emptyText: _monthBudget > 0 ? null : '点此设置',
+                              onTap: () => openBudget(context),
+                            ),
+                          ),
+                          Positioned(
+                            left: halfW,
+                            top: heightSummaryLarge,
+                            width: halfW,
+                            height: heightSummaryArea - heightSummaryLarge,
+                            child: SummaryBlock(
+                              '本月支出',
+                              formatAmount(_monthExpense),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
-        Expanded(
-          child: _buildRecordList(),
-        ),
+        Expanded(child: _buildRecordList()),
       ],
     );
   }
 
   Widget _buildRecordList() {
     if (_loading) {
-      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     final records = _records;
     if (records.isEmpty) {
@@ -202,10 +254,8 @@ class _BillsPageState extends State<BillsPage> {
               _expandedDays.add(key);
             }
           }),
-          recordBuilder: (context, r) => RecordItem(
-            record: r,
-            onEdit: () => openEditRecord(context, r),
-          ),
+          recordBuilder: (context, r) =>
+              RecordItem(record: r, onEdit: () => openEditRecord(context, r)),
         );
       }).toList(),
     );
