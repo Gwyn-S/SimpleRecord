@@ -69,14 +69,12 @@ class SupabaseManager {
     final client = this.client;
     if (client == null) return false;
     if (client.auth.currentUser != null) {
-      await setCachedUid(client.auth.currentUser!.id);
       return true;
     }
     try {
       final res = await client.auth.signInAnonymously();
       final user = res.user;
       if (user != null) {
-        await setCachedUid(user.id);
         return true;
       }
       return false;
@@ -411,6 +409,24 @@ class SupabaseManager {
       return (url == null || url.isEmpty) ? null : url;
     } catch (e) {
       appLog('[sync] getProfileAvatar failed: $e');
+      return null;
+    }
+  }
+
+  /// 账号（author_id）是否已在云端存在。用于注册查重、登录校验。
+  /// 未就绪返回 null（区别于「不存在」false，上层需据此提示未连接）。
+  Future<bool?> isProfileExists(String authorId) async {
+    final client = this.client;
+    if (client == null) return null;
+    try {
+      final res = await client
+          .from('profiles')
+          .select('author_id')
+          .eq('author_id', authorId)
+          .maybeSingle();
+      return res != null;
+    } catch (e) {
+      appLog('[sync] isProfileExists failed: $e');
       return null;
     }
   }

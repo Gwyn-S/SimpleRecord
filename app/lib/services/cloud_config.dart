@@ -5,7 +5,6 @@ import '../utils/id.dart';
 const _keySupabaseUrl = 'supabase_url';
 const _keySupabaseAnonKey = 'supabase_anon_key';
 const _keyDeviceId = 'device_id';
-const _keyCachedUid = 'supabase_uid';
 
 Future<CloudConfig> loadCloudConfig() async => CloudConfig(
   supabaseUrl: await Settings.getString(_keySupabaseUrl) ?? '',
@@ -27,15 +26,4 @@ Future<String> getOrCreateDeviceId() async {
   final id = genId();
   await Settings.setString(_keyDeviceId, id);
   return id;
-}
-
-/// 缓存最近一次登录到的云端用户 id，用于启动时判断是否可安全重连。
-Future<String?> getCachedUid() => Settings.getString(_keyCachedUid);
-
-Future<void> setCachedUid(String? uid) async {
-  if (uid == null) {
-    await Settings.remove(_keyCachedUid);
-  } else {
-    await Settings.setString(_keyCachedUid, uid);
-  }
 }
