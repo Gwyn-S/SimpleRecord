@@ -5,6 +5,7 @@ import '../models/record.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'author_service.dart';
+import 'balance_history_service.dart';
 import 'database.dart';
 import 'image_storage_service.dart';
 import 'settings.dart';
@@ -180,6 +181,7 @@ Future<void> insertRecord(Record record) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(record.accountId);
   SyncService.instance.enqueueRecord(record, op: 'insert');
 }
 
@@ -191,6 +193,7 @@ Future<void> updateRecord(Record record) async {
     authorId: record.authorId ?? authorId,
   );
   final db = await DatabaseHelper.instance.database;
+  String? oldAccountId;
   await db.transaction((txn) async {
     final rows = await txn.query(
       'records',
@@ -199,6 +202,7 @@ Future<void> updateRecord(Record record) async {
     );
     if (rows.isNotEmpty) {
       final old = Record.fromDbMap(rows.first);
+      oldAccountId = old.accountId;
       await _applyBalance(
         txn,
         accountId: old.accountId,
@@ -223,6 +227,8 @@ Future<void> updateRecord(Record record) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(oldAccountId);
+  BalanceHistoryService.instance.notifyChanged(record.accountId);
   SyncService.instance.enqueueRecord(record, op: 'update');
 }
 
@@ -250,6 +256,7 @@ Future<void> deleteRecord(String id) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(old?.accountId);
   if (old != null) {
     await SyncService.instance.enqueueRecord(old!, op: 'delete');
   }

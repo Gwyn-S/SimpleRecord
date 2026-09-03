@@ -81,6 +81,9 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       categoryName: widget.categoryName,
       name: name,
       balanceCents: balanceCents,
+      // 期初只在新建时定为“当前余额”，编辑保持既有期初不变。
+      openingBalanceCents:
+          widget.existingAccount?.openingBalanceCents ?? balanceCents,
       remark: _remarkController.text.trim(),
       cardLast4: _cardController.text.trim(),
       iconPath: widget.presetIconPath,

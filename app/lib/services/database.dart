@@ -61,7 +61,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -100,6 +100,7 @@ class DatabaseHelper {
         category_name TEXT NOT NULL,
         name TEXT NOT NULL,
         balance_cents INTEGER NOT NULL DEFAULT 0,
+        opening_balance_cents INTEGER NOT NULL DEFAULT 0,
         remark TEXT NOT NULL DEFAULT '',
         card_last4 TEXT NOT NULL DEFAULT '',
         icon_path TEXT NOT NULL DEFAULT ''
@@ -128,12 +129,52 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_records_book_date ON records(book_id, date)',
     );
+    await db.execute('''
+      CREATE TABLE balance_snapshots (
+        account_id TEXT NOT NULL,
+        date INTEGER NOT NULL,
+        balance INTEGER NOT NULL,
+        PRIMARY KEY (account_id, date)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE balance_adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL,
+        date INTEGER NOT NULL,
+        delta INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
     await _createSyncTables(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE records ADD COLUMN author_id TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE asset_accounts '
+        'ADD COLUMN opening_balance_cents INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute('''
+        CREATE TABLE balance_snapshots (
+          account_id TEXT NOT NULL,
+          date INTEGER NOT NULL,
+          balance INTEGER NOT NULL,
+          PRIMARY KEY (account_id, date)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE balance_adjustments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id TEXT NOT NULL,
+          date INTEGER NOT NULL,
+          delta INTEGER NOT NULL,
+          created_at INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
     }
   }
 

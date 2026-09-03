@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/transfer.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
+import 'balance_history_service.dart';
 import 'database.dart';
 import '../utils/id.dart';
 
@@ -57,6 +58,8 @@ Future<void> insertTransfer({
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(fromAccountId);
+  BalanceHistoryService.instance.notifyChanged(toAccountId);
 }
 
 Future<void> _applyTransfer(
@@ -79,6 +82,8 @@ Future<void> _applyTransfer(
 
 Future<void> updateTransfer(Transfer transfer) async {
   final db = await DatabaseHelper.instance.database;
+  String? oldFrom;
+  String? oldTo;
   await db.transaction((txn) async {
     final rows = await txn.query(
       'transfers',
@@ -87,6 +92,8 @@ Future<void> updateTransfer(Transfer transfer) async {
     );
     if (rows.isNotEmpty) {
       final old = Transfer.fromDbMap(rows.first);
+      oldFrom = old.fromAccountId;
+      oldTo = old.toAccountId;
       await _applyTransfer(
         txn,
         old.fromAccountId,
@@ -113,15 +120,23 @@ Future<void> updateTransfer(Transfer transfer) async {
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(oldFrom);
+  BalanceHistoryService.instance.notifyChanged(oldTo);
+  BalanceHistoryService.instance.notifyChanged(transfer.fromAccountId);
+  BalanceHistoryService.instance.notifyChanged(transfer.toAccountId);
 }
 
 Future<void> deleteTransfer(String id) async {
   final db = await DatabaseHelper.instance.database;
+  String? fromId;
+  String? toId;
   await db.transaction((txn) async {
     final rows = await txn.query('transfers', where: 'id = ?', whereArgs: [id]);
     await txn.delete('transfers', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
       final t = Transfer.fromDbMap(rows.first);
+      fromId = t.fromAccountId;
+      toId = t.toAccountId;
       await _applyTransfer(
         txn,
         t.fromAccountId,
@@ -134,4 +149,6 @@ Future<void> deleteTransfer(String id) async {
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(fromId);
+  BalanceHistoryService.instance.notifyChanged(toId);
 }

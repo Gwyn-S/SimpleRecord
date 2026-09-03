@@ -84,6 +84,7 @@ class AssetAccount {
   String categoryName;
   String name;
   int balanceCents;
+  int openingBalanceCents;
   String remark;
   String cardLast4;
   String iconPath;
@@ -93,6 +94,7 @@ class AssetAccount {
     required this.categoryName,
     required this.name,
     this.balanceCents = 0,
+    this.openingBalanceCents = 0,
     this.remark = '',
     this.cardLast4 = '',
     this.iconPath = '',
@@ -114,6 +116,7 @@ class AssetAccount {
     'category_name': categoryName,
     'name': name,
     'balance_cents': balanceCents,
+    'opening_balance_cents': openingBalanceCents,
     'remark': remark,
     'card_last4': cardLast4,
     'icon_path': iconPath,
@@ -124,6 +127,7 @@ class AssetAccount {
     categoryName: map['category_name'] as String,
     name: map['name'] as String,
     balanceCents: map['balance_cents'] as int,
+    openingBalanceCents: (map['opening_balance_cents'] as int?) ?? 0,
     remark: (map['remark'] as String?) ?? '',
     cardLast4: (map['card_last4'] as String?) ?? '',
     iconPath: (map['icon_path'] as String?) ?? '',

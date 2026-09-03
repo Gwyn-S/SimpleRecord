@@ -5,6 +5,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
+import '../services/balance_history_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
@@ -168,6 +169,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
         height: 180,
         child: _TrendLineChart(
           accounts: _filteredAccounts,
+          year: _selectedYear,
           showFlatZero: _filteredAccounts.isEmpty,
         ),
       ),
@@ -252,41 +254,90 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 //  走势图（syncfusion SfCartesianChart + LineSeries + 点击节点显示信息）
 // ======================================================================
 
-class _TrendLineChart extends StatelessWidget {
+class _TrendLineChart extends StatefulWidget {
   final List<AssetAccount> accounts;
+  final int year;
   final bool showFlatZero;
 
-  const _TrendLineChart({required this.accounts, this.showFlatZero = false});
+  const _TrendLineChart({
+    required this.accounts,
+    required this.year,
+    this.showFlatZero = false,
+  });
+
+  @override
+  State<_TrendLineChart> createState() => _TrendLineChartState();
+}
+
+class _TrendLineChartState extends State<_TrendLineChart> {
+  List<_TrendPoint> _points = [];
+  List<({String id, bool isDebt})> _lastAccounts = const [];
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastAccounts = _toAccountSpecs(widget.accounts);
+    _ready = widget.showFlatZero || widget.accounts.isEmpty;
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrendLineChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final spec = _toAccountSpecs(widget.accounts);
+    final changedAccounts =
+        spec.length != _lastAccounts.length ||
+        spec.any((a) => !_lastAccounts.contains(a));
+    final changedYear = oldWidget.year != widget.year;
+    if (changedAccounts) {
+      _lastAccounts = spec;
+    }
+    if (changedAccounts || changedYear) {
+      _ready = widget.showFlatZero || widget.accounts.isEmpty;
+      if (_ready) {
+        _points = [];
+      }
+      _load();
+    }
+  }
+
+  List<({String id, bool isDebt})> _toAccountSpecs(
+    List<AssetAccount> accounts,
+  ) {
+    return [for (final a in accounts) (id: a.id, isDebt: a.isDebtAccount)];
+  }
+
+  Future<void> _load() async {
+    if (widget.showFlatZero || widget.accounts.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final monthly = await BalanceHistoryService.instance.monthlyNetByYear(
+      widget.year,
+      _lastAccounts,
+    );
+    if (!mounted) return;
+    setState(() {
+      final now = DateTime.now();
+      final currentMonth = now.month;
+      _points = [];
+      for (var m = 1; m <= currentMonth; m++) {
+        _points.add(_TrendPoint(month: m, value: monthly[m - 1]));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final currentMonth = now.month;
-
-    List<_TrendPoint> points;
-    if (showFlatZero || accounts.isEmpty) {
-      points = List.generate(
-        currentMonth,
-        (i) => _TrendPoint(month: i + 1, value: 0),
-      );
-    } else {
-      final total = accounts
-          .where((a) => !a.isDebtAccount)
-          .fold(0, (s, a) => s + a.balanceCents);
-      final debt = accounts
-          .where((a) => a.isDebtAccount)
-          .fold(0, (s, a) => s + a.balanceCents.abs());
-      final net = total - debt;
-
-      // TODO: 接入真实历史月度余额快照数据，当前为占位随机值
-      final rand = SimpleRandom(42);
-      points = [];
-      for (var i = 0; i < currentMonth - 1; i++) {
-        final value = net * (0.8 + rand.nextDouble() * 0.4);
-        points.add(_TrendPoint(month: i + 1, value: value.toInt()));
-      }
-      points.add(_TrendPoint(month: currentMonth, value: net));
-    }
+    final points = _points.isEmpty
+        ? List.generate(
+            currentMonth,
+            (i) => _TrendPoint(month: i + 1, value: 0),
+          )
+        : _points;
 
     final values = points.map((p) => p.value.toDouble()).toList();
     final (minY, maxY) = computeYRange(values);

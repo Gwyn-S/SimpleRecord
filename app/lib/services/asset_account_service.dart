@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/asset_account.dart';
+import 'balance_history_service.dart';
 import 'database.dart';
 import 'record_service.dart';
 
@@ -59,6 +60,7 @@ Future<void> insertAssetAccount(AssetAccount account) async {
     conflictAlgorithm: ConflictAlgorithm.replace,
   );
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(account.id);
 }
 
 Future<void> updateAssetAccount(AssetAccount account) async {
@@ -70,12 +72,24 @@ Future<void> updateAssetAccount(AssetAccount account) async {
     whereArgs: [account.id],
   );
   assetAccountsVersion.value++;
+  // 手动改余额：使“今天”起的余额平移到新值，改动之前的历史不动。
+  await BalanceHistoryService.instance.applyManualAdjustment(account.id);
 }
 
 Future<void> deleteAssetAccount(String id) async {
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
     await txn.delete('asset_accounts', where: 'id = ?', whereArgs: [id]);
+    await txn.delete(
+      'balance_snapshots',
+      where: 'account_id = ?',
+      whereArgs: [id],
+    );
+    await txn.delete(
+      'balance_adjustments',
+      where: 'account_id = ?',
+      whereArgs: [id],
+    );
     await txn.rawUpdate(
       'UPDATE records SET account_id = NULL WHERE account_id = ?',
       [id],
