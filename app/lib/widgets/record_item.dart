@@ -6,6 +6,7 @@ import '../services/theme_service.dart';
 import '../models/category.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../services/author_service.dart';
 import '../services/image_storage_service.dart';
 import '../utils/formatters.dart';
 import 'bill_detail_sheet.dart';
@@ -17,12 +18,16 @@ class RecordItem extends StatelessWidget {
   final bool showDate;
   final bool readonly;
 
+  /// 所属账本是否多人账本；仅多人账本才显示作者昵称/头像标签。
+  final bool isShared;
+
   const RecordItem({
     super.key,
     required this.record,
     this.onEdit,
     this.showDate = false,
     this.readonly = false,
+    this.isShared = false,
   });
 
   @override
@@ -68,36 +73,36 @@ class RecordItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (record.author != null &&
+                      if (isShared &&
+                          record.author != null &&
                           record.author!.isNotEmpty) ...[
                         const SizedBox(width: spacingXS),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorTagBackground,
-                            borderRadius: BorderRadius.circular(radiusXS),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AuthorAvatar(
-                                url: record.authorAvatarUrl,
-                                size: 14,
+                        if (AuthorService.instance.recordAuthorDisplay ==
+                            AuthorService.recordDisplayAvatar)
+                          AuthorAvatar(
+                            url: record.authorAvatarUrl,
+                            size: 20,
+                            cornerRadius: 4,
+                          )
+                        else
+                          Container(
+                            width: 20,
+                            height: 20,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: colorTagBackground,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              record.author!,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: colorTagText,
+                                fontSize: 12,
+                                height: 1,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                record.author!,
-                                style: const TextStyle(
-                                  color: colorTagText,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
                       ],
                     ],
                   ),

@@ -254,8 +254,11 @@ class _BillsPageState extends State<BillsPage> {
               _expandedDays.add(key);
             }
           }),
-          recordBuilder: (context, r) =>
-              RecordItem(record: r, onEdit: () => openEditRecord(context, r)),
+          recordBuilder: (context, r) => RecordItem(
+            record: r,
+            isShared: _isShared,
+            onEdit: () => openEditRecord(context, r),
+          ),
         );
       }).toList(),
     );

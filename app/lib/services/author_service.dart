@@ -30,9 +30,36 @@ class AuthorService {
   static const _keyOwnNickname = 'nickname';
   static const _keyOwnAvatar = 'avatar_url';
 
+  /// 记账条目作者展示偏好的 Settings key 与取值。
+  static const _keyRecordAuthorDisplay = 'record_author_display';
+  static const recordDisplayNickname = 'nickname';
+  static const recordDisplayAvatar = 'avatar';
+
+  /// 进程级缓存的展示偏好；由 [loadRecordAuthorDisplay] 加载、下拉修改后更新。
+  String recordAuthorDisplay = recordDisplayNickname;
+
   final Map<String, String> _names = {};
   final Map<String, String> _avatars = {};
   bool _loaded = false;
+
+  /// 加载记账条目作者展示偏好到进程级缓存。
+  Future<void> loadRecordAuthorDisplay() async {
+    final v = await Settings.getString(_keyRecordAuthorDisplay);
+    if (v == recordDisplayAvatar) {
+      recordAuthorDisplay = recordDisplayAvatar;
+    } else {
+      recordAuthorDisplay = recordDisplayNickname;
+    }
+  }
+
+  /// 设置记账条目作者展示偏好（昵称或头像），持久化并更新进程级缓存。
+  Future<void> setRecordAuthorDisplay(String value) async {
+    final v = value == recordDisplayAvatar
+        ? recordDisplayAvatar
+        : recordDisplayNickname;
+    recordAuthorDisplay = v;
+    await Settings.setString(_keyRecordAuthorDisplay, v);
+  }
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
@@ -103,16 +130,30 @@ class AuthorService {
   }
 
   /// 注册账号：把用户指定账号绑定为本机 author_id，并在云端占位一条 profile。
+  /// 本机无昵称时自动生成默认昵称（Sr + device_id 前两位，共 4 位）。
   /// 返回是否成功。
   Future<bool> registerAccount(String authorId) async {
     final id = authorId.trim();
     if (id.isEmpty) return false;
     await Settings.setString(_keyAuthorId, id);
-    await Settings.remove(_keyOwnNickname);
     await Settings.remove(_keyOwnAvatar);
-    await registerNickname(id, '');
-    await SupabaseManager.instance.upsertProfile(authorId: id);
+    final ownName = await ownNickname();
+    final nickname = (ownName == null || ownName.trim().isEmpty)
+        ? await _defaultNickname()
+        : ownName.trim();
+    await Settings.setString(_keyOwnNickname, nickname);
+    await registerNickname(id, nickname);
+    await SupabaseManager.instance.upsertProfile(
+      authorId: id,
+      nickname: nickname,
+    );
     return true;
+  }
+
+  /// 默认昵称：Sr + device_id 前两位，共 4 位。
+  Future<String> _defaultNickname() async {
+    final dev = await Settings.getString('device_id') ?? '';
+    return 'Sr${dev.substring(0, 2)}';
   }
 
   /// 登录账号：校验云端存在后，把账号绑定为本机并拉回昵称/头像。

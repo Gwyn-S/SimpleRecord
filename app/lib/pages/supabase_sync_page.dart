@@ -56,6 +56,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   }
 
   Future<void> _init() async {
+    await AuthorService.instance.loadRecordAuthorDisplay();
     final nickname = await Settings.getString('nickname') ?? '';
     final config = await loadCloudConfig();
     final authorId = await AuthorService.instance.existingAuthorId();
@@ -216,6 +217,14 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     return ok;
   }
 
+  /// 记账条目作者显示偏好变更：持久化并刷新列表中条目展示。
+  void _onRecordDisplayChanged(String value) async {
+    await AuthorService.instance.setRecordAuthorDisplay(value);
+    if (!mounted) return;
+    setState(() {});
+    recordsVersion.value++;
+  }
+
   /// 开启同步 / 退出同步按钮。未登录则唤醒账号窗；已登录则登出回到未登录态。
   Future<void> _onSyncToggle() async {
     if (_authorId.isEmpty) {
@@ -303,10 +312,12 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       showToast(context, '注册失败，请重试');
       return;
     }
+    final nickname = await AuthorService.instance.ownNickname() ?? '';
+    if (!mounted) return;
     setState(() {
       _authorId = id;
-      _nicknameController.text = '';
-      _lastNickname = '';
+      _nicknameController.text = nickname;
+      _lastNickname = nickname;
       _avatarUrl = '';
     });
     showToast(context, '注册成功');
@@ -546,21 +557,9 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
     return [
       row(
-        label: '账号',
-        onTap: () {},
-        showChevron: false,
-        trailing: Flexible(
-          child: Text(
-            _authorId,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14, color: colorTextSecondary),
-          ),
-        ),
-      ),
-      const SizedBox(height: spacingM),
-      row(
         label: '头像',
         onTap: _showAvatarPicker,
+        showChevron: false,
         trailing: AuthorAvatar(
           url: _avatarUrl.isEmpty ? null : _avatarUrl,
           size: 32,
@@ -571,12 +570,29 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       row(
         label: '昵称',
         onTap: _showNicknameDialog,
+        showChevron: false,
         trailing: _nicknameController.text.isNotEmpty
             ? Text(
                 _nicknameController.text,
                 style: const TextStyle(fontSize: 16, color: Colors.black),
               )
             : null,
+      ),
+      const SizedBox(height: spacingM),
+      row(
+        label: '账号',
+        onTap: () {},
+        showChevron: false,
+        trailing: Flexible(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              _authorId,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          ),
+        ),
       ),
     ];
   }
@@ -618,6 +634,71 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ..._buildIdentitySection(),
+                  if (_authorId.isNotEmpty) ...[
+                    const SizedBox(height: spacingM),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: spacingL),
+                      decoration: BoxDecoration(
+                        color: colorBackgroundCard,
+                        borderRadius: BorderRadius.circular(radiusMedium),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '显示',
+                              style: textListItem.copyWith(color: Colors.black),
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            tooltip: '',
+                            menuPadding: EdgeInsets.zero,
+                            onSelected: _onRecordDisplayChanged,
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: AuthorService.recordDisplayNickname,
+                                height: 32,
+                                padding: EdgeInsets.zero,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: spacingM,
+                                  ),
+                                  child: Text('昵称', style: textBody),
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: AuthorService.recordDisplayAvatar,
+                                height: 32,
+                                padding: EdgeInsets.zero,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: spacingM,
+                                  ),
+                                  child: Text('头像', style: textBody),
+                                ),
+                              ),
+                            ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  AuthorService.instance.recordAuthorDisplay ==
+                                          AuthorService.recordDisplayAvatar
+                                      ? '头像'
+                                      : '昵称',
+                                  style: textBody,
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: colorTextPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: spacingM),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: spacingL),
@@ -625,9 +706,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                       height: heightOptionBar,
                       child: OutlinedButton(
                         onPressed: _onSyncToggle,
-                        child: Text(
-                          _authorId.isNotEmpty ? '退出同步' : '开启同步',
-                        ),
+                        child: Text(_authorId.isNotEmpty ? '退出同步' : '开启同步'),
                       ),
                     ),
                   ),

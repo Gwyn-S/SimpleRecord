@@ -387,6 +387,7 @@ class _CalendarPageState extends State<CalendarPage>
               isShared: _isShared,
               recordBuilder: (context, r) => RecordItem(
                 record: r,
+                isShared: _isShared,
                 onEdit: () => openEditRecord(context, r),
               ),
             ),

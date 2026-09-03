@@ -32,6 +32,8 @@ void main() async {
   await ensureCurrentLedgerId();
   // 预热头像缓存目录，使列表头像可同步命中本地缓存（首帧即显示）。
   await AuthorService.instance.initAvatarCache();
+  // 加载记账条目作者显示偏好（昵称/头像）到进程内存，供列表首帧按用户选择渲染。
+  await AuthorService.instance.loadRecordAuthorDisplay();
   // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置时静默跳过）。
   // 失败仅打日志兜底，避免多次 async 步骤失败成为无人接住的全局异常。
   SyncService.instance.start().catchError((Object e) {
