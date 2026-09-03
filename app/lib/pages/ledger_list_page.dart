@@ -374,6 +374,10 @@ class _LedgerListPageState extends State<LedgerListPage> {
   }
 
   Future<void> _enableShared(int index) async {
+    if (_ledgers[index].name.trim() == '日常') {
+      if (mounted) showToast(context, '「日常」账本不允许开启多人记账');
+      return;
+    }
     if (!await _ensureCloudConfigured()) return;
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
