@@ -5,7 +5,6 @@ import '../constants/app_text_styles.dart';
 import '../models/tag.dart';
 import '../services/tag_service.dart';
 import '../services/theme_service.dart';
-import '../utils/toast.dart';
 import '../widgets/common_app_bar.dart';
 
 class TagManagePage extends StatefulWidget {
@@ -72,17 +71,13 @@ class _TagManagePageState extends State<TagManagePage> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isEmpty) return;
-              try {
-                if (editing == null) {
-                  await insertTag(name);
-                } else {
-                  await renameTag(editing, name);
-                }
-                if (context.mounted) Navigator.pop(context);
-                await _load();
-              } catch (e) {
-                if (context.mounted) showToast(context, '操作失败：$e');
+              if (editing == null) {
+                await insertTag(name);
+              } else {
+                await renameTag(editing, name);
               }
+              if (context.mounted) Navigator.pop(context);
+              await _load();
             },
             child: const Text('确定'),
           ),

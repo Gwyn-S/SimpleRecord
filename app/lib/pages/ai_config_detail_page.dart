@@ -101,8 +101,10 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
       showToast(context, '请填写 API Key');
       return;
     }
-    if (_textModelController.text.isEmpty) {
-      showToast(context, '请填写文本模型');
+    if (_textModelController.text.isEmpty &&
+        _visionModelController.text.isEmpty &&
+        _voiceModelController.text.isEmpty) {
+      showToast(context, '请填写至少一个模型');
       return;
     }
 
