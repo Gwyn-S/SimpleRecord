@@ -1,13 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/tag.dart';
 import '../utils/id.dart';
 import 'database.dart';
 import 'record_service.dart';
-
-/// 标签版本号，变更后自增供页面监听刷新。
-final ValueNotifier<int> tagsVersion = ValueNotifier(0);
 
 /// 读取全部标签，按排序权重与创建时间升序。
 Future<List<Tag>> loadTags() async {
@@ -35,7 +31,6 @@ Future<Tag> insertTag(String name) async {
     'name': tag.name,
     'created_at': DateTime.now().millisecondsSinceEpoch,
   }, conflictAlgorithm: ConflictAlgorithm.replace);
-  tagsVersion.value++;
   return tag;
 }
 
@@ -52,7 +47,6 @@ Future<void> reorderTags(List<Tag> ordered) async {
       );
     }
   });
-  tagsVersion.value++;
 }
 
 /// 重命名标签，并同步更新 records 中引用该标签的记录。
@@ -74,7 +68,6 @@ Future<void> renameTag(String oldName, String newName) async {
       whereArgs: [oldName],
     );
   });
-  tagsVersion.value++;
   recordsVersion.value++;
 }
 
@@ -90,6 +83,5 @@ Future<void> deleteTag(String name) async {
       whereArgs: [name],
     );
   });
-  tagsVersion.value++;
   recordsVersion.value++;
 }

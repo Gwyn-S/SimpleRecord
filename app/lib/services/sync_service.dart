@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -30,13 +29,12 @@ class SyncService {
 
   bool _started = false;
   bool _online = false;
+  bool _flushing = false;
+  bool _recheck = false;
   String? _deviceId;
 
   /// 邀请码本地缓存：避免每次打开编辑弹窗都联网查询。
   final Map<String, String> _inviteCodeCache = {};
-
-  /// 数据有变化（含同步回来后）时自增，外层用 ValueListenableBuilder 刷新。
-  final ValueNotifier<int> version = ValueNotifier<int>(0);
 
   bool get isStarted => _started;
   bool get isOnline => _online;
@@ -53,18 +51,13 @@ class SyncService {
     _deviceId = await getOrCreateDeviceId();
     _online = true;
     _started = true;
+    // 清理旧版遗留的"已推送(state=1)"死记录，避免历史堆积。
+    await _purgePushed();
     await _subscribeRooms();
     await _resubscribeRoomsFromLocal();
     await flush();
     await pullAll();
     return true;
-  }
-
-  /// 回前台/手动刷新：先吐未推日志，再拉增量。
-  Future<void> refresh() async {
-    if (!_started) return;
-    await flush();
-    await pullAll();
   }
 
   /// 云配置更新后重建连接（仅供设置入口调用）。
@@ -159,9 +152,35 @@ class SyncService {
     });
   }
 
-  /// 把 outbox 里未推的日志推上云端，逐条成功即标记已推。
+  /// 把 outbox 里未推的日志推上云端，推送成功后即删除（队列只留待发的）。
+  ///
+  /// 串行调度：任意时刻最多一个 flush 循环在跑（防并发重复），循环内
+  /// 一路发到 outbox 清空（防批量入队漏发）。入队时新塞的日志会被
+  /// 当前这一轮循环顺手搬走。
   Future<void> flush() async {
     if (!_online) return;
+    if (_flushing) {
+      // 已在跑：标记"结束后再扫一轮"，当前循环会顺手搬走新入队的。
+      _recheck = true;
+      return;
+    }
+    _flushing = true;
+    try {
+      // 串行循环：一路搬到 outbox 清空；期间有新入队则再扫一轮。
+      while (await _flushBatch() || _takeRecheck()) {}
+    } finally {
+      _flushing = false;
+    }
+  }
+
+  bool _takeRecheck() {
+    if (!_recheck) return false;
+    _recheck = false;
+    return true;
+  }
+
+  /// 推送一批并删除已推行；返回是否应继续循环（有待发且本批有进展）。
+  Future<bool> _flushBatch() async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query(
       'sync_outbox',
@@ -169,7 +188,7 @@ class SyncService {
       orderBy: 'id',
       limit: 200,
     );
-    if (rows.isEmpty) return;
+    if (rows.isEmpty) return false;
     final supabase = SupabaseManager.instance;
     final deviceId = _deviceId ?? await getOrCreateDeviceId();
     final done = <int>[];
@@ -184,17 +203,24 @@ class SyncService {
       );
       if (ok != null) done.add(row['id'] as int);
     }
-    if (done.isEmpty) return;
+    if (done.isEmpty) return false; // 本批全失败，退回避免空转
     final batch = db.batch();
     for (final id in done) {
-      batch.update(
+      // 已推送成功，删除该条，避免 outbox 无限堆积。
+      batch.delete(
         'sync_outbox',
-        {'state': 1},
         where: 'id = ?',
         whereArgs: [id],
       );
     }
     await batch.commit(noResult: true);
+    return true; // 本批有进展且可能还有更多，继续搬
+  }
+
+  /// 清理旧版本遗留的"已推送(state=1)"死记录（一次性迁移式清理）。
+  Future<void> _purgePushed() async {
+    final db = await DatabaseHelper.instance.database;
+    await db.delete('sync_outbox', where: 'state = 1');
   }
 
   // ==================== 下行：增量拉取与应用 ====================
@@ -234,7 +260,6 @@ class SyncService {
       cursor = maxId;
       if (ops.length < 200) break;
     }
-    version.value++;
     recordsVersion.value++;
   }
 
@@ -312,7 +337,6 @@ class SyncService {
           await _setAvatarMapping(authorId, payload['avatar_url'] as String?);
         }
       }
-      version.value++;
       recordsVersion.value++;
     }
   }
@@ -425,7 +449,6 @@ class SyncService {
       _inviteCodeCache[roomId] = inviteCode;
     }
     await pullForRoom(roomId);
-    version.value++;
     return (JoinSyncResult.success, ledger);
   }
 
@@ -544,7 +567,6 @@ class SyncService {
             where: 'id = ? AND sync_mode = 1',
             whereArgs: [roomId],
           );
-          version.value++;
         }
       },
     );
