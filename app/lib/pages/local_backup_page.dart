@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
+import '../widgets/auto_backup_tile.dart';
 import '../widgets/common_app_bar.dart';
 
 class LocalBackupPage extends StatefulWidget {
@@ -127,8 +128,18 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
           ),
         ),
       ),
-      body: Column(
+body: Column(
         children: [
+          Container(
+            margin: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
+            padding: const EdgeInsets.symmetric(vertical: spacingXS),
+            decoration: BoxDecoration(
+              color: colorBackgroundCard,
+              borderRadius: BorderRadius.circular(radiusMedium),
+            ),
+            child: const AutoBackupTile(prefix: 'local_'),
+          ),
+          const SizedBox(height: spacingXS),
           Padding(
             padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
             child: Row(

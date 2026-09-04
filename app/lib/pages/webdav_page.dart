@@ -12,6 +12,7 @@ import '../services/theme_service.dart';
 import '../models/webdav_config.dart';
 import '../services/webdav_service.dart';
 import '../utils/toast.dart';
+import '../widgets/auto_backup_tile.dart';
 import '../widgets/common_app_bar.dart';
 
 class WebDavPage extends StatefulWidget {
@@ -26,6 +27,8 @@ class _WebDavPageState extends State<WebDavPage> {
   List<WebDavFile> _files = [];
   bool _busy = false;
   String? _error;
+  bool _dialogOpen = false;
+  bool _connecting = false;
 
   final _serverController = TextEditingController();
   final _usernameController = TextEditingController();
@@ -57,9 +60,159 @@ class _WebDavPageState extends State<WebDavPage> {
     _usernameController.text = config?.username ?? '';
     _passwordController.text = config?.password ?? '';
     _directoryController.text = config?.directory ?? '';
-    setState(() => _config = config);
-    if (config != null) await _refresh(config);
+    if (config == null) {
+      _showConfigDialog();
+      return;
+    }
+    // 已有配置：尝试连通，成功直接进；失败则锁死弹窗修改配置。
+    try {
+      final service = WebDavService(
+        server: config.server,
+        username: config.username,
+        password: config.password,
+        directory: config.directory,
+      );
+      final files = await service.listBackups();
+      if (!mounted) return;
+      setState(() {
+        _config = config;
+        _files = files;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showConfigDialog();
+    }
   }
+
+  /// 模态配置弹窗：未真正连通前锁死，验证通过才进入列表页。
+  void _showConfigDialog() {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _serverController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '服务器地址',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _directoryController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '远程目录',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: '用户名',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _passwordController,
+                obscureText: !_showPassword,
+                decoration: InputDecoration(
+                  labelText: '密码',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _showPassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      size: iconSizeDefault,
+                    ),
+                    onPressed: () =>
+                        setDialogState(() => _showPassword = !_showPassword),
+                  ),
+                ),
+              ),
+              if (_connecting) ...[
+                const SizedBox(height: spacingM),
+                const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          actions: [
+            OutlinedButton(
+              onPressed: _connecting
+                  ? null
+                  : () {
+                      Navigator.pop(dialogContext);
+                      if (mounted && _config == null) Navigator.pop(context);
+                    },
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: _connecting ? null : () => _verifyAndEnter(dialogContext),
+              child: const Text('连接'),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) => _dialogOpen = false);
+  }
+
+  Future<void> _verifyAndEnter(BuildContext dialogContext) async {
+    final config = WebDavConfig(
+      server: _serverController.text.trim(),
+      username: _usernameController.text,
+      password: _passwordController.text,
+      directory: _directoryController.text.trim(),
+    );
+    if (!config.isValid) {
+      showToast(context, '请填写服务器地址');
+      return;
+    }
+    final service = WebDavService(
+      server: config.server,
+      username: config.username,
+      password: config.password,
+      directory: config.directory,
+    );
+    setState(() => _connecting = true);
+    try {
+      final files = await service.listBackups();
+      await saveWebDavConfig(config);
+      if (!mounted) return;
+      setState(() {
+        _connecting = false;
+        _showPassword = false;
+      });
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+      setState(() {
+        _config = config;
+        _files = files;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _connecting = false);
+      showToast(context, '连接失败：$e');
+    }
+  }
+
 
   Future<void> _refresh(WebDavConfig config, {bool silent = false}) async {
     if (!silent) {
@@ -88,46 +241,6 @@ class _WebDavPageState extends State<WebDavPage> {
         _busy = false;
       });
     }
-  }
-
-  /// 保存入口：不校验、可直接保存，仿 AI 页。
-  Future<void> _save() async {
-    final server = _serverController.text.trim();
-    final username = _usernameController.text;
-    final password = _passwordController.text;
-    final directory = _directoryController.text.trim();
-    if (server.isEmpty &&
-        username.isEmpty &&
-        password.isEmpty &&
-        directory.isEmpty) {
-      showToast(context, '配置为空');
-      return;
-    }
-    await saveWebDavConfig(
-      WebDavConfig(
-        server: server,
-        username: username,
-        password: password,
-        directory: directory,
-      ),
-    );
-    if (!mounted) return;
-    showToast(context, '配置已保存');
-  }
-
-  Future<void> _connect() async {
-    final config = WebDavConfig(
-      server: _serverController.text.trim(),
-      username: _usernameController.text,
-      password: _passwordController.text,
-      directory: _directoryController.text.trim(),
-    );
-    if (!config.isValid) {
-      showToast(context, '请填写服务器地址');
-      return;
-    }
-    setState(() => _config = config);
-    await _refresh(config);
   }
 
   Future<void> _uploadBackup() async {
@@ -245,6 +358,12 @@ class _WebDavPageState extends State<WebDavPage> {
     return Scaffold(
       appBar: CommonAppBar(
         title: 'WebDAV 备份',
+        actions: [
+          IconButton(
+            onPressed: _busy ? null : _showConfigDialog,
+            icon: const Icon(Icons.dns_outlined),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(
@@ -253,84 +372,9 @@ class _WebDavPageState extends State<WebDavPage> {
           ),
         ),
       ),
-      body: _config == null ? _buildSettings() : _buildCloud(),
-    );
-  }
-
-  Widget _buildSettings() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(spacingL),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _serverController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '服务器地址',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _directoryController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '远程目录',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _usernameController,
-            decoration: const InputDecoration(
-              labelText: '用户名',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _passwordController,
-            obscureText: !_showPassword,
-            decoration: InputDecoration(
-              labelText: '密码',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _showPassword ? Icons.visibility_off : Icons.visibility,
-                  size: iconSizeDefault,
-                ),
-                onPressed: () => setState(() => _showPassword = !_showPassword),
-              ),
-            ),
-          ),
-          const SizedBox(height: spacingL),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : _connect,
-                    child: const Text('连接'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: spacingM),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: FilledButton(
-                    onPressed: _save,
-                    child: const Text('保存'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      body: _config == null
+          ? const SizedBox.shrink()
+          : _buildCloud(),
     );
   }
 
@@ -338,6 +382,16 @@ class _WebDavPageState extends State<WebDavPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
+          padding: const EdgeInsets.symmetric(vertical: spacingXS),
+          decoration: BoxDecoration(
+            color: colorBackgroundCard,
+            borderRadius: BorderRadius.circular(radiusMedium),
+          ),
+          child: const AutoBackupTile(prefix: 'webdav_'),
+        ),
+        const SizedBox(height: spacingXS),
         Padding(
           padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
           child: Row(
@@ -357,7 +411,7 @@ class _WebDavPageState extends State<WebDavPage> {
                             ),
                           )
                         : const Icon(Icons.cloud_upload_outlined),
-                    label: Text(_uploading ? '上传中' : '立即备份上传'),
+                    label: Text(_uploading ? '上传中' : '立即上传'),
                     style: FilledButton.styleFrom(
                       backgroundColor: themeColor,
                       disabledBackgroundColor: themeColor,
@@ -366,29 +420,10 @@ class _WebDavPageState extends State<WebDavPage> {
                   ),
                 ),
               ),
-              const SizedBox(width: spacingM),
-              SizedBox(
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          setState(() => _config = null);
-                        },
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('设置'),
-                ),
-              ),
             ],
           ),
         ),
         const SizedBox(height: spacingXS),
-        Text(
-          '服务器：${_config!.server}',
-          style: textItemSub,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
         if (_busy && _files.isEmpty && _error == null)
           const Padding(
             padding: EdgeInsets.all(spacingXL),

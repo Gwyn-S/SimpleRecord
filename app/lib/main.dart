@@ -8,6 +8,7 @@ import 'services/ledger_service.dart';
 import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
 import 'services/author_service.dart';
+import 'services/auto_backup_service.dart';
 import 'services/sync_service.dart';
 import 'utils/log.dart';
 import 'pages/main_page.dart';
@@ -39,6 +40,10 @@ void main() async {
   SyncService.instance.start().catchError((Object e) {
     appLog('[sync] start failed: $e');
     return false;
+  });
+  // 自动备份：启动时对已启用且到期的场景执行一次（WebDAV / 本地），失败仅打日志兜底。
+  AutoBackupService.runAll().catchError((Object e) {
+    appLog('[auto backup] run failed: $e');
   });
   runApp(const MyApp());
 }
