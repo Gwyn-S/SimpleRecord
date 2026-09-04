@@ -9,12 +9,4 @@
 
 | # | 位置 | 问题 |
 |---|------|------|
-| 9 | `services/ledger_service.dart:11-12,90-93` | 本地账本 CRUD 反向依赖 supabase/sync 层；`renameRoom` 结果被 `unawaited` 丢弃，失败时新加入者拿到旧账本名、无重试无提示 |
-| 10 | `services/sync_service.dart:76-162,164-240,242-367` + 循环 import | 同步引擎一个类兼职上行/下行/订阅/编排多职责，且与 `record_service` 循环 import（仅为 `recordsVersion` 一个量）；另 `refresh()` 为死代码无调用点、outbox 表无清理无限膨胀、并发 flush 产生重复 oplog |
-
-## P3 — 可选/洁癖
-
-| # | 位置 | 问题 |
-|---|------|------|
-| 20 | `sync_service.dart:273,334,427` | subscribeOplogs 回调三处重复且再判 room_id（订阅已 filter 冗余） —— **⏸ 云端待决** |
-| 24 | `pages/asset_statistics_page.dart:282-289` | 走势图为 `SimpleRandom(42)` 占位假数据（仅当前月真实），过期 TODO |
+| 9 | `services/ledger_service.dart:11-12,90-93` | 本地账本 CRUD 反向依赖 supabase/sync 层；`renameRoom` 结果被 `unawaited` 丢弃，失败时新加入者拿到旧账本名、无重试无提示 | ⏸ 待决（用户暂缓，选项 A/B/C 待拍板） |

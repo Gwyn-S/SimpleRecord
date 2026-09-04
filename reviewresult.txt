@@ -32,3 +32,65 @@
 1. 前三页保存都只做 allEmpty「配置为空」轻拦截；supabase 保存却在查昵称（保存里带校验）
 2. supabase 输入即存与「保存」按钮并存，按钮语义重叠
 3. 连接/测试的校验强度不一：webdav 只查服务器；语音查两字段；AI 查四项；supabase 连接查两项、保存查昵称
+
+====================================================================
+四维度审查结果（2026-09-04，9 个远端提交）
+范围：用户ID标识身份(6fe28ee)、昵称实时同步(a6f05fd)、展示层反查昵称(d22595f)、头像同步(7588acf)、头像压缩缓存(a7a128e)、同步页配置重构(72cefd9)、右箭头样式统一(bf38478)、作者显示偏好与多人限制(ece9816)、禁止日常账本开多人(14cc98d)
+维度：冗余代码 / 分层耦合 / 代码风格 / 改进写法
+
+P0 — 建议修（正确性/健壮性）
+| # | 位置 | 问题 | 维度 |
+|---|------|------|------|
+| 1 | author_service.dart:154-156 | _defaultNickname RangeError 崩溃：device_id 为空或长度<2 时 substring(0,2) 抛异常；注册流程若在设备初始化 device_id 前触发即崩 | 健壮性 |
+| 2 | supabase_service.dart:376-380 | upsertProfile 吞异常且返回 void：云端写失败仅 appLog，调用方无法区分成败；注册/改昵称/换头像"看起来成功实则未同步" | 正确性 |
+| 3 | record_service.dart:155 vs author_service.dart:104 | currentNickname 不 trim vs ownNickname 会 trim：带首尾空格的昵称导致同一人在 author 字段与映射表出现两个不同标签 | 一致性 |
+| 4 | sync_service.dart:364,412 | "日常"账本禁多人仅 UI 校验、服务层无兜底：enableSync/joinByInvite 无校验；他端 joinByInvite 可绕过 | 健壮性 |
+
+P1 — 建议修（结构/性能/可维护）
+| # | 位置 | 问题 | 维度 |
+|---|------|------|------|
+| 5 | supabase_sync_page.dart:417 等3处 | void+async fire-and-forget：_broadcastNickname、_onRecordDisplayChanged、ai_record_page:_savePrompt 异常被吞 | 健壮性 |
+| 6 | bills_page.dart:43-47 | async 函数注册为同步 listener：_onRecordsChanged 返回 Future 被 addListener 丢弃，异常成全局未捕获 | 健壮性 |
+| 7 | author_service.dart:64-77 | _ensureLoaded 无并发保护：多调用同时触发重复读 Settings 文件 | 性能 |
+| 8 | author_service.dart:288-306 | displayNameFor/displayAvatarFor 高度重复，每次走 3 次异步 Settings 读，未批量 | 冗余/性能 |
+| 9 | ledger_list_page.dart:81-86 | 显示作者昵称 N+1：每个作者逐个 await displayNameFor，触发 I/O 链 | 性能 |
+| 10 | sync_service.dart:587行 | 单文件超 500 行，五职责混一 | 分层 |
+| 11 | supabase_sync_page.dart:718行 | 单文件超 500 行，UI+账号+身份+上传混一 | 分层 |
+| 12 | record_item.dart:180-208 | StatelessWidget 直接执行 DB 删改(deleteRecord/updateRecord/deleteImage)，无 loading/异常/撤销 | 分层 |
+| 13 | sync_service.dart:80-82,284-286,387-389 | record payload 净化逻辑重复 3 处(remove image_path/account_id=null) | 冗余 |
+| 14 | sync_service.dart:263 | pullForRoom 无条件 recordsVersion.value++：无新数据也触发全局重建 | 性能 |
+| 15 | supabase_sync_page.dart:177-218 | _connect !mounted 提前 return 致 loading 弹窗泄漏(rootNavigator 弹窗不受 widget 生命周期管) | 健壮性 |
+| 16 | author_avatar.dart:48-78 | 快速切换 URL 时旧 _load 竞态：旧请求先完成会闪现旧头像 | 健壮性 |
+
+P2 — 可优化
+| # | 位置 | 问题 |
+|---|------|------|
+| 17 | author_service.dart:30,35 | 魔术值碰撞：_keyOwnNickname='nickname' 与 recordDisplayNickname='nickname' 同值不同义 |
+| 18 | author_service.dart:101-112 | ownNickname/ownAvatar 每调都异步读 Settings，高频调用可加内存缓存 |
+| 19 | author_service.dart:141 | ownName.trim() 双重 trim(ownNickname 已 trim) |
+| 20 | record_service.dart:154-158 | currentNickname() 是 AuthorService.ownNickname() 的劣质副本，应统一(顺带解 #3) |
+| 21 | 多处 | import 排序未分组(dart:>package:>相对) |
+| 22 | record_item.dart:54,82,94,99,136 | 多处硬编码尺寸/间距/圆角未走 constants |
+| 23 | supabase_sync_page.dart:538,577,592,650 | 用 Colors.black 而非 colorTextPrimary；间距 8 未走 spacingS |
+| 24 | supabase_sync_page:255-265,373-383 + ledger_list_page:134-250 | InputDecoration 下划线模式 5 处重复，可抽工厂 |
+| 25 | ledger_list_page.dart:266-351 | 同一 TextStyle 重复 3 次、Switch 三色配置重复 2 次 |
+| 26 | calendar_page:113-119、bills_page:73 | 页面直接查 service 判断共享账本，应由 service 封装 |
+| 27 | record.dart:68-80 | fromDbMap 重复实现 imagePathsFromDb 逻辑 |
+| 28 | record_service.dart:37-96 | loadRecords 与 loadRecordsByDateRange SQL 模板重复 |
+| 29 | sync_service.dart:384-397 | enableSync 逐条 _enqueue，应 db.batch 批量 |
+| 30 | sync_service.dart:110-133 | enqueueProfileChange 向所有共享账本广播，房间多时写放大 |
+| 31 | supabase_service.dart:382-413 | getProfileNickname+getProfileAvatar 可合并为一次 getProfile 查询 |
+| 32 | database.dart:49-51 | vacuum() 空 catch 吞异常，应 appLog |
+
+P3 — 可选/洁癖
+| # | 位置 | 问题 |
+|---|------|------|
+| 33 | sync_service.dart:369-378 | 建房间重试 5 次为魔法值、无退避间隔 |
+| 34 | ledger_list_page.dart:377 | "日常"硬编码字符串比较，建议模型/常量定义 |
+| 35 | record.dart:92 | created_at as int 缺 null 保护 |
+| 36 | database.dart:59-63 | reconnect dispose 异常被吞 |
+| 37 | 6 个公开 Widget 类 | 缺 /// 文档注释 |
+| 38 | 4 个文件 | import 排序未分组 |
+
+汇总：P0×4 / P1×12 / P2×16 / P3×6 = 38 项。误判 0(全部经实读代码核实)。
+状态：全部待决。最高优先 P0 四项(#1 RangeError 崩溃 / #2 云端失败无感知 / #3 昵称 trim 不一致致 author 分裂 / #4 日常账本禁多人服务层兜底)。
