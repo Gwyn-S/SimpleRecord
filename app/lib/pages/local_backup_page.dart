@@ -11,6 +11,7 @@ import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
 import '../widgets/auto_backup_tile.dart';
+import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 
 class LocalBackupPage extends StatefulWidget {
@@ -45,13 +46,20 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
 
   Future<void> _doBackup() async {
     setState(() => _busy = true);
-    showToast(context, '备份中…');
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('备份中'),
+    );
     try {
       await createSrbBackup();
       await _refresh();
+      navigator.pop();
       _toast('备份成功');
-    } catch (e) {
-      _toast('备份失败：$e');
+    } catch (_) {
+      navigator.pop();
+      _toast('备份失败，请检查磁盘空间');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -90,12 +98,23 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
     if (confirmed != true) return;
     if (!mounted) return;
     setState(() => _busy = true);
-    showToast(context, '恢复中…');
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('恢复中'),
+    );
     try {
       await restoreSrbBackup(file.path);
+      navigator.pop();
       _toast('恢复成功');
     } catch (e) {
-      _toast('恢复失败：$e');
+      navigator.pop();
+      _toast(
+        e is FormatException
+            ? '恢复失败：$e'
+            : '恢复失败，请检查备份文件是否有效',
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -105,8 +124,8 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
     try {
       await file.delete();
       await _refresh();
-    } catch (e) {
-      _toast('删除失败：$e');
+    } catch (_) {
+      _toast('删除失败，请检查文件是否被占用');
     }
   }
 

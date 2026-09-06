@@ -13,6 +13,7 @@ import '../models/webdav_config.dart';
 import '../services/webdav_service.dart';
 import '../utils/toast.dart';
 import '../widgets/auto_backup_tile.dart';
+import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 
 class WebDavPage extends StatefulWidget {
@@ -36,7 +37,6 @@ class _WebDavPageState extends State<WebDavPage> {
   final _directoryController = TextEditingController();
   bool _showPassword = false;
   bool _operating = false;
-  bool _uploading = false;
 
   @override
   void initState() {
@@ -183,7 +183,7 @@ class _WebDavPageState extends State<WebDavPage> {
       directory: _directoryController.text.trim(),
     );
     if (!config.isValid) {
-      showToast(context, '请填写服务器地址');
+      showToast(context, '请填写完整配置');
       return;
     }
     final service = WebDavService(
@@ -206,10 +206,11 @@ class _WebDavPageState extends State<WebDavPage> {
         _config = config;
         _files = files;
       });
+      showToast(context, '连接成功');
     } catch (e) {
       if (!mounted) return;
       setState(() => _connecting = false);
-      showToast(context, '连接失败：$e');
+      showToast(context, '连接失败，请检查配置与网络');
     }
   }
 
@@ -245,11 +246,13 @@ class _WebDavPageState extends State<WebDavPage> {
 
   Future<void> _uploadBackup() async {
     if (_operating) return;
-    setState(() {
-      _operating = true;
-      _uploading = true;
-    });
-    showToast(context, '上传中…');
+    setState(() => _operating = true);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('上传中'),
+    );
     final tmpDir = await Directory.systemTemp.createTemp('sr_upload');
     try {
       final localPath = await createSrbBackup(dir: tmpDir);
@@ -262,18 +265,14 @@ class _WebDavPageState extends State<WebDavPage> {
       );
       await service.upload(localPath, name);
       if (!mounted) return;
-      setState(() {
-        _operating = false;
-        _uploading = false;
-      });
+      navigator.pop();
+      setState(() => _operating = false);
       showToast(context, '上传成功');
       await _refresh(_config!, silent: true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _operating = false;
-        _uploading = false;
-      });
+      navigator.pop();
+      setState(() => _operating = false);
       showToast(context, '上传失败：$e');
     } finally {
       try {
@@ -303,7 +302,12 @@ class _WebDavPageState extends State<WebDavPage> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _operating = true);
-    showToast(context, '恢复中…');
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('恢复中'),
+    );
     String? localPath;
     try {
       final service = WebDavService(
@@ -315,10 +319,12 @@ class _WebDavPageState extends State<WebDavPage> {
       localPath = await service.download(file.name);
       await restoreSrbBackup(localPath);
       if (!mounted) return;
+      navigator.pop();
       setState(() => _operating = false);
       showToast(context, '恢复成功');
     } catch (e) {
       if (!mounted) return;
+      navigator.pop();
       setState(() => _operating = false);
       showToast(context, '恢复失败：$e');
     } finally {
@@ -401,17 +407,8 @@ class _WebDavPageState extends State<WebDavPage> {
                   height: 44,
                   child: FilledButton.icon(
                     onPressed: _operating ? null : _uploadBackup,
-                    icon: _uploading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorTextOnPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.cloud_upload_outlined),
-                    label: Text(_uploading ? '上传中' : '立即上传'),
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('立即上传'),
                     style: FilledButton.styleFrom(
                       backgroundColor: themeColor,
                       disabledBackgroundColor: themeColor,
