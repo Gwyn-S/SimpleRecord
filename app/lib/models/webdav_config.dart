@@ -12,7 +12,11 @@ class WebDavConfig {
     this.directory = '',
   });
 
-  bool get isValid => server.trim().isNotEmpty;
+  bool get isValid =>
+      server.trim().isNotEmpty &&
+      username.trim().isNotEmpty &&
+      password.isNotEmpty &&
+      directory.trim().isNotEmpty;
 }
 
 /// WebDAV 远端备份文件元信息。

@@ -12,10 +12,10 @@ import '../services/author_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
 import '../utils/log.dart';
+import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
 import '../services/cloud_config.dart';
-import '../services/settings.dart';
 import '../services/sync_service.dart';
 
 class LedgerListPage extends StatefulWidget {
@@ -187,11 +187,11 @@ class _LedgerListPageState extends State<LedgerListPage> {
                       showToast(context, '已加入「${ledger!.name}」');
                     }
                   case JoinSyncResult.notReady:
-                    showToast(context, '请先到「备份 → Supabase 同步」配置云同步');
+                    showToast(context, '请先配置云同步');
                   case JoinSyncResult.roomNotFound:
-                    showToast(context, '未找到该邀请码对应的房间，请核对邀请码');
+                    showToast(context, '房间不存在');
                   case JoinSyncResult.joinFailed:
-                    showToast(context, '加入失败：网络异常，或云端匿名登录未开启');
+                    showToast(context, '加入失败，请检查网络');
                 }
               } else if (name.isNotEmpty) {
                 final ledger = Ledger(id: genId(), name: name);
@@ -384,33 +384,15 @@ class _LedgerListPageState extends State<LedgerListPage> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => const Dialog(
-        child: Padding(
-          padding: EdgeInsets.all(spacingXXL),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: spacingL),
-              Text('正在开启多人记账', style: textBody),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => busyDialog('开启中'),
     );
     final ok = await SyncService.instance.enableSync(_ledgers[index]);
     if (!mounted) return;
     navigator.pop();
     if (ok) {
-      final code = await SyncService.instance.getInviteCode(_ledgers[index].id);
-      if (!mounted) return;
-      showToast(context, code != null ? '已开启共享，邀请码 $code' : '已开启共享');
+      showToast(context, '已开启共享');
     } else {
-      showToast(context, '开启共享失败，请检查网络后重试');
+      showToast(context, '开启失败，请检查网络后重试');
     }
     _loadLedgers();
   }
@@ -422,16 +404,11 @@ class _LedgerListPageState extends State<LedgerListPage> {
     _loadLedgers();
   }
 
-  /// 确保先完成「备份 → Supabase 同步」的三项配置：昵称 + URL + anon key。
+  /// 确保先完成「备份 → Supabase 同步」的云同步配置。
   Future<bool> _ensureCloudConfigured() async {
     final config = await loadCloudConfig();
     if (!config.isConfigured) {
-      if (mounted) showToast(context, '请先到「备份 → Supabase 同步」配置云同步');
-      return false;
-    }
-    final nickname = await Settings.getString('nickname') ?? '';
-    if (nickname.trim().isEmpty) {
-      if (mounted) showToast(context, '请先在「备份 → Supabase 同步」填写昵称');
+      if (mounted) showToast(context, '请先配置云同步');
       return false;
     }
     return true;

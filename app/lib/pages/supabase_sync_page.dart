@@ -20,6 +20,7 @@ import '../utils/log.dart';
 import '../utils/persist.dart';
 import '../utils/toast.dart';
 import '../widgets/author_avatar.dart';
+import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 
 /// Supabase 云同步配置页：填写项目地址与 anon key，保存后重建连接。
@@ -154,7 +155,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
               final url = _urlController.text.trim();
               final key = _keyController.text.trim();
               if (url.isEmpty || key.isEmpty) {
-                showToast(context, '请完整填写项目地址和密钥');
+                showToast(context, '请填写配置');
                 return;
               }
               Navigator.pop(dialogContext);
@@ -181,23 +182,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Dialog(
-        child: Padding(
-          padding: EdgeInsets.all(spacingXXL),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: spacingL),
-              Text('正在连接…', style: textBody),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => busyDialog('连接中'),
     );
     bool ok;
     try {
@@ -212,7 +197,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       setState(() => _cloudReady = true);
       showToast(context, '云端连接成功');
     } else {
-      showToast(context, '云端连接未就绪，请检查项目地址和密钥');
+      showToast(context, '云端连接失败，请检查配置');
     }
     return ok;
   }
@@ -299,11 +284,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     final exists = await AuthorService.instance.accountExists(id);
     if (!mounted) return;
     if (exists == true) {
-      showToast(context, '该账号已被注册，请直接登录');
-      return;
-    }
-    if (exists == null) {
-      showToast(context, '云端未连接，请先检查项目地址和密钥');
+      showToast(context, '账号已注册，请登录');
       return;
     }
     final ok = await AuthorService.instance.registerAccount(id);
@@ -327,10 +308,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   Future<void> _login(String id) async {
     final exists = await AuthorService.instance.accountExists(id);
     if (!mounted) return;
-    if (exists == null) {
-      showToast(context, '云端未连接，请先检查项目地址和密钥');
-      return;
-    }
     if (exists != true) {
       showToast(context, '该账号不存在，请先注册');
       return;
