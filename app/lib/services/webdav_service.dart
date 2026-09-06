@@ -5,6 +5,7 @@ import 'package:dio/io.dart';
 import 'package:path/path.dart' as p;
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
+import '../models/webdav_config.dart';
 import 'settings.dart';
 
 const _keyServer = 'webdav_server';
@@ -12,22 +13,7 @@ const _keyUsername = 'webdav_username';
 const _keyPassword = 'webdav_password';
 const _keyDirectory = 'webdav_directory';
 
-class WebDavConfig {
-  final String server;
-  final String username;
-  final String password;
-  final String directory;
-
-  const WebDavConfig({
-    required this.server,
-    required this.username,
-    required this.password,
-    this.directory = '',
-  });
-
-  bool get isValid => server.trim().isNotEmpty;
-}
-
+/// 读取持久化的 WebDAV 配置；未填服务器时返回 null。
 Future<WebDavConfig?> loadWebDavConfig() async {
   final server = await Settings.getString(_keyServer) ?? '';
   if (server.trim().isEmpty) return null;
@@ -39,27 +25,17 @@ Future<WebDavConfig?> loadWebDavConfig() async {
   );
 }
 
+/// 保存 WebDAV 配置（一次批量写入落盘）。
 Future<void> saveWebDavConfig(WebDavConfig config) async {
-  await Settings.setString(_keyServer, config.server.trim());
-  await Settings.setString(_keyUsername, config.username.trim());
-  await Settings.setString(_keyPassword, config.password);
-  await Settings.setString(_keyDirectory, config.directory.trim());
-}
-
-class WebDavFile {
-  final String name;
-  final String path;
-  final int size;
-  final DateTime? modified;
-
-  const WebDavFile({
-    required this.name,
-    required this.path,
-    required this.size,
-    this.modified,
+  await Settings.setStrings({
+    _keyServer: config.server.trim(),
+    _keyUsername: config.username.trim(),
+    _keyPassword: config.password,
+    _keyDirectory: config.directory.trim(),
   });
 }
 
+/// WebDAV 远端备份操作（列目录/上传/下载/删除）。
 class WebDavService {
   final String server;
   final String username;
@@ -84,7 +60,11 @@ class WebDavService {
 
   /// 创建 WebDAV 客户端：15s 连接超时、30s 读写超时、信任自签名证书。
   webdav.Client _client() {
-    final client = webdav.newClient(server.trim(), user: username, password: password);
+    final client = webdav.newClient(
+      server.trim(),
+      user: username,
+      password: password,
+    );
     client.setConnectTimeout(15000);
     client.setSendTimeout(30000);
     client.setReceiveTimeout(30000);
@@ -106,12 +86,14 @@ class WebDavService {
       return files
           .where((f) => (f.isDir ?? false) == false)
           .where((f) => (f.name ?? '').endsWith('.srb'))
-          .map((f) => WebDavFile(
-                name: f.name ?? '',
-                path: f.path ?? '',
-                size: f.size ?? 0,
-                modified: f.mTime,
-              ))
+          .map(
+            (f) => WebDavFile(
+              name: f.name ?? '',
+              path: f.path ?? '',
+              size: f.size ?? 0,
+              modified: f.mTime,
+            ),
+          )
           .toList();
     } on DioException catch (e) {
       throw HttpException(_statusError('列目录', e));

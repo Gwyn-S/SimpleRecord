@@ -15,6 +15,11 @@ class Record {
   final DateTime createdAt;
   final String? accountName;
   final List<String>? imagePaths;
+  final String? author;
+  final String? authorId;
+
+  /// 仅用于展示的瞬时头像 URL（不落库、不随同步，由展示层反查填充）。
+  final String? authorAvatarUrl;
 
   /// 从数据库原始字符串解析图片路径列表。
   static List<String> imagePathsFromDb(String? raw) {
@@ -39,21 +44,26 @@ class Record {
     required this.createdAt,
     this.accountName,
     this.imagePaths,
+    this.author,
+    this.authorId,
+    this.authorAvatarUrl,
   });
 
   Map<String, dynamic> toDbMap() => {
-        'id': id,
-        'book_id': ledgerId,
-        'account_id': accountId,
-        'is_expense': isExpense ? 1 : 0,
-        'category_name': categoryName,
-        'amount_cents': amountCents,
-        'remark': remark,
-        'date': toEpochDay(date),
-        'created_at': createdAt.millisecondsSinceEpoch,
-        'tag': tag,
-        'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
-      };
+    'id': id,
+    'book_id': ledgerId,
+    'account_id': accountId,
+    'is_expense': isExpense ? 1 : 0,
+    'category_name': categoryName,
+    'amount_cents': amountCents,
+    'remark': remark,
+    'date': toEpochDay(date),
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'tag': tag,
+    'image_path': imagePaths != null ? jsonEncode(imagePaths) : null,
+    'author': author,
+    'author_id': authorId,
+  };
 
   factory Record.fromDbMap(Map<String, dynamic> map) {
     final raw = map['image_path'] as String?;
@@ -81,6 +91,27 @@ class Record {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       accountName: map['account_name'] as String?,
       imagePaths: paths,
+      author: map['author'] as String?,
+      authorId: map['author_id'] as String?,
+    );
+  }
+  Record copyWith({String? author, String? authorId, String? authorAvatarUrl}) {
+    return Record(
+      id: id,
+      ledgerId: ledgerId,
+      accountId: accountId,
+      isExpense: isExpense,
+      categoryName: categoryName,
+      amountCents: amountCents,
+      remark: remark,
+      tag: tag,
+      date: date,
+      createdAt: createdAt,
+      accountName: accountName,
+      imagePaths: imagePaths,
+      author: author ?? this.author,
+      authorId: authorId ?? this.authorId,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
     );
   }
 }

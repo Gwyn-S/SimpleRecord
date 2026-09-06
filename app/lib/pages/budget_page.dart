@@ -55,7 +55,8 @@ class _BudgetPageState extends State<BudgetPage> {
 
   String get _monthBudgetKey => '${_budgetPrefix}_month_$_monthKey';
 
-  String _catBudgetKey(String name) => '${_budgetPrefix}_cat_${_monthKey}_$name';
+  String _catBudgetKey(String name) =>
+      '${_budgetPrefix}_cat_${_monthKey}_$name';
 
   int get _daysInMonth =>
       DateTime(currentMonth.value.year, currentMonth.value.month + 1, 0).day;
@@ -97,8 +98,9 @@ class _BudgetPageState extends State<BudgetPage> {
     }
     if (seq != _loadSeq || !mounted) return;
     setState(() {
-      _monthExpense =
-          records.where((r) => r.isExpense).fold(0, (s, r) => s + r.amountCents);
+      _monthExpense = records
+          .where((r) => r.isExpense)
+          .fold(0, (s, r) => s + r.amountCents);
       _monthBudget = monthBudget;
       _categoryExpense
         ..clear()
@@ -212,8 +214,9 @@ class _BudgetPageState extends State<BudgetPage> {
     final hasBudget = budget > 0;
     final ratio = hasBudget ? (_monthExpense / budget).clamp(0.0, 1.0) : 0.0;
     final avg = _elapsedDays > 0 ? _monthExpense / _elapsedDays : 0;
-    final perDay =
-        _remainingDays > 0 && hasBudget ? remaining / _remainingDays : 0.0;
+    final perDay = _remainingDays > 0 && hasBudget
+        ? remaining / _remainingDays
+        : 0.0;
     return Container(
       margin: const EdgeInsets.fromLTRB(spacingM, 8, spacingM, 0),
       padding: const EdgeInsets.all(spacingL),
@@ -244,7 +247,10 @@ class _BudgetPageState extends State<BudgetPage> {
                     ),
                     if (hasBudget) ...[
                       const SizedBox(height: 2),
-                      Text('已用', style: textItemSub.copyWith(color: colorTextPrimary)),
+                      Text(
+                        '已用',
+                        style: textItemSub.copyWith(color: colorTextPrimary),
+                      ),
                     ],
                   ],
                 ),
@@ -254,7 +260,10 @@ class _BudgetPageState extends State<BudgetPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('剩余月预算', style: textSecondary.copyWith(color: colorTextPrimary)),
+                    Text(
+                      '剩余月预算',
+                      style: textSecondary.copyWith(color: colorTextPrimary),
+                    ),
                     const SizedBox(height: spacingXS),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -351,10 +360,7 @@ class _BudgetPageState extends State<BudgetPage> {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 18,
-                color: colorTextPrimary,
-              ),
+              style: const TextStyle(fontSize: 18, color: colorTextPrimary),
             ),
           ),
         ),
@@ -364,8 +370,12 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Widget _buildCategoryHeader() {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(spacingM, spacingXL, spacingM, spacingXS),
+      padding: const EdgeInsets.fromLTRB(
+        spacingM,
+        spacingXL,
+        spacingM,
+        spacingXS,
+      ),
       child: Row(
         children: [
           const Text(
@@ -375,10 +385,7 @@ class _BudgetPageState extends State<BudgetPage> {
           const Spacer(),
           Text('本月支出', style: textItemSub),
           const SizedBox(width: spacingXS),
-          Text(
-            formatAmount(_monthExpense),
-            style: textAmountSummary,
-          ),
+          Text(formatAmount(_monthExpense), style: textAmountSummary),
         ],
       ),
     );
@@ -428,11 +435,7 @@ class _BudgetPageState extends State<BudgetPage> {
                 color: colorIconLightBackground,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                c.icon,
-                size: iconSizeXLarge,
-                color: colorIconGray,
-              ),
+              child: Icon(c.icon, size: iconSizeXLarge, color: colorIconGray),
             ),
             const SizedBox(width: spacingM),
             Expanded(

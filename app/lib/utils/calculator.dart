@@ -7,7 +7,9 @@ String evaluate(String expr) {
       if (p.isEmpty) continue;
       nums.add(double.parse(p));
     }
-    final operators = RegExp(r'[+\-*/]').allMatches(expr).map((m) => m.group(0)!).toList();
+    final operators = RegExp(
+      r'[+\-*/]',
+    ).allMatches(expr).map((m) => m.group(0)!).toList();
     int i = 0;
     while (i < operators.length) {
       if (operators[i] == '*' || operators[i] == '/') {
@@ -22,7 +24,9 @@ String evaluate(String expr) {
     }
     double result = nums.first;
     for (int j = 0; j < operators.length; j++) {
-      result = operators[j] == '+' ? result + nums[j + 1] : result - nums[j + 1];
+      result = operators[j] == '+'
+          ? result + nums[j + 1]
+          : result - nums[j + 1];
     }
     if (result == result.roundToDouble() && !expr.contains('.')) {
       return result.toInt().toString();
@@ -33,4 +37,12 @@ String evaluate(String expr) {
   }
 }
 
-bool endsWithOp(String s) => s.endsWith('+') || s.endsWith('-') || s.endsWith('×') || s.endsWith('÷');
+bool endsWithOp(String s) =>
+    s.endsWith('+') || s.endsWith('-') || s.endsWith('×') || s.endsWith('÷');
+
+/// 金额输入实时预览：以运算符结尾则原样显示，含运算则附结果，否则原样。
+String amountPreview(String expr) {
+  if (endsWithOp(expr)) return expr;
+  if (expr.contains(RegExp(r'[+\-×÷]'))) return '$expr=${evaluate(expr)}';
+  return expr;
+}

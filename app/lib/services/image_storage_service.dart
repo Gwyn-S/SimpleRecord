@@ -19,7 +19,9 @@ Future<List<File>> listImages() async {
   return dir
       .listSync()
       .whereType<File>()
-      .where((f) => _imageExtensions.contains(p.extension(f.path).toLowerCase()))
+      .where(
+        (f) => _imageExtensions.contains(p.extension(f.path).toLowerCase()),
+      )
       .toList();
 }
 

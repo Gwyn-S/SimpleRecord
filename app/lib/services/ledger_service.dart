@@ -1,18 +1,16 @@
+import 'dart:async';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../models/ledger.dart';
+import '../models/ledger_stats.dart';
 import '../models/record.dart';
 import '../utils/id.dart';
 import 'database.dart';
 import 'image_storage_service.dart';
 import 'record_service.dart';
-
-class LedgerStats {
-  const LedgerStats({required this.count, required this.income, required this.expense});
-  final int count;
-  final int income;
-  final int expense;
-}
+import 'supabase_service.dart';
+import 'sync_service.dart';
 
 /// 各账本记录数与收支合计，SQL 一次聚合，
 /// 避免全表加载后在 Dart 内存里重复过滤统计。
@@ -37,6 +35,29 @@ Future<Map<String, LedgerStats>> loadLedgerStats() async {
   };
 }
 
+/// 各账本按作者分组的结余（收入-支出），key 为作者 author_id（未发版，历史无此列处理可忽略）。
+Future<Map<String, Map<String, int>>> loadLedgerPerAuthorBalance() async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.rawQuery('''
+    SELECT book_id,
+           author_id AS author,
+           SUM(CASE WHEN is_expense = 0 THEN amount_cents
+                    WHEN is_expense = 1 THEN -amount_cents
+                    ELSE 0 END) AS bal
+    FROM records
+    GROUP BY book_id, author_id
+  ''');
+  final result = <String, Map<String, int>>{};
+  for (final r in rows) {
+    final bookId = r['book_id'] as String?;
+    if (bookId == null) continue;
+    final author = (r['author'] as String?) ?? '';
+    final bal = (r['bal'] as num).toInt();
+    result.putIfAbsent(bookId, () => {})[author] = bal;
+  }
+  return result;
+}
+
 Future<List<Ledger>> loadLedgers() async {
   final db = await DatabaseHelper.instance.database;
   final rows = await db.query('books', orderBy: 'created_at');
@@ -49,21 +70,44 @@ Future<void> insertLedger(Ledger ledger) async {
   await db.insert('books', {
     ...ledger.toDbMap(),
     'created_at': ledger.createdAt != 0 ? ledger.createdAt : now,
-  },
-      conflictAlgorithm: ConflictAlgorithm.replace);
+  }, conflictAlgorithm: ConflictAlgorithm.replace);
+  SyncService.instance.enqueueLedger(ledger, op: 'insert');
 }
 
 Future<void> updateLedger(Ledger ledger) async {
   final db = await DatabaseHelper.instance.database;
-  await db.update('books', ledger.toDbMap(),
-      where: 'id = ?', whereArgs: [ledger.id]);
+  await db.update(
+    'books',
+    ledger.toDbMap(),
+    where: 'id = ?',
+    whereArgs: [ledger.id],
+  );
+  SyncService.instance.enqueueLedger(ledger, op: 'update');
+  if (ledger.syncMode == 1) {
+    // 共享账本改名：云端房间名同步更新（oplog 改名由 enqueueLedger 走 flush）。
+    unawaited(SupabaseManager.instance.renameRoom(ledger.id, ledger.name));
+  }
 }
 
 Future<void> deleteLedger(String id) async {
   final db = await DatabaseHelper.instance.database;
+  bool wasShared = false;
+  final bookRow = await db.query(
+    'books',
+    columns: ['sync_mode'],
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+  if (bookRow.isNotEmpty) {
+    wasShared = (bookRow.first['sync_mode'] as int) == 1;
+  }
   // 先查询该账本下所有记录的图片路径
-  final rows = await db.query('records',
-      columns: ['image_path'], where: 'book_id = ?', whereArgs: [id]);
+  final rows = await db.query(
+    'records',
+    columns: ['image_path'],
+    where: 'book_id = ?',
+    whereArgs: [id],
+  );
   for (final row in rows) {
     final imagePath = row['image_path'] as String?;
     if (imagePath != null && imagePath.isNotEmpty) {
@@ -79,6 +123,11 @@ Future<void> deleteLedger(String id) async {
   });
   recordsVersion.value++;
   await DatabaseHelper.instance.vacuum();
+  if (wasShared) {
+    final ledger = Ledger(id: id, name: '');
+    SyncService.instance.enqueueLedger(ledger, op: 'delete');
+    unawaited(SyncService.instance.removeSharedState(id));
+  }
 }
 
 /// 确保存在一个有效的当前账本：无账本时创建默认账本，
@@ -91,7 +140,8 @@ Future<String> ensureCurrentLedgerId() async {
     await saveCurrentLedgerId(ledger.id);
     return ledger.id;
   }
-  if (currentLedgerId.value == null || !ledgers.any((l) => l.id == currentLedgerId.value)) {
+  if (currentLedgerId.value == null ||
+      !ledgers.any((l) => l.id == currentLedgerId.value)) {
     await saveCurrentLedgerId(ledgers.first.id);
   }
   return currentLedgerId.value!;

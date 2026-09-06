@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/ai_config.dart';
 import '../services/ai_service.dart';
 import '../services/theme_service.dart';
 import '../utils/toast.dart';
@@ -31,9 +32,15 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
     _nameController = TextEditingController(text: widget.config?.name ?? '');
     _urlController = TextEditingController(text: widget.config?.url ?? '');
     _keyController = TextEditingController(text: widget.config?.key ?? '');
-    _textModelController = TextEditingController(text: widget.config?.textModel ?? '');
-    _visionModelController = TextEditingController(text: widget.config?.visionModel ?? '');
-    _voiceModelController = TextEditingController(text: widget.config?.voiceModel ?? '');
+    _textModelController = TextEditingController(
+      text: widget.config?.textModel ?? '',
+    );
+    _visionModelController = TextEditingController(
+      text: widget.config?.visionModel ?? '',
+    );
+    _voiceModelController = TextEditingController(
+      text: widget.config?.voiceModel ?? '',
+    );
   }
 
   @override
@@ -48,7 +55,8 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
   }
 
   Future<void> _save() async {
-    final allEmpty = _nameController.text.isEmpty &&
+    final allEmpty =
+        _nameController.text.isEmpty &&
         _urlController.text.isEmpty &&
         _keyController.text.isEmpty &&
         _textModelController.text.isEmpty &&
@@ -93,8 +101,10 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
       showToast(context, '请填写 API Key');
       return;
     }
-    if (_textModelController.text.isEmpty) {
-      showToast(context, '请填写文本模型');
+    if (_textModelController.text.isEmpty &&
+        _visionModelController.text.isEmpty &&
+        _voiceModelController.text.isEmpty) {
+      showToast(context, '请填写至少一个模型');
       return;
     }
 
@@ -140,7 +150,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'AI 名称',
-                  hintText: '如 GPT-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -150,7 +159,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
                   labelText: 'Base URL',
-                  hintText: 'https://api.openai.com/v1',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -177,7 +185,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _textModelController,
                 decoration: const InputDecoration(
                   labelText: '文本模型',
-                  hintText: '如 gpt-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -186,7 +193,6 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _visionModelController,
                 decoration: const InputDecoration(
                   labelText: '视觉模型',
-                  hintText: '如 gpt-4o',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -195,32 +201,39 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                 controller: _voiceModelController,
                 decoration: const InputDecoration(
                   labelText: '语音模型',
-                  hintText: '如 whisper-1',
                   border: OutlineInputBorder(),
                 ),
               ),
             ]),
             const SizedBox(height: spacingXL),
-            SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                onPressed: _testing ? null : _test,
-                child: _testing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('测试'),
-              ),
-            ),
-            const SizedBox(height: spacingM),
-            SizedBox(
-              height: 44,
-              child: FilledButton(
-                onPressed: _save,
-                child: const Text('保存'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: _testing ? null : _test,
+                      child: _testing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('测试'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: spacingM),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: FilledButton(
+                      onPressed: _save,
+                      child: const Text('保存'),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

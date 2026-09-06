@@ -26,7 +26,13 @@ class OptionBarItem extends StatelessWidget {
         children: [
           Icon(icon, size: iconSizeMedium, color: colorTextPrimary),
           const SizedBox(width: spacingXS),
-          Text(label, style: textSecondary.copyWith(fontSize: 14, color: colorTextPrimary)),
+          Text(
+            label,
+            style: textSecondary.copyWith(
+              fontSize: 14,
+              color: colorTextPrimary,
+            ),
+          ),
         ],
       ),
     );

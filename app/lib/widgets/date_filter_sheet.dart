@@ -46,7 +46,12 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
         borderRadius: BorderRadius.circular(radiusMedium),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingS),
+        padding: const EdgeInsets.fromLTRB(
+          spacingL,
+          spacingM,
+          spacingL,
+          spacingS,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -67,18 +72,13 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
                   () => Navigator.pop(context, (null, null)),
                 ),
                 const SizedBox(width: spacingS),
-                _actionButton(
-                  '确定',
-                  themeColor,
-                  colorTextOnPrimary,
-                  () {
-                    if (_start == null || _end == null) {
-                      showToast(context, '请选择开始和结束日期');
-                      return;
-                    }
-                    Navigator.pop(context, (_start, _end));
-                  },
-                ),
+                _actionButton('确定', themeColor, colorTextOnPrimary, () {
+                  if (_start == null || _end == null) {
+                    showToast(context, '请选择开始和结束日期');
+                    return;
+                  }
+                  Navigator.pop(context, (_start, _end));
+                }),
               ],
             ),
           ],
@@ -88,16 +88,15 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
   }
 
   Widget _buildPresetRow(
-      List<({String label, DateTime start, DateTime end})> row,
-      Color themeColor) {
+    List<({String label, DateTime start, DateTime end})> row,
+    Color themeColor,
+  ) {
     return Row(
       children: [
         for (final p in row)
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(
-                right: p == row.last ? 0 : spacingS,
-              ),
+              padding: EdgeInsets.only(right: p == row.last ? 0 : spacingS),
               child: _presetButton(p, themeColor),
             ),
           ),
@@ -106,7 +105,9 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
   }
 
   Widget _presetButton(
-      ({String label, DateTime start, DateTime end}) preset, Color themeColor) {
+    ({String label, DateTime start, DateTime end}) preset,
+    Color themeColor,
+  ) {
     final selected = _selectedPreset == preset.label;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -136,16 +137,12 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
   Widget _buildCustomRange(Color themeColor) {
     return Row(
       children: [
-        Expanded(
-          child: _dateField('开始日期', _start, isStart: true),
-        ),
+        Expanded(child: _dateField('开始日期', _start, isStart: true)),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: spacingS),
           child: Text('至', style: textBody),
         ),
-        Expanded(
-          child: _dateField('结束日期', _end, isStart: false),
-        ),
+        Expanded(child: _dateField('结束日期', _end, isStart: false)),
       ],
     );
   }
@@ -186,8 +183,7 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
     );
   }
 
-  Widget _actionButton(
-      String text, Color bg, Color fg, VoidCallback onTap) {
+  Widget _actionButton(String text, Color bg, Color fg, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -196,10 +192,7 @@ class _DateFilterSheetState extends State<DateFilterSheet> {
           color: bg,
           borderRadius: BorderRadius.circular(radiusSmall),
         ),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: 14, color: fg),
-        ),
+        child: Text(text, style: TextStyle(fontSize: 14, color: fg)),
       ),
     );
   }
@@ -215,8 +208,7 @@ List<({String label, DateTime start, DateTime end})> datePresets(DateTime now) {
   final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
   final thisMonthStart = DateTime(now.year, now.month, 1);
   final lastMonthStart = DateTime(now.year, now.month - 1, 1);
-  DateTime endOfDay(DateTime d) =>
-      DateTime(d.year, d.month, d.day, 23, 59, 59);
+  DateTime endOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59);
   return [
     (
       label: '本周',
@@ -238,16 +230,8 @@ List<({String label, DateTime start, DateTime end})> datePresets(DateTime now) {
       start: lastMonthStart,
       end: endOfDay(DateTime(now.year, now.month, 0)),
     ),
-    (
-      label: '近三月',
-      start: _monthsAgo(today, 3),
-      end: endOfDay(today),
-    ),
-    (
-      label: '近半年',
-      start: _monthsAgo(today, 6),
-      end: endOfDay(today),
-    ),
+    (label: '近三月', start: _monthsAgo(today, 3), end: endOfDay(today)),
+    (label: '近半年', start: _monthsAgo(today, 6), end: endOfDay(today)),
     (
       label: '今年',
       start: DateTime(now.year, 1, 1),

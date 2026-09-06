@@ -46,23 +46,30 @@ class TrendLineChart extends StatelessWidget {
       animationDuration: 0,
       header: showTooltipHeader ? '' : null,
       canShowMarker: false,
-      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
-        final p = points[pointIndex];
-        final text = tooltipFormatter != null
-            ? tooltipFormatter!(p)
-            : '${p.label} ${formatAmount(p.value)}';
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 11, color: Colors.white),
-          ),
-        );
-      },
+      builder:
+          (
+            dynamic data,
+            dynamic point,
+            dynamic series,
+            int pointIndex,
+            int seriesIndex,
+          ) {
+            final p = points[pointIndex];
+            final text = tooltipFormatter != null
+                ? tooltipFormatter!(p)
+                : '${p.label} ${formatAmount(p.value)}';
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+              ),
+            );
+          },
     );
 
     return SizedBox(

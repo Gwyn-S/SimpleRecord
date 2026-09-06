@@ -5,6 +5,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/asset_account.dart';
 import '../services/asset_account_service.dart';
+import '../services/balance_history_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_avatar.dart';
@@ -57,26 +58,35 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     switch (_selectedType) {
       case 0:
         _filteredAccounts = _accounts.where((a) => !a.isDebtAccount).toList();
+        break;
       case 1:
         _filteredAccounts = _accounts.where((a) => a.isDebtAccount).toList();
+        break;
       default:
         _filteredAccounts = _accounts;
+        break;
     }
 
-    _filteredByCategory = _filteredAccounts
-        .where((a) => a.balanceCents != 0)
-        .map((a) => _CategorySummary(
-              name: a.displayName,
-              amount: a.balanceCents.abs(),
-              color: categoryColorByName(a.categoryName),
-            ))
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    _filteredByCategory =
+        _filteredAccounts
+            .where((a) => a.balanceCents != 0)
+            .map(
+              (a) => _CategorySummary(
+                name: a.displayName,
+                amount: a.balanceCents.abs(),
+                color: categoryColorByName(a.categoryName),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
     _filteredRanking = List<AssetAccount>.from(_filteredAccounts)
       ..sort((a, b) => b.balanceCents.abs().compareTo(a.balanceCents.abs()));
 
-    _filteredTotal = _filteredAccounts.fold(0, (s, a) => s + a.balanceCents.abs());
+    _filteredTotal = _filteredAccounts.fold(
+      0,
+      (s, a) => s + a.balanceCents.abs(),
+    );
   }
 
   @override
@@ -96,19 +106,19 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       ),
       backgroundColor: colorBackgroundPage,
       body: ListView(
-              padding: const EdgeInsets.all(spacingM),
-              children: [
-                _buildSummarySection(),
-                const SizedBox(height: spacingM),
-                _buildTrendCard(themeColor),
-                if (_selectedType != 2) ...[
-                  const SizedBox(height: spacingM),
-                  _buildPieCard(),
-                  const SizedBox(height: spacingM),
-                  _buildRankingCard(),
-                ],
-              ],
-            ),
+        padding: const EdgeInsets.all(spacingM),
+        children: [
+          _buildSummarySection(),
+          const SizedBox(height: spacingM),
+          _buildTrendCard(themeColor),
+          if (_selectedType != 2) ...[
+            const SizedBox(height: spacingM),
+            _buildPieCard(),
+            const SizedBox(height: spacingM),
+            _buildRankingCard(),
+          ],
+        ],
+      ),
     );
   }
 
@@ -136,13 +146,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 
   // ======================== 走势图卡片 ========================
 
-  String get _yearLabel {
-    final now = DateTime.now().year;
-    if (_selectedYear == now) return '今年';
-    if (_selectedYear == now - 1) return '去年';
-    if (_selectedYear == now - 2) return '前年';
-    return '$_selectedYear';
-  }
+  String get _yearLabel => yearLabel(_selectedYear);
 
   Widget _buildTrendCard(Color themeColor) {
     return CardContainer(
@@ -150,21 +154,22 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
       trailing: GestureDetector(
         onTap: _showYearPicker,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+          padding: const EdgeInsets.symmetric(
+            horizontal: spacingM,
+            vertical: spacingXS,
+          ),
           decoration: BoxDecoration(
             color: colorDivider,
             borderRadius: BorderRadius.circular(radiusSmall),
           ),
-          child: Text(
-            _yearLabel,
-            style: textTagSmall,
-          ),
+          child: Text(_yearLabel, style: textTagSmall),
         ),
       ),
       child: SizedBox(
         height: 180,
         child: _TrendLineChart(
           accounts: _filteredAccounts,
+          year: _selectedYear,
           showFlatZero: _filteredAccounts.isEmpty,
         ),
       ),
@@ -191,21 +196,26 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final title = _selectedType == 0
         ? '资产余额占比'
         : _selectedType == 1
-            ? '负债余额占比'
-            : '净资产占比';
+        ? '负债余额占比'
+        : '净资产占比';
     if (data.isEmpty) {
-      return CardContainer(
-        title: title,
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: title, child: const SizedBox.shrink());
     }
     return CardContainer(
       title: title,
-        child: SizedBox(
+      child: SizedBox(
         height: 220,
         child: DonutPieChart(
           key: const ValueKey('pie'),
-          data: data.map((s) => PieSectorData(name: s.name, amount: s.amount, color: s.color)).toList(),
+          data: data
+              .map(
+                (s) => PieSectorData(
+                  name: s.name,
+                  amount: s.amount,
+                  color: s.color,
+                ),
+              )
+              .toList(),
           total: total,
         ),
       ),
@@ -219,13 +229,10 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
     final title = _selectedType == 0
         ? '资产排行榜'
         : _selectedType == 1
-            ? '负债排行榜'
-            : '净资产排行榜';
+        ? '负债排行榜'
+        : '净资产排行榜';
     if (ranking.isEmpty) {
-      return CardContainer(
-        title: title,
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: title, child: const SizedBox.shrink());
     }
     final totalAmount = _filteredTotal;
     return CardContainer(
@@ -236,10 +243,7 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
           final ratio = totalAmount > 0
               ? account.balanceCents.abs() / totalAmount
               : 0.0;
-          return _RankingRow(
-            account: account,
-            ratio: ratio,
-          );
+          return _RankingRow(account: account, ratio: ratio);
         }).toList(),
       ),
     );
@@ -250,44 +254,90 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 //  走势图（syncfusion SfCartesianChart + LineSeries + 点击节点显示信息）
 // ======================================================================
 
-class _TrendLineChart extends StatelessWidget {
+class _TrendLineChart extends StatefulWidget {
   final List<AssetAccount> accounts;
+  final int year;
   final bool showFlatZero;
 
   const _TrendLineChart({
     required this.accounts,
+    required this.year,
     this.showFlatZero = false,
   });
+
+  @override
+  State<_TrendLineChart> createState() => _TrendLineChartState();
+}
+
+class _TrendLineChartState extends State<_TrendLineChart> {
+  List<_TrendPoint> _points = [];
+  List<({String id, bool isDebt})> _lastAccounts = const [];
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastAccounts = _toAccountSpecs(widget.accounts);
+    _ready = widget.showFlatZero || widget.accounts.isEmpty;
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrendLineChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final spec = _toAccountSpecs(widget.accounts);
+    final changedAccounts =
+        spec.length != _lastAccounts.length ||
+        spec.any((a) => !_lastAccounts.contains(a));
+    final changedYear = oldWidget.year != widget.year;
+    if (changedAccounts) {
+      _lastAccounts = spec;
+    }
+    if (changedAccounts || changedYear) {
+      _ready = widget.showFlatZero || widget.accounts.isEmpty;
+      if (_ready) {
+        _points = [];
+      }
+      _load();
+    }
+  }
+
+  List<({String id, bool isDebt})> _toAccountSpecs(
+    List<AssetAccount> accounts,
+  ) {
+    return [for (final a in accounts) (id: a.id, isDebt: a.isDebtAccount)];
+  }
+
+  Future<void> _load() async {
+    if (widget.showFlatZero || widget.accounts.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final monthly = await BalanceHistoryService.instance.monthlyNetByYear(
+      widget.year,
+      _lastAccounts,
+    );
+    if (!mounted) return;
+    setState(() {
+      final now = DateTime.now();
+      final currentMonth = now.month;
+      _points = [];
+      for (var m = 1; m <= currentMonth; m++) {
+        _points.add(_TrendPoint(month: m, value: monthly[m - 1]));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final currentMonth = now.month;
-
-    List<_TrendPoint> points;
-    if (showFlatZero || accounts.isEmpty) {
-      points = List.generate(
-        currentMonth,
-        (i) => _TrendPoint(month: i + 1, value: 0),
-      );
-    } else {
-      final total = accounts
-          .where((a) => !a.isDebtAccount)
-          .fold(0, (s, a) => s + a.balanceCents);
-      final debt = accounts
-          .where((a) => a.isDebtAccount)
-          .fold(0, (s, a) => s + a.balanceCents.abs());
-      final net = total - debt;
-
-      // TODO: 接入真实历史月度余额快照数据，当前为占位随机值
-      final rand = SimpleRandom(42);
-      points = [];
-      for (var i = 0; i < currentMonth - 1; i++) {
-        final value = net * (0.8 + rand.nextDouble() * 0.4);
-        points.add(_TrendPoint(month: i + 1, value: value.toInt()));
-      }
-      points.add(_TrendPoint(month: currentMonth, value: net));
-    }
+    final points = _points.isEmpty
+        ? List.generate(
+            currentMonth,
+            (i) => _TrendPoint(month: i + 1, value: 0),
+          )
+        : _points;
 
     final values = points.map((p) => p.value.toDouble()).toList();
     final (minY, maxY) = computeYRange(values);
@@ -297,20 +347,30 @@ class _TrendLineChart extends StatelessWidget {
       activationMode: ActivationMode.singleTap,
       tooltipPosition: TooltipPosition.pointer,
       animationDuration: 0,
-      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
-        final p = points[pointIndex];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
-          decoration: BoxDecoration(
-            color: colorTextPrimary,
-            borderRadius: BorderRadius.circular(radiusTiny),
-          ),
-          child: Text(
-            '${p.month}月 ${formatAmount(p.value)}',
-            style: textChartTooltip,
-          ),
-        );
-      },
+      builder:
+          (
+            dynamic data,
+            dynamic point,
+            dynamic series,
+            int pointIndex,
+            int seriesIndex,
+          ) {
+            final p = points[pointIndex];
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingS,
+                vertical: spacingXS,
+              ),
+              decoration: BoxDecoration(
+                color: colorTextPrimary,
+                borderRadius: BorderRadius.circular(radiusTiny),
+              ),
+              child: Text(
+                '${p.month}月 ${formatAmount(p.value)}',
+                style: textChartTooltip,
+              ),
+            );
+          },
     );
 
     return SfCartesianChart(
@@ -329,11 +389,7 @@ class _TrendLineChart extends StatelessWidget {
           return ChartAxisLabel('$month月', details.textStyle);
         },
       ),
-      primaryYAxis: NumericAxis(
-        minimum: minY,
-        maximum: maxY,
-        isVisible: false,
-      ),
+      primaryYAxis: NumericAxis(minimum: minY, maximum: maxY, isVisible: false),
       tooltipBehavior: tooltip,
       series: <LineSeries<_TrendPoint, num>>[
         LineSeries<_TrendPoint, num>(
@@ -372,10 +428,7 @@ class _RankingRow extends StatelessWidget {
   final AssetAccount account;
   final double ratio;
 
-  const _RankingRow({
-    required this.account,
-    required this.ratio,
-  });
+  const _RankingRow({required this.account, required this.ratio});
 
   @override
   Widget build(BuildContext context) {
@@ -387,15 +440,14 @@ class _RankingRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              AccountAvatar(account: account, size: iconSizeSmall, color: themeColor),
+              AccountAvatar(
+                account: account,
+                size: iconSizeSmall,
+                color: themeColor,
+              ),
               const SizedBox(width: spacingS),
-              Expanded(
-                child: Text(account.displayName, style: textBody),
-              ),
-              Text(
-                '$percent%',
-                style: textItemSub,
-              ),
+              Expanded(child: Text(account.displayName, style: textBody)),
+              Text('$percent%', style: textItemSub),
               const SizedBox(width: spacingS),
               Text(
                 formatAmount(account.balanceCents),

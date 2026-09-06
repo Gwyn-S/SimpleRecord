@@ -7,9 +7,46 @@ import 'solar_festival.dart';
 
 /// 农历日期工具，最大支持到2099年
 class ChineseDate {
-  static const List<String> DAY_NAME = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
-  static const List<String> MONTH_NAME = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
-  static const List<String> MONTH_NAME_TRADITIONAL = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '寒', '冬', '腊'];
+  static const List<String> DAY_NAME = [
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '十',
+  ];
+  static const List<String> MONTH_NAME = [
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '十',
+    '十一',
+    '十二',
+  ];
+  static const List<String> MONTH_NAME_TRADITIONAL = [
+    '正',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '寒',
+    '冬',
+    '腊',
+  ];
 
   /// 农历年
   late final int chineseYear;
@@ -92,7 +129,11 @@ class ChineseDate {
 
   /// 获得农历月称呼（中文，例如二月，腊月，或者闰正月）
   String getChineseMonthName() {
-    return getChineseMonthNameInternal(isLeapMonth, isLeapMonth ? month - 1 : month, true);
+    return getChineseMonthNameInternal(
+      isLeapMonth,
+      isLeapMonth ? month - 1 : month,
+      true,
+    );
   }
 
   /// 获得农历日（例如初一，初二，三十）
@@ -126,11 +167,19 @@ class ChineseDate {
 
   /// 获得节气
   String getTerm() {
-    return SolarTerms.getTermFromDate(gregorianYear, gregorianMonthBase1, gregorianDay);
+    return SolarTerms.getTermFromDate(
+      gregorianYear,
+      gregorianMonthBase1,
+      gregorianDay,
+    );
   }
 
   /// 获取农历月份名称（内部方法）
-  static String getChineseMonthNameInternal(bool isLeapMonth, int month, bool isTraditional) {
+  static String getChineseMonthNameInternal(
+    bool isLeapMonth,
+    int month,
+    bool isTraditional,
+  ) {
     return (isLeapMonth ? '闰' : '') +
         (isTraditional ? MONTH_NAME_TRADITIONAL : MONTH_NAME)[month - 1] +
         '月';

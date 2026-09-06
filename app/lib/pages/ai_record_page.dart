@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../models/ai_config.dart';
+import '../models/tencent_asr_config.dart';
 import '../services/ai_service.dart';
 import '../services/tencent_asr_service.dart';
 import '../services/theme_service.dart';
 import '../services/settings.dart';
 import '../utils/toast.dart';
 import '../widgets/common_app_bar.dart';
+import '../widgets/settings_item.dart';
 import 'ai_manage_page.dart';
 
 class AiRecordPage extends StatefulWidget {
@@ -76,17 +79,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
     return name;
   }
 
-  bool _supports(AiConfig c, String feature) {
-    switch (feature) {
-      case 'text':
-        return c.textModel.isNotEmpty;
-      case 'vision':
-        return c.visionModel.isNotEmpty;
-      case 'voice':
-        return c.voiceModel.isNotEmpty;
-    }
-    return false;
-  }
+  bool _supports(AiConfig c, String feature) =>
+      _modelField(c, feature).isNotEmpty;
 
   String _modelField(AiConfig c, String feature) {
     switch (feature) {
@@ -110,7 +104,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
     for (var i = 0; i < _configs.length; i++) {
       if (_supports(_configs[i], feature)) candidates.add(i);
     }
-    final selectedName = selectedIndex != null && candidates.contains(selectedIndex)
+    final selectedName =
+        selectedIndex != null && candidates.contains(selectedIndex)
         ? _configLabel(_configs[selectedIndex])
         : '未选择';
 
@@ -118,11 +113,11 @@ class _AiRecordPageState extends State<AiRecordPage> {
       onTap: candidates.isEmpty
           ? null
           : () => _showConfigPicker(
-                feature: feature,
-                candidates: candidates,
-                selectedIndex: selectedIndex,
-                onChanged: onChanged,
-              ),
+              feature: feature,
+              candidates: candidates,
+              selectedIndex: selectedIndex,
+              onChanged: onChanged,
+            ),
       behavior: HitTestBehavior.opaque,
       child: Container(
         color: Colors.white,
@@ -136,11 +131,18 @@ class _AiRecordPageState extends State<AiRecordPage> {
               selectedName,
               style: TextStyle(
                 fontSize: 16,
-                color: selectedIndex != null && candidates.contains(selectedIndex) ? Colors.black : Colors.grey,
+                color:
+                    selectedIndex != null && candidates.contains(selectedIndex)
+                    ? Colors.black
+                    : Colors.grey,
               ),
             ),
             const SizedBox(width: spacingS),
-            Icon(Icons.chevron_right, size: iconSizeMedium, color: Colors.grey.shade300),
+            Icon(
+              Icons.chevron_right,
+              size: iconSizeDefault,
+              color: colorTextSecondary,
+            ),
           ],
         ),
       ),
@@ -162,7 +164,10 @@ class _AiRecordPageState extends State<AiRecordPage> {
             children: [
               if (selectedIndex != null && candidates.contains(selectedIndex))
                 ListTile(
-                  title: const Text('取消选择', style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    '取消选择',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     onChanged(null);
                     Navigator.pop(ctx);
@@ -173,9 +178,17 @@ class _AiRecordPageState extends State<AiRecordPage> {
                 final c = _configs[origIndex];
                 final modelInfo = _modelField(c, feature);
                 return ListTile(
-                  title: Text(_configLabel(c) + (modelInfo.isEmpty ? '' : ' · $modelInfo')),
+                  title: Text(
+                    _configLabel(c) +
+                        (modelInfo.isEmpty ? '' : ' · $modelInfo'),
+                  ),
                   trailing: selectedIndex == origIndex
-                      ? Icon(Icons.check, color: Theme.of(context).extension<AppThemeColors>()!.primary)
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(
+                            context,
+                          ).extension<AppThemeColors>()!.primary,
+                        )
                       : null,
                   onTap: () {
                     onChanged(origIndex);
@@ -206,21 +219,20 @@ class _AiRecordPageState extends State<AiRecordPage> {
               children: [
                 const Text('启用 AI 记账', style: textListItem),
                 const Spacer(),
-                Transform.scale(
-                  scale: 0.8,
-                  child: Switch(
-                    value: _enabled,
-                    onChanged: _toggle,
-                    splashRadius: 0,
-                    activeTrackColor: Theme.of(context).extension<AppThemeColors>()!.primary,
-                    inactiveTrackColor: Colors.grey.shade300,
-                    thumbColor: WidgetStateProperty.all(Colors.white),
-                  ),
+                Switch(
+                  value: _enabled,
+                  onChanged: _toggle,
+                  splashRadius: 0,
+                  activeTrackColor: Theme.of(
+                    context,
+                  ).extension<AppThemeColors>()!.primary,
+                  inactiveTrackColor: Colors.grey.shade300,
+                  thumbColor: WidgetStateProperty.all(Colors.white),
                 ),
               ],
             ),
           ),
-          _settingsItem(
+          SettingsItem(
             title: 'AI 配置',
             onTap: () async {
               await Navigator.push(
@@ -264,25 +276,6 @@ class _AiRecordPageState extends State<AiRecordPage> {
     );
   }
 
-  Widget _settingsItem({required String title, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: spacingL),
-        height: 56,
-        child: Row(
-          children: [
-            Text(title, style: textListItem),
-            const Spacer(),
-            Icon(Icons.chevron_right, size: iconSizeMedium, color: Colors.grey.shade300),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildAsrField() {
     return Column(
       children: [
@@ -299,8 +292,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
                 const Spacer(),
                 Icon(
                   _asrExpanded ? Icons.expand_less : Icons.chevron_right,
-                  size: iconSizeMedium,
-                  color: Colors.grey.shade300,
+                  size: iconSizeDefault,
+                  color: colorTextSecondary,
                 ),
               ],
             ),
@@ -341,7 +334,9 @@ class _AiRecordPageState extends State<AiRecordPage> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('测试'),
                       ),
@@ -365,8 +360,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
   Future<void> _saveAsr() async {
     final id = _secretIdController.text.trim();
     final key = _secretKeyController.text.trim();
-    if (id.isEmpty || key.isEmpty) {
-      safeShowToast(context, '请填写 SecretId 和 SecretKey');
+    if (id.isEmpty && key.isEmpty) {
+      safeShowToast(context, '配置为空');
       return;
     }
     await saveAsrConfig(TencentAsrConfig(secretId: id, secretKey: key));
@@ -410,8 +405,8 @@ class _AiRecordPageState extends State<AiRecordPage> {
                 const Spacer(),
                 Icon(
                   _promptExpanded ? Icons.expand_less : Icons.chevron_right,
-                  size: iconSizeMedium,
-                  color: Colors.grey.shade300,
+                  size: iconSizeDefault,
+                  color: colorTextSecondary,
                 ),
               ],
             ),

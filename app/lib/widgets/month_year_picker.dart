@@ -14,7 +14,11 @@ Future<DateTime?> showMonthYearPicker(BuildContext context, DateTime initial) {
 }
 
 /// 仅选择年份的picker
-Future<DateTime?> showYearPicker(BuildContext context, DateTime initial, {int? maxYear}) {
+Future<DateTime?> showYearPicker(
+  BuildContext context,
+  DateTime initial, {
+  int? maxYear,
+}) {
   return showModalBottomSheet<DateTime>(
     context: context,
     backgroundColor: colorBackgroundCard,
@@ -49,10 +53,7 @@ Widget _buildCancelConfirmBar(
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: const EdgeInsets.all(spacingM),
-            child: Text(
-              '确认',
-              style: TextStyle(fontSize: 16, color: primary),
-            ),
+            child: Text('确认', style: TextStyle(fontSize: 16, color: primary)),
           ),
         ),
       ],
@@ -96,8 +97,9 @@ class _YearPickerSheetState extends State<_YearPickerSheet> {
     super.initState();
     _maxYear = widget.maxYear ?? 2100;
     _year = widget.initial.year;
-    _yearController =
-        FixedExtentScrollController(initialItem: _year - _minYear);
+    _yearController = FixedExtentScrollController(
+      initialItem: _year - _minYear,
+    );
   }
 
   @override
@@ -138,10 +140,16 @@ class _YearPickerSheetState extends State<_YearPickerSheet> {
                         itemExtent: 38,
                         diameterRatio: 1.4,
                         physics: const FixedExtentScrollPhysics(),
-                        onSelectedItemChanged: (i) => setState(() => _year = _minYear + i),
+                        onSelectedItemChanged: (i) =>
+                            setState(() => _year = _minYear + i),
                         children: List.generate(
                           _maxYear - _minYear + 1,
-                          (i) => Center(child: Text('${_minYear + i} 年', style: textPickerItem)),
+                          (i) => Center(
+                            child: Text(
+                              '${_minYear + i} 年',
+                              style: textPickerItem,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -180,8 +188,9 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
     super.initState();
     _year = widget.initial.year;
     _month = widget.initial.month;
-    _yearController =
-        FixedExtentScrollController(initialItem: _year - _minYear);
+    _yearController = FixedExtentScrollController(
+      initialItem: _year - _minYear,
+    );
     _monthController = FixedExtentScrollController(initialItem: _month - 1);
   }
 

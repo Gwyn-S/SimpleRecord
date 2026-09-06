@@ -31,9 +31,9 @@ class CalcKeyboard extends StatelessWidget {
       return;
     }
     if (key == '⌫') {
-      onChanged(amount.length > 1
-          ? amount.substring(0, amount.length - 1)
-          : '0');
+      onChanged(
+        amount.length > 1 ? amount.substring(0, amount.length - 1) : '0',
+      );
       return;
     }
     var next = amount;
@@ -92,7 +92,11 @@ class CalcKeyboard extends StatelessWidget {
   Widget _buildDivider() {
     return const SizedBox(
       height: 1,
-      child: Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+      child: Divider(
+        height: 1,
+        thickness: borderWidthThin,
+        color: colorBorderKeyboard,
+      ),
     );
   }
 
@@ -118,7 +122,10 @@ class CalcKeyboard extends StatelessWidget {
         height: heightKeyboardRow,
         decoration: const BoxDecoration(
           border: Border(
-            right: BorderSide(color: colorBorderKeyboard, width: borderWidthThin),
+            right: BorderSide(
+              color: colorBorderKeyboard,
+              width: borderWidthThin,
+            ),
           ),
         ),
         alignment: Alignment.center,
@@ -142,7 +149,11 @@ class CalcKeyboard extends StatelessWidget {
         alignment: Alignment.center,
         child: const Text(
           '⌫',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: colorTextPrimary),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: colorTextPrimary,
+          ),
         ),
       ),
     );

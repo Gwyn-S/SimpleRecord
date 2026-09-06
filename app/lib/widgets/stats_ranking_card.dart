@@ -38,28 +38,32 @@ class StatsRankingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return CardContainer(
-        title: title,
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: title, child: const SizedBox.shrink());
     }
 
     final total = items.fold(0, (s, e) => s + e.amountCents);
-    final themeColor = progressColor ?? Theme.of(context).extension<AppThemeColors>()!.primary;
+    final themeColor =
+        progressColor ?? Theme.of(context).extension<AppThemeColors>()!.primary;
 
     return CardContainer(
       title: title,
       child: Column(
         children: items.asMap().entries.map((entry) {
           final item = entry.value;
-          final ratio = total > 0 ? (item.amountCents / total).clamp(0.0, 1.0) : 0.0;
+          final ratio = total > 0
+              ? (item.amountCents / total).clamp(0.0, 1.0)
+              : 0.0;
           final percent = (ratio * 100).toStringAsFixed(1);
           final category = expenseCategories.firstWhere(
             (c) => c.name == item.name,
-            orElse: () => Category(icon: item.icon ?? Icons.category, name: item.name),
+            orElse: () =>
+                Category(icon: item.icon ?? Icons.category, name: item.name),
           );
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: 10,
+            ),
             child: Row(
               children: [
                 Container(
@@ -84,13 +88,22 @@ class StatsRankingCard extends StatelessWidget {
                         children: [
                           Text(item.name, style: textBody),
                           const SizedBox(width: spacingM),
-                          Text('$percent%', style: textBody.copyWith(color: colorTextPrimary)),
+                          Text(
+                            '$percent%',
+                            style: textBody.copyWith(color: colorTextPrimary),
+                          ),
                           const Spacer(),
                           if (item.count > 0) ...[
-                            Text('(共${item.count}笔)', style: textItemSub.copyWith(color: colorTextHint)),
+                            Text(
+                              '(共${item.count}笔)',
+                              style: textItemSub.copyWith(color: colorTextHint),
+                            ),
                             const SizedBox(width: spacingXS),
                           ],
-                          Text(formatAmount(item.amountCents), style: textAmountFlow),
+                          Text(
+                            formatAmount(item.amountCents),
+                            style: textAmountFlow,
+                          ),
                         ],
                       ),
                       const SizedBox(height: spacingS),

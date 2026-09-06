@@ -7,12 +7,28 @@ String formatAmount(int cents) {
   return '$sign${abs ~/ 100}.${(abs % 100).toString().padLeft(2, '0')}';
 }
 
+/// 编辑框预填用：去尾零（9.00 → 9、8.90 → 8.9），保留有效小数。
+String formatAmountEdit(int cents) {
+  final sign = cents < 0 ? '-' : '';
+  final abs = cents.abs();
+  final yuan = abs ~/ 100;
+  final fen = abs % 100;
+  if (fen == 0) return '$sign$yuan';
+  var s = fen.toString().padLeft(2, '0');
+  while (s.endsWith('0')) {
+    s = s.substring(0, s.length - 1);
+  }
+  return '$sign$yuan.$s';
+}
+
 /// 解析元（字符串，可能带小数）为分。输入非有限或溢出时返回 0。
 int yuanToCents(String s) {
   final parts = s.split('.');
   final yuanD = double.tryParse(parts[0] == '' ? '0' : parts[0]);
   if (yuanD == null || !yuanD.isFinite || yuanD.abs() > 9.0e16) return 0;
-  final frac = (parts.length > 1 ? parts[1] : '').padRight(2, '0').substring(0, 2);
+  final frac = (parts.length > 1 ? parts[1] : '')
+      .padRight(2, '0')
+      .substring(0, 2);
   return yuanD.toInt() * 100 + int.parse(frac);
 }
 
@@ -85,6 +101,15 @@ String formatDateTime(DateTime d) {
   final minY = minVal == 0 ? -1.0 : minVal * 0.9;
   final maxY = maxVal == 0 ? 1.0 : maxVal * 1.1;
   return (minY, maxY);
+}
+
+/// 相对当前年份的中文标签：今年/去年/前年，其余返回年份本身。
+String yearLabel(int year) {
+  final now = DateTime.now().year;
+  if (year == now) return '今年';
+  if (year == now - 1) return '去年';
+  if (year == now - 2) return '前年';
+  return '$year';
 }
 
 /// 简单伪随机数生成器（不依赖 dart:math）。

@@ -23,10 +23,8 @@ DateTime monthFromPage(int page) {
 
 int pageFromMonth(DateTime m) => m.year * 12 + m.month - 1;
 
-int monthExpense(List<Record> records) => records
-    .where((r) => r.isExpense)
-    .fold(0, (sum, r) => sum + r.amountCents);
+int monthExpense(List<Record> records) =>
+    records.where((r) => r.isExpense).fold(0, (sum, r) => sum + r.amountCents);
 
-int monthIncome(List<Record> records) => records
-    .where((r) => !r.isExpense)
-    .fold(0, (sum, r) => sum + r.amountCents);
+int monthIncome(List<Record> records) =>
+    records.where((r) => !r.isExpense).fold(0, (sum, r) => sum + r.amountCents);

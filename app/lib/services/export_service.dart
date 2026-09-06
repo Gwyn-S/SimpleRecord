@@ -32,9 +32,10 @@ Future<String> exportCsv({List<Record>? records}) async {
   };
   final rows =
       records ??
-      (await db.query('records', orderBy: 'date DESC, created_at DESC'))
-          .map(Record.fromDbMap)
-          .toList();
+      (await db.query(
+        'records',
+        orderBy: 'date DESC, created_at DESC',
+      )).map(Record.fromDbMap).toList();
   final now = DateTime.now();
   final stamp =
       '${now.year}${pad2(now.month)}${pad2(now.day)}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}${now.millisecond.toString().padLeft(2, '0')}';

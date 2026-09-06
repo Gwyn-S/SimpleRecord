@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/theme_service.dart';
 import '../models/ledger.dart';
+import '../models/ledger_stats.dart';
 import '../services/record_service.dart';
 import '../services/ledger_service.dart';
+import '../services/author_service.dart';
 import '../utils/formatters.dart';
 import '../utils/id.dart';
+import '../utils/log.dart';
+import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
+import '../services/cloud_config.dart';
+import '../services/sync_service.dart';
 
 class LedgerListPage extends StatefulWidget {
   const LedgerListPage({super.key});
@@ -21,6 +28,7 @@ class LedgerListPage extends StatefulWidget {
 class _LedgerListPageState extends State<LedgerListPage> {
   final List<Ledger> _ledgers = [];
   Map<String, LedgerStats> _stats = {};
+  Map<String, Map<String, int>> _perAuthor = {};
 
   @override
   void initState() {
@@ -47,41 +55,116 @@ class _LedgerListPageState extends State<LedgerListPage> {
       await ensureCurrentLedgerId();
       final loaded = await loadLedgers();
       if (!mounted) return;
-      setState(() => _ledgers.addAll(loaded));
+      setState(() {
+        _ledgers
+          ..clear()
+          ..addAll(loaded);
+      });
       _loadStats();
+      SyncService.instance.precacheInviteCodes(
+        _ledgers.where((l) => l.syncMode == 1).map((l) => l.id),
+      );
     } catch (_) {
       if (mounted) safeShowToast(context, '加载账本失败，请重试');
     }
   }
 
   Future<void> _loadStats() async {
-    final stats = await loadLedgerStats();
-    if (!mounted) return;
-    setState(() => _stats = stats);
+    try {
+      final results = await Future.wait([
+        loadLedgerStats(),
+        loadLedgerPerAuthorBalance(),
+      ]);
+      final perAuthor = results[1] as Map<String, Map<String, int>>;
+      // 把分组的 author_id 键反查为最新昵称后展示。
+      final remapped = <String, Map<String, int>>{};
+      for (final entry in perAuthor.entries) {
+        final bookMap = <String, int>{};
+        for (final ae in entry.value.entries) {
+          final name =
+              await AuthorService.instance.displayNameFor(ae.key) ?? ae.key;
+          bookMap[name] = ae.value;
+        }
+        remapped[entry.key] = bookMap;
+      }
+      if (!mounted) return;
+      setState(() {
+        _stats = results[0] as Map<String, LedgerStats>;
+        _perAuthor = remapped;
+      });
+    } catch (e) {
+      appLog('[ledger] loadStats failed: $e');
+    }
+  }
+
+  /// 多人账本结余行：总结余 + 按作者分组，如「总结余：-17.00 A：-8.00 B：-9.00」。
+  String _sharedBalanceLine(String bookId, int total) {
+    final buf = StringBuffer('总结余：${formatAmount(total)}');
+    (_perAuthor[bookId] ?? const {}).forEach((author, bal) {
+      buf.write(' $author：${formatAmount(bal)}');
+    });
+    return buf.toString();
   }
 
   void _showAddDialog() {
-    final controller = TextEditingController();
+    final nameController = TextEditingController();
+    final codeController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: '请输入账本名称',
-            border: InputBorder.none,
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: colorDivider),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: '账本名称',
+                border: InputBorder.none,
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
+                  ),
+                ),
               ),
             ),
-          ),
-          autofocus: true,
+            const SizedBox(height: spacingS),
+            TextField(
+              controller: codeController,
+              decoration: InputDecoration(
+                labelText: '邀请码',
+                border: InputBorder.none,
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -90,12 +173,33 @@ class _LedgerListPageState extends State<LedgerListPage> {
           ),
           TextButton(
             onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
+              final code = codeController.text.trim().toUpperCase();
+              final name = nameController.text.trim();
+              if (code.isNotEmpty) {
+                final (result, ledger) = await SyncService.instance
+                    .joinByInvite(code);
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                switch (result) {
+                  case JoinSyncResult.success:
+                    await _loadLedgers();
+                    if (context.mounted) {
+                      showToast(context, '已加入「${ledger!.name}」');
+                    }
+                  case JoinSyncResult.notReady:
+                    showToast(context, '请先配置云同步');
+                  case JoinSyncResult.roomNotFound:
+                    showToast(context, '房间不存在');
+                  case JoinSyncResult.joinFailed:
+                    showToast(context, '加入失败，请检查网络');
+                }
+              } else if (name.isNotEmpty) {
                 final ledger = Ledger(id: genId(), name: name);
                 setState(() => _ledgers.add(ledger));
                 await insertLedger(ledger);
                 if (context.mounted) Navigator.pop(context);
+              } else {
+                showToast(context, '请输入账本名称或邀请码');
               }
             },
             child: const Text('确定'),
@@ -107,26 +211,146 @@ class _LedgerListPageState extends State<LedgerListPage> {
 
   void _showEditDialog(int index) {
     final controller = TextEditingController(text: _ledgers[index].name);
+    final inviteCodeFuture = _ledgers[index].syncMode == 1
+        ? SyncService.instance.getInviteCode(_ledgers[index].id)
+        : Future<String?>.value(null);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
-        actionsPadding: const EdgeInsets.fromLTRB(spacingL, 0, spacingL, spacingS),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: '请输入账本名称',
-            border: InputBorder.none,
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: colorDivider),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: '请输入账本名称',
+                border: InputBorder.none,
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: colorDivider),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
+                  ),
+                ),
               ),
+              autofocus: true,
             ),
-          ),
-          autofocus: true,
+            const SizedBox(height: spacingS),
+            if (_ledgers[index].syncMode == 1)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    tileColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    title: const Text(
+                      '多人记账',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: colorTextPrimary,
+                      ),
+                    ),
+                    trailing: Switch(
+                      value: true,
+                      onChanged: (_) {
+                        Navigator.pop(context);
+                        _disableShared(index);
+                      },
+                      activeTrackColor: Theme.of(
+                        context,
+                      ).extension<AppThemeColors>()!.primary,
+                      inactiveTrackColor: Colors.grey.shade300,
+                      thumbColor: WidgetStateProperty.all(Colors.white),
+                    ),
+                    dense: true,
+                  ),
+                  FutureBuilder<String?>(
+                    future: inviteCodeFuture,
+                    builder: (context, snap) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      tileColor: Colors.transparent,
+                      splashColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
+                      title: const Text(
+                        '邀请他人',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          color: colorTextPrimary,
+                        ),
+                      ),
+                      trailing: Text(
+                        snap.data ?? '',
+                        style: textCardMeta.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).extension<AppThemeColors>()!.primary,
+                        ),
+                      ),
+                      dense: true,
+                      onTap: () async {
+                        final code = snap.data;
+                        if (!context.mounted) return;
+                        if (code != null) {
+                          await Clipboard.setData(ClipboardData(text: code));
+                          if (!context.mounted) return;
+                          showToast(context, '已复制邀请码 $code');
+                        } else {
+                          showToast(context, '邀请码获取失败，请检查网络');
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              )
+            else
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                tileColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                title: const Text(
+                  '多人记账',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: colorTextPrimary,
+                  ),
+                ),
+                trailing: Switch(
+                  value: false,
+                  onChanged: (_) {
+                    Navigator.pop(context);
+                    _enableShared(index);
+                  },
+                  activeTrackColor: Theme.of(
+                    context,
+                  ).extension<AppThemeColors>()!.primary,
+                  inactiveTrackColor: Colors.grey.shade300,
+                  thumbColor: WidgetStateProperty.all(Colors.white),
+                ),
+                dense: true,
+              ),
+          ],
         ),
         actions: [
           TextButton(
@@ -147,6 +371,47 @@ class _LedgerListPageState extends State<LedgerListPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _enableShared(int index) async {
+    if (_ledgers[index].name.trim() == '日常') {
+      if (mounted) showToast(context, '「日常」账本不允许开启多人记账');
+      return;
+    }
+    if (!await _ensureCloudConfigured()) return;
+    if (!mounted) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('开启中'),
+    );
+    final ok = await SyncService.instance.enableSync(_ledgers[index]);
+    if (!mounted) return;
+    navigator.pop();
+    if (ok) {
+      showToast(context, '已开启共享');
+    } else {
+      showToast(context, '开启失败，请检查网络后重试');
+    }
+    _loadLedgers();
+  }
+
+  Future<void> _disableShared(int index) async {
+    await SyncService.instance.disableSync(_ledgers[index].id);
+    if (!mounted) return;
+    showToast(context, '已关闭多人记账');
+    _loadLedgers();
+  }
+
+  /// 确保先完成「备份 → Supabase 同步」的云同步配置。
+  Future<bool> _ensureCloudConfigured() async {
+    final config = await loadCloudConfig();
+    if (!config.isConfigured) {
+      if (mounted) showToast(context, '请先配置云同步');
+      return false;
+    }
+    return true;
   }
 
   void _showDeleteDialog(int index) {
@@ -190,7 +455,10 @@ class _LedgerListPageState extends State<LedgerListPage> {
         title: '账本',
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: colorTextOnPrimary.withValues(alpha: 0.3), height: 1),
+          child: Container(
+            color: colorTextOnPrimary.withValues(alpha: 0.3),
+            height: 1,
+          ),
         ),
         actions: [
           IconButton(
@@ -204,10 +472,8 @@ class _LedgerListPageState extends State<LedgerListPage> {
           : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: _ledgers.length,
-              separatorBuilder: (_, _) => Container(
-                height: 1,
-                color: colorDivider,
-              ),
+              separatorBuilder: (_, _) =>
+                  Container(height: 1, color: colorDivider),
               itemBuilder: (context, index) {
                 final ledger = _ledgers[index];
                 final isCurrent = currentLedgerId.value == ledger.id;
@@ -221,76 +487,119 @@ class _LedgerListPageState extends State<LedgerListPage> {
                     Navigator.pop(context);
                   },
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(spacingL, 10, spacingL, 10),
+                    padding: const EdgeInsets.fromLTRB(
+                      spacingL,
+                      10,
+                      spacingL,
+                      10,
+                    ),
                     child: SizedBox(
                       height: 100,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                        Column(
-                          children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: themeColor,
-                                    borderRadius: BorderRadius.circular(radiusSmall),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      ledger.name,
-                                      style: textCardTitle,
-                                      overflow: TextOverflow.ellipsis,
+                          Column(
+                            children: [
+                              Stack(
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 100,
+                                    decoration: BoxDecoration(
+                                      color: themeColor,
+                                      borderRadius: BorderRadius.circular(
+                                        radiusSmall,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        ledger.name,
+                                        style: textCardTitle,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                if (isCurrent)
-                                  const Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Icon(Icons.check, color: colorTextOnPrimary, size: iconSizeSmall),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: spacingL),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('记录数：$count', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text('总收入：${formatAmount(income)}', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text('总支出：${formatAmount(expense)}', style: textCardMeta),
-                              const SizedBox(height: spacingXS),
-                              Text('总结余：${formatAmount(income - expense)}', style: textCardMeta),
+                                  if (ledger.syncMode == 1)
+                                    const Positioned(
+                                      top: 4,
+                                      left: 4,
+                                      child: Icon(
+                                        Icons.people,
+                                        color: colorTextOnPrimary,
+                                        size: iconSizeSmall,
+                                      ),
+                                    ),
+                                  if (isCurrent)
+                                    const Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Icon(
+                                        Icons.check,
+                                        color: colorTextOnPrimary,
+                                        size: iconSizeSmall,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
-                        ),
-                        SizedBox(
-                          height: 100,
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          const SizedBox(width: spacingL),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                GestureDetector(
-                                  onTap: () => _showEditDialog(index),
-                                  child: Icon(Icons.edit, size: 30, color: themeColor),
+                                Text('记录数：$count', style: textCardMeta),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  '总收入：${formatAmount(income)}',
+                                  style: textCardMeta,
                                 ),
-                                const SizedBox(width: spacingL),
-                                GestureDetector(
-                                  onTap: () => _showDeleteDialog(index),
-                                  child: Icon(Icons.delete_outline, size: 30, color: themeColor),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  '总支出：${formatAmount(expense)}',
+                                  style: textCardMeta,
+                                ),
+                                const SizedBox(height: spacingXS),
+                                Text(
+                                  ledger.syncMode == 1
+                                      ? _sharedBalanceLine(
+                                          ledger.id,
+                                          income - expense,
+                                        )
+                                      : '总结余：${formatAmount(income - expense)}',
+                                  style: textCardMeta,
                                 ),
                               ],
                             ),
                           ),
-                        ),
+                          SizedBox(
+                            height: 100,
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _showEditDialog(index),
+                                    child: Icon(
+                                      Icons.edit,
+                                      size: 30,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: spacingL),
+                                  GestureDetector(
+                                    onTap: () => _showDeleteDialog(index),
+                                    child: Icon(
+                                      Icons.delete_outline,
+                                      size: 30,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

@@ -69,7 +69,9 @@ class _DonutPieChartState extends State<DonutPieChart> {
                         pointColorMapper: (PieSectorData item, _) => item.color,
                         radius: '70%',
                         innerRadius: '50%',
-                        dataLabelSettings: const DataLabelSettings(isVisible: false),
+                        dataLabelSettings: const DataLabelSettings(
+                          isVisible: false,
+                        ),
                       ),
                     ],
                   ),
@@ -132,21 +134,37 @@ class _PieLeaderPainter extends CustomPainter {
       final endX = isRight ? breakX + 18 : breakX - 18;
 
       linePaint.color = item.color;
-      canvas.drawLine(Offset(startX, startY), Offset(breakX, breakY), linePaint);
+      canvas.drawLine(
+        Offset(startX, startY),
+        Offset(breakX, breakY),
+        linePaint,
+      );
       canvas.drawLine(Offset(breakX, breakY), Offset(endX, breakY), linePaint);
 
       final pct = (item.amount / total * 100).toStringAsFixed(1);
       final textPainter = TextPainter(
         text: TextSpan(
           children: [
-            TextSpan(text: item.name, style: TextStyle(fontSize: 10, color: item.color)),
-            TextSpan(text: ' $pct%', style: TextStyle(fontSize: 10, color: item.color)),
+            TextSpan(
+              text: item.name,
+              style: TextStyle(fontSize: 10, color: item.color),
+            ),
+            TextSpan(
+              text: ' $pct%',
+              style: TextStyle(fontSize: 10, color: item.color),
+            ),
           ],
         ),
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(isRight ? endX + 4 : endX - textPainter.width - 4, breakY - textPainter.height / 2));
+      textPainter.paint(
+        canvas,
+        Offset(
+          isRight ? endX + 4 : endX - textPainter.width - 4,
+          breakY - textPainter.height / 2,
+        ),
+      );
 
       startAngle += sweepAngle;
     }

@@ -29,14 +29,20 @@ class SummaryBlock extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            Text(
+              label,
+              style: textSecondary.copyWith(color: colorTextOnPrimary),
+            ),
             const SizedBox(height: spacingXS),
             Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
+                Text(
+                  '¥',
+                  style: textSecondary.copyWith(color: colorTextOnPrimary),
+                ),
                 const SizedBox(width: spacingXS),
                 Text(amount ?? '0.00', style: textAmountStat),
               ],
@@ -53,7 +59,10 @@ class SummaryBlock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            Text(
+              label,
+              style: textSecondary.copyWith(color: colorTextOnPrimary),
+            ),
             const SizedBox(width: spacingXS),
             Text(emptyText!, style: textSummaryEmpty),
           ],
@@ -68,7 +77,10 @@ class SummaryBlock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(label, style: textSecondary.copyWith(color: colorTextOnPrimary)),
+            Text(
+              label,
+              style: textSecondary.copyWith(color: colorTextOnPrimary),
+            ),
             const SizedBox(width: spacingXS),
             Text('¥', style: textSecondary.copyWith(color: colorTextOnPrimary)),
             const SizedBox(width: spacingXXS),

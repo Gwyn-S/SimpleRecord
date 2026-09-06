@@ -54,10 +54,7 @@ class AssetCategorySelectPage extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: spacingS),
         itemCount: options.length,
-        separatorBuilder: (_, _) => Container(
-          height: 1,
-          color: colorDivider,
-        ),
+        separatorBuilder: (_, _) => Container(height: 1, color: colorDivider),
         itemBuilder: (context, index) {
           final option = options[index];
           return GestureDetector(
@@ -78,7 +75,10 @@ class AssetCategorySelectPage extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingXS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingL,
+                vertical: spacingXS,
+              ),
               child: Row(
                 children: [
                   SizedBox(
@@ -91,18 +91,22 @@ class AssetCategorySelectPage extends StatelessWidget {
                             height: iconSizeXLarge,
                             fit: BoxFit.contain,
                             colorFilter: option.iconColor != null
-                                ? ColorFilter.mode(option.iconColor!, BlendMode.srcIn)
+                                ? ColorFilter.mode(
+                                    option.iconColor!,
+                                    BlendMode.srcIn,
+                                  )
                                 : null,
                           )
                         : null,
                   ),
                   const SizedBox(width: spacingL),
-                  Text(
-                    option.name,
-                    style: textPickerItem,
-                  ),
+                  Text(option.name, style: textPickerItem),
                   const Spacer(),
-                  const Icon(Icons.chevron_right, size: iconSizeDefault, color: colorTextSecondary),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: iconSizeDefault,
+                    color: colorTextSecondary,
+                  ),
                 ],
               ),
             ),

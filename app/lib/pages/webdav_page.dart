@@ -9,8 +9,12 @@ import '../constants/app_text_styles.dart';
 import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
+import '../models/webdav_config.dart';
 import '../services/webdav_service.dart';
 import '../utils/toast.dart';
+import '../widgets/auto_backup_tile.dart';
+import '../widgets/busy_dialog.dart';
+import '../widgets/common_app_bar.dart';
 
 class WebDavPage extends StatefulWidget {
   const WebDavPage({super.key});
@@ -24,6 +28,8 @@ class _WebDavPageState extends State<WebDavPage> {
   List<WebDavFile> _files = [];
   bool _busy = false;
   String? _error;
+  bool _dialogOpen = false;
+  bool _connecting = false;
 
   final _serverController = TextEditingController();
   final _usernameController = TextEditingController();
@@ -31,7 +37,6 @@ class _WebDavPageState extends State<WebDavPage> {
   final _directoryController = TextEditingController();
   bool _showPassword = false;
   bool _operating = false;
-  bool _uploading = false;
 
   @override
   void initState() {
@@ -55,9 +60,160 @@ class _WebDavPageState extends State<WebDavPage> {
     _usernameController.text = config?.username ?? '';
     _passwordController.text = config?.password ?? '';
     _directoryController.text = config?.directory ?? '';
-    setState(() => _config = config);
-    if (config != null) await _refresh(config);
+    if (config == null) {
+      _showConfigDialog();
+      return;
+    }
+    // 已有配置：尝试连通，成功直接进；失败则锁死弹窗修改配置。
+    try {
+      final service = WebDavService(
+        server: config.server,
+        username: config.username,
+        password: config.password,
+        directory: config.directory,
+      );
+      final files = await service.listBackups();
+      if (!mounted) return;
+      setState(() {
+        _config = config;
+        _files = files;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showConfigDialog();
+    }
   }
+
+  /// 模态配置弹窗：未真正连通前锁死，验证通过才进入列表页。
+  void _showConfigDialog() {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _serverController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '服务器地址',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _directoryController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '远程目录',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: '用户名',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: spacingM),
+              TextField(
+                controller: _passwordController,
+                obscureText: !_showPassword,
+                decoration: InputDecoration(
+                  labelText: '密码',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _showPassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      size: iconSizeDefault,
+                    ),
+                    onPressed: () =>
+                        setDialogState(() => _showPassword = !_showPassword),
+                  ),
+                ),
+              ),
+              if (_connecting) ...[
+                const SizedBox(height: spacingM),
+                const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          actions: [
+            OutlinedButton(
+              onPressed: _connecting
+                  ? null
+                  : () {
+                      Navigator.pop(dialogContext);
+                      if (mounted && _config == null) Navigator.pop(context);
+                    },
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: _connecting ? null : () => _verifyAndEnter(dialogContext),
+              child: const Text('连接'),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) => _dialogOpen = false);
+  }
+
+  Future<void> _verifyAndEnter(BuildContext dialogContext) async {
+    final config = WebDavConfig(
+      server: _serverController.text.trim(),
+      username: _usernameController.text,
+      password: _passwordController.text,
+      directory: _directoryController.text.trim(),
+    );
+    if (!config.isValid) {
+      showToast(context, '请填写完整配置');
+      return;
+    }
+    final service = WebDavService(
+      server: config.server,
+      username: config.username,
+      password: config.password,
+      directory: config.directory,
+    );
+    setState(() => _connecting = true);
+    try {
+      final files = await service.listBackups();
+      await saveWebDavConfig(config);
+      if (!mounted) return;
+      setState(() {
+        _connecting = false;
+        _showPassword = false;
+      });
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+      setState(() {
+        _config = config;
+        _files = files;
+      });
+      showToast(context, '连接成功');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _connecting = false);
+      showToast(context, '连接失败，请检查配置与网络');
+    }
+  }
+
 
   Future<void> _refresh(WebDavConfig config, {bool silent = false}) async {
     if (!silent) {
@@ -88,29 +244,15 @@ class _WebDavPageState extends State<WebDavPage> {
     }
   }
 
-  Future<void> _saveAndConnect() async {
-    final config = WebDavConfig(
-      server: _serverController.text,
-      username: _usernameController.text,
-      password: _passwordController.text,
-      directory: _directoryController.text,
-    );
-    if (!config.isValid) {
-      showToast(context, '请填写服务器地址');
-      return;
-    }
-    await saveWebDavConfig(config);
-    setState(() => _config = config);
-    await _refresh(config);
-  }
-
   Future<void> _uploadBackup() async {
     if (_operating) return;
-    setState(() {
-      _operating = true;
-      _uploading = true;
-    });
-    showToast(context, '上传中…');
+    setState(() => _operating = true);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('上传中'),
+    );
     final tmpDir = await Directory.systemTemp.createTemp('sr_upload');
     try {
       final localPath = await createSrbBackup(dir: tmpDir);
@@ -123,18 +265,14 @@ class _WebDavPageState extends State<WebDavPage> {
       );
       await service.upload(localPath, name);
       if (!mounted) return;
-      setState(() {
-        _operating = false;
-        _uploading = false;
-      });
+      navigator.pop();
+      setState(() => _operating = false);
       showToast(context, '上传成功');
       await _refresh(_config!, silent: true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _operating = false;
-        _uploading = false;
-      });
+      navigator.pop();
+      setState(() => _operating = false);
       showToast(context, '上传失败：$e');
     } finally {
       try {
@@ -151,7 +289,10 @@ class _WebDavPageState extends State<WebDavPage> {
         title: const Text('恢复备份'),
         content: const Text('将从云端下载此备份并覆盖当前全部数据，且不可撤销。确定恢复吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('恢复', style: TextStyle(color: colorDelete)),
@@ -161,7 +302,12 @@ class _WebDavPageState extends State<WebDavPage> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _operating = true);
-    showToast(context, '恢复中…');
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('恢复中'),
+    );
     String? localPath;
     try {
       final service = WebDavService(
@@ -173,10 +319,12 @@ class _WebDavPageState extends State<WebDavPage> {
       localPath = await service.download(file.name);
       await restoreSrbBackup(localPath);
       if (!mounted) return;
+      navigator.pop();
       setState(() => _operating = false);
       showToast(context, '恢复成功');
     } catch (e) {
       if (!mounted) return;
+      navigator.pop();
       setState(() => _operating = false);
       showToast(context, '恢复失败：$e');
     } finally {
@@ -213,93 +361,26 @@ class _WebDavPageState extends State<WebDavPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          title: const Text('WebDAV 备份'),
-          backgroundColor: themeColor,
-          foregroundColor: colorTextOnPrimary,
-          elevation: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: colorTextOnPrimary.withValues(alpha: 0.3),
-              height: 1,
-            ),
+      appBar: CommonAppBar(
+        title: 'WebDAV 备份',
+        actions: [
+          IconButton(
+            onPressed: _busy ? null : _showConfigDialog,
+            icon: const Icon(Icons.dns_outlined),
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: '',
-            onPressed: () => Navigator.pop(context),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: colorTextOnPrimary.withValues(alpha: 0.3),
+            height: 1,
           ),
         ),
       ),
-      body: _config == null ? _buildSettings() : _buildCloud(),
-    );
-  }
-
-  Widget _buildSettings() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(spacingL),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _serverController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '服务器地址',
-              hintText: 'https://example.com',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _directoryController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '远程目录',
-              hintText: '如 /remote.php/dav/files/用户名，留空为服务器根目录',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _usernameController,
-            decoration: const InputDecoration(
-              labelText: '用户名',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: spacingM),
-          TextField(
-            controller: _passwordController,
-            obscureText: !_showPassword,
-            decoration: InputDecoration(
-              labelText: '密码',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _showPassword ? Icons.visibility_off : Icons.visibility,
-                  size: iconSizeDefault,
-                ),
-                onPressed: () => setState(() => _showPassword = !_showPassword),
-              ),
-            ),
-          ),
-          const SizedBox(height: spacingL),
-          SizedBox(
-            height: 44,
-            child: FilledButton(
-              onPressed: _busy ? null : _saveAndConnect,
-              child: const Text('保存并连接'),
-            ),
-          ),
-        ],
-      ),
+      body: _config == null
+          ? const SizedBox.shrink()
+          : _buildCloud(),
     );
   }
 
@@ -307,6 +388,16 @@ class _WebDavPageState extends State<WebDavPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
+          padding: const EdgeInsets.symmetric(vertical: spacingXS),
+          decoration: BoxDecoration(
+            color: colorBackgroundCard,
+            borderRadius: BorderRadius.circular(radiusMedium),
+          ),
+          child: const AutoBackupTile(prefix: 'webdav_'),
+        ),
+        const SizedBox(height: spacingXS),
         Padding(
           padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
           child: Row(
@@ -316,17 +407,8 @@ class _WebDavPageState extends State<WebDavPage> {
                   height: 44,
                   child: FilledButton.icon(
                     onPressed: _operating ? null : _uploadBackup,
-                    icon: _uploading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorTextOnPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.cloud_upload_outlined),
-                    label: Text(_uploading ? '上传中' : '立即备份上传'),
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('立即上传'),
                     style: FilledButton.styleFrom(
                       backgroundColor: themeColor,
                       disabledBackgroundColor: themeColor,
@@ -335,24 +417,10 @@ class _WebDavPageState extends State<WebDavPage> {
                   ),
                 ),
               ),
-              const SizedBox(width: spacingM),
-              SizedBox(
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          setState(() => _config = null);
-                        },
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('设置'),
-                ),
-              ),
             ],
           ),
         ),
         const SizedBox(height: spacingXS),
-        Text('服务器：${_config!.server}', style: textItemSub, maxLines: 1, overflow: TextOverflow.ellipsis),
         if (_busy && _files.isEmpty && _error == null)
           const Padding(
             padding: EdgeInsets.all(spacingXL),
@@ -363,7 +431,11 @@ class _WebDavPageState extends State<WebDavPage> {
             padding: const EdgeInsets.all(spacingXL),
             child: Column(
               children: [
-                Text('连接失败：$_error', style: textItemSub, textAlign: TextAlign.center),
+                Text(
+                  '连接失败：$_error',
+                  style: textItemSub,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: spacingM),
                 OutlinedButton(
                   onPressed: () => _refresh(_config!),
@@ -384,10 +456,7 @@ class _WebDavPageState extends State<WebDavPage> {
                 final file = _files[index];
                 return ListTile(
                   title: Text(file.name, style: textBody),
-                  subtitle: Text(
-                    formatFileSize(file.size),
-                    style: textItemSub,
-                  ),
+                  subtitle: Text(formatFileSize(file.size), style: textItemSub),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -397,7 +466,11 @@ class _WebDavPageState extends State<WebDavPage> {
                         tooltip: '恢复',
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20, color: colorTextSecondary),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: colorTextSecondary,
+                        ),
                         onPressed: () => _deleteFile(file),
                         tooltip: '删除',
                       ),

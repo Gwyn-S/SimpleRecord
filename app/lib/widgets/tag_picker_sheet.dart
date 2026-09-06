@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../pages/tag_manage_page.dart';
+import '../models/tag.dart';
 import '../services/tag_service.dart';
 import '../services/theme_service.dart';
 
@@ -83,10 +84,14 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
         ? _tags
         : _tags.where((t) => t.name.contains(q)).toList();
     // 搜索词非空且没有完全匹配的标签时，才显示创建横条
-    final hasCreateEntry =
-        q.isNotEmpty && !filtered.any((t) => t.name == q);
+    final hasCreateEntry = q.isNotEmpty && !filtered.any((t) => t.name == q);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(spacingL, spacingM, spacingL, spacingS),
+      padding: const EdgeInsets.fromLTRB(
+        spacingL,
+        spacingM,
+        spacingL,
+        spacingS,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -103,7 +108,11 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.search, size: 20, color: colorTextSecondary),
+                      const Icon(
+                        Icons.search,
+                        size: 20,
+                        color: colorTextSecondary,
+                      ),
                       const SizedBox(width: spacingXS),
                       Expanded(
                         child: TextField(
@@ -209,7 +218,10 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
       onTap: _create,
       child: Container(
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingS),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingM,
+          vertical: spacingS,
+        ),
         decoration: BoxDecoration(
           border: Border.all(color: themeColor, width: 1),
           borderRadius: BorderRadius.circular(radiusSmall),

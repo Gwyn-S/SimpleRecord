@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
 import '../constants/app_dimensions.dart';
 import '../models/asset_account.dart';
+import '../services/balance_history_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/card_container.dart';
@@ -20,12 +21,29 @@ class AssetTrendPage extends StatefulWidget {
 
 class _AssetTrendPageState extends State<AssetTrendPage> {
   late DateTime _selectedMonth;
+  Map<int, int> _balances = {};
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month);
+    _load();
+  }
+
+  Future<void> _load() async {
+    final year = _selectedMonth.year;
+    final month = _selectedMonth.month;
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final from = toEpochDay(DateTime(year, month, 1));
+    final to = toEpochDay(DateTime(year, month, daysInMonth));
+    final balances = await BalanceHistoryService.instance.balancesForAccount(
+      widget.account.id,
+      from,
+      to,
+    );
+    if (!mounted) return;
+    setState(() => _balances = balances);
   }
 
   @override
@@ -64,37 +82,32 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+          padding: const EdgeInsets.symmetric(
+            horizontal: spacingM,
+            vertical: spacingXS,
+          ),
           decoration: BoxDecoration(
             color: colorDivider,
             borderRadius: BorderRadius.circular(radiusSmall),
           ),
-          child: Text(
-            formatMonthLabel(_selectedMonth),
-            style: textTagSmall,
-          ),
+          child: Text(formatMonthLabel(_selectedMonth), style: textTagSmall),
         ),
       ),
     );
   }
 
   Future<void> _pickMonth() async {
-    final picked = await showMonthYearPicker(
-      context,
-      _selectedMonth,
-    );
+    final picked = await showMonthYearPicker(context, _selectedMonth);
     if (picked != null && mounted) {
       setState(() => _selectedMonth = DateTime(picked.year, picked.month));
+      _load();
     }
   }
 
   Widget _buildTrendCard(List<_DailyPoint> points) {
     return CardContainer(
       title: '余额走势图',
-      child: SizedBox(
-        height: 160,
-        child: _DailyTrendChart(points: points),
-      ),
+      child: SizedBox(height: 160, child: _DailyTrendChart(points: points)),
     );
   }
 
@@ -109,7 +122,10 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
           itemBuilder: (context, index) {
             final p = points[index];
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingM,
+                vertical: spacingS,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -128,17 +144,12 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     final year = _selectedMonth.year;
     final month = _selectedMonth.month;
     final daysInMonth = DateTime(year, month + 1, 0).day;
-    final balance = widget.account.balanceCents;
-
-    // TODO: 接入真实每日余额快照数据，当前为占位随机值
-    final rand = SimpleRandom(widget.account.id.hashCode & 0x7fffffff);
     final points = <_DailyPoint>[];
-    for (var i = daysInMonth; i >= 1; i--) {
-      final value = (i == daysInMonth)
-          ? balance
-          : (balance * (0.8 + rand.nextDouble() * 0.4)).toInt();
-      final date = DateTime(year, month, i);
-      points.add(_DailyPoint(date: date, value: value));
+    var running = 0;
+    for (var i = 1; i <= daysInMonth; i++) {
+      final day = toEpochDay(DateTime(year, month, i));
+      running = _balances[day] ?? running;
+      points.add(_DailyPoint(date: DateTime(year, month, i), value: running));
     }
     return points;
   }
@@ -163,20 +174,30 @@ class _DailyTrendChart extends StatelessWidget {
       activationMode: ActivationMode.singleTap,
       tooltipPosition: TooltipPosition.pointer,
       animationDuration: 0,
-      builder: (dynamic data, dynamic point, dynamic series, int pointIndex, int seriesIndex) {
-        final p = points[pointIndex];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: spacingS, vertical: spacingXS),
-          decoration: BoxDecoration(
-            color: colorTextPrimary,
-            borderRadius: BorderRadius.circular(radiusTiny),
-          ),
-          child: Text(
-            '${p.date.month}/${p.date.day} ${formatAmount(p.value)}',
-            style: textChartTooltip,
-          ),
-        );
-      },
+      builder:
+          (
+            dynamic data,
+            dynamic point,
+            dynamic series,
+            int pointIndex,
+            int seriesIndex,
+          ) {
+            final p = points[pointIndex];
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingS,
+                vertical: spacingXS,
+              ),
+              decoration: BoxDecoration(
+                color: colorTextPrimary,
+                borderRadius: BorderRadius.circular(radiusTiny),
+              ),
+              child: Text(
+                '${p.date.month}/${p.date.day} ${formatAmount(p.value)}',
+                style: textChartTooltip,
+              ),
+            );
+          },
     );
 
     return SfCartesianChart(
@@ -192,16 +213,14 @@ class _DailyTrendChart extends StatelessWidget {
         labelStyle: textChartLabel,
         axisLabelFormatter: (details) {
           final idx = (double.tryParse(details.text) ?? 0).toInt();
-          if (idx < 0 || idx >= points.length) return ChartAxisLabel('', details.textStyle);
+          if (idx < 0 || idx >= points.length) {
+            return ChartAxisLabel('', details.textStyle);
+          }
           final d = points[idx].date;
           return ChartAxisLabel('${d.month}/${d.day}', details.textStyle);
         },
       ),
-      primaryYAxis: NumericAxis(
-        minimum: minY,
-        maximum: maxY,
-        isVisible: false,
-      ),
+      primaryYAxis: NumericAxis(minimum: minY, maximum: maxY, isVisible: false),
       tooltipBehavior: tooltip,
       series: <LineSeries<_DailyPoint, num>>[
         LineSeries<_DailyPoint, num>(

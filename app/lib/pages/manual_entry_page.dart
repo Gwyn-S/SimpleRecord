@@ -20,6 +20,7 @@ import '../utils/toast.dart';
 import '../widgets/account_picker_sheet.dart';
 import '../widgets/calc_keyboard.dart';
 import '../widgets/date_picker_sheet.dart';
+import '../widgets/full_image_viewer.dart';
 import '../widgets/tab_switcher_app_bar.dart';
 import '../widgets/tag_picker_sheet.dart';
 
@@ -51,7 +52,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       final cats = r.isExpense ? expenseCategories : incomeCategories;
       final idx = cats.indexWhere((c) => c.name == r.categoryName);
       _selectedCategory = idx >= 0 ? idx : null;
-      _amount = (r.amountCents / 100).toStringAsFixed(2);
+      _amount = formatAmountEdit(r.amountCents);
       _selectedDate = r.date;
       _remarkController.text = r.remark;
       _selectedTag = r.tag;
@@ -218,13 +219,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             width: sizeCategoryCircle,
                             height: sizeCategoryCircle,
                             decoration: BoxDecoration(
-                              color: selected ? themeColor : colorIconLightBackground,
+                              color: selected
+                                  ? themeColor
+                                  : colorIconLightBackground,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               cat.icon,
                               size: iconSizeXLarge,
-                              color: selected ? colorTextOnPrimary : colorIconGray,
+                              color: selected
+                                  ? colorTextOnPrimary
+                                  : colorIconGray,
                             ),
                           ),
                           const SizedBox(height: spacingXS),
@@ -243,7 +248,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               ),
             ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           Container(
             height: heightOptionBar,
             padding: const EdgeInsets.symmetric(horizontal: spacingL),
@@ -256,10 +265,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     controller: _remarkController,
                     maxLength: 20,
                     style: textBody,
-                    cursorColor: Theme.of(context).extension<AppThemeColors>()!.primary,
+                    cursorColor: Theme.of(
+                      context,
+                    ).extension<AppThemeColors>()!.primary,
                     decoration: InputDecoration(
                       hintText: '备注',
-                      hintStyle: TextStyle(fontSize: 14, color: colorTextHintLight),
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: colorTextHintLight,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       counterText: '',
@@ -267,19 +281,23 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                 ),
                 Text(
-                  endsWithOp(_amount)
-                      ? _amount
-                      : _amount.contains(RegExp(r'[+\-×÷]'))
-                          ? '$_amount=${evaluate(_amount)}'
-                          : _amount,
+                  amountPreview(_amount),
                   style: textAmountInput.copyWith(color: themeColor),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           _buildOptionBar(),
-          const Divider(height: 1, thickness: borderWidthThin, color: colorBorderKeyboard),
+          const Divider(
+            height: 1,
+            thickness: borderWidthThin,
+            color: colorBorderKeyboard,
+          ),
           CalcKeyboard(
             amount: _amount,
             onChanged: (v) => setState(() => _amount = v),
@@ -315,37 +333,42 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         scrollDirection: Axis.horizontal,
         child: Row(
           mainAxisSize: MainAxisSize.min,
-            children: [
-              OptionBarItem(
-                icon: Icons.calendar_today_outlined,
-                label: formatSelectedDate(_selectedDate),
-                onTap: () async {
-                  final picked = await showDatePickerSheet(context, _selectedDate);
-                  if (picked == null || !mounted) return;
-                  setState(() => _selectedDate = picked);
-                },
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.account_balance_wallet_outlined,
-                label: _selectedAccount?.name ?? '账户',
-                onTap: _pickAccount,
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.label_outline,
-                label: _selectedTag ?? '标签',
-                onTap: _pickTag,
-              ),
-              const SizedBox(width: spacingXXL),
-              OptionBarItem(
-                icon: Icons.camera_alt_outlined,
-                label: '图片',
-                onTap: _showImagePicker,
-              ),
-              if (_imagePaths.isNotEmpty) ...[
-                const SizedBox(width: spacingM),
-                ...List.generate(_imagePaths.length, (index) => Padding(
+          children: [
+            OptionBarItem(
+              icon: Icons.calendar_today_outlined,
+              label: formatSelectedDate(_selectedDate),
+              onTap: () async {
+                final picked = await showDatePickerSheet(
+                  context,
+                  _selectedDate,
+                );
+                if (picked == null || !mounted) return;
+                setState(() => _selectedDate = picked);
+              },
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.account_balance_wallet_outlined,
+              label: _selectedAccount?.name ?? '账户',
+              onTap: _pickAccount,
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.label_outline,
+              label: _selectedTag ?? '标签',
+              onTap: _pickTag,
+            ),
+            const SizedBox(width: spacingXXL),
+            OptionBarItem(
+              icon: Icons.camera_alt_outlined,
+              label: '图片',
+              onTap: _showImagePicker,
+            ),
+            if (_imagePaths.isNotEmpty) ...[
+              const SizedBox(width: spacingM),
+              ...List.generate(
+                _imagePaths.length,
+                (index) => Padding(
                   padding: const EdgeInsets.only(left: spacingXS),
                   child: GestureDetector(
                     onTap: () => _showImageViewer(index),
@@ -356,19 +379,20 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                )),
-              ],
+                ),
+              ),
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   void _showImageViewer(int index) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _ImageViewerPage(
+        builder: (_) => FullImageViewer(
           imagePaths: _imagePaths,
           initialIndex: index,
           onDelete: (i) {
@@ -408,89 +432,3 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     }
   }
 }
-
-class _ImageViewerPage extends StatefulWidget {
-  final List<String> imagePaths;
-  final int initialIndex;
-  final ValueChanged<int> onDelete;
-
-  const _ImageViewerPage({
-    required this.imagePaths,
-    required this.initialIndex,
-    required this.onDelete,
-  });
-
-  @override
-  State<_ImageViewerPage> createState() => _ImageViewerPageState();
-}
-
-class _ImageViewerPageState extends State<_ImageViewerPage> {
-  late PageController _pageController;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.imagePaths.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemBuilder: (context, index) => Center(
-                child: Image.file(
-                  File(widget.imagePaths[index]),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 16,
-            child: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.white, size: 28),
-              onPressed: () => widget.onDelete(_currentIndex),
-            ),
-          ),
-          if (widget.imagePaths.length > 1)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  '${_currentIndex + 1} / ${widget.imagePaths.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-

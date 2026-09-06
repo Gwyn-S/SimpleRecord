@@ -4,15 +4,20 @@ import 'package:sqflite/sqflite.dart';
 import '../models/record.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
+import 'author_service.dart';
+import 'balance_history_service.dart';
 import 'database.dart';
 import 'image_storage_service.dart';
 import 'settings.dart';
+import 'sync_service.dart';
 
 const _currentLedgerKey = 'currentBookId';
 
 final ValueNotifier<int> recordsVersion = ValueNotifier(0);
 final ValueNotifier<String?> currentLedgerId = ValueNotifier(null);
-final ValueNotifier<DateTime> currentMonth = ValueNotifier(DateTime(DateTime.now().year, DateTime.now().month));
+final ValueNotifier<DateTime> currentMonth = ValueNotifier(
+  DateTime(DateTime.now().year, DateTime.now().month),
+);
 
 Future<void> loadCurrentLedgerId() async {
   currentLedgerId.value = await Settings.getString(_currentLedgerKey);
@@ -54,7 +59,9 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
   }
   sql.write(' ORDER BY date DESC, created_at DESC');
   final rows = await db.rawQuery(sql.toString(), args);
-  return rows.map(Record.fromDbMap).toList();
+  return AuthorService.instance.applyLatestNicknames(
+    rows.map(Record.fromDbMap).toList(),
+  );
 }
 
 /// 按日期范围查询记录（含 start，不含 end）
@@ -83,11 +90,14 @@ Future<List<Record>> loadRecordsByDateRange({
   sql.write(' WHERE ${where.join(' AND ')}');
   sql.write(' ORDER BY date DESC, created_at DESC');
   final rows = await db.rawQuery(sql.toString(), args);
-  return rows.map(Record.fromDbMap).toList();
+  return AuthorService.instance.applyLatestNicknames(
+    rows.map(Record.fromDbMap).toList(),
+  );
 }
 
 /// 按日期范围查询并按分类聚合（支出）
-Future<List<({String categoryName, int amountCents, int count})>> loadExpenseByCategory({
+Future<List<({String categoryName, int amountCents, int count})>>
+loadExpenseByCategory({
   String? ledgerId,
   required DateTime start,
   required DateTime end,
@@ -112,11 +122,15 @@ Future<List<({String categoryName, int amountCents, int count})>> loadExpenseByC
     'ORDER BY total DESC',
     args,
   );
-  return rows.map((r) => (
-    categoryName: r['category_name'] as String,
-    amountCents: r['total'] as int,
-    count: r['cnt'] as int,
-  )).toList();
+  return rows
+      .map(
+        (r) => (
+          categoryName: r['category_name'] as String,
+          amountCents: r['total'] as int,
+          count: r['cnt'] as int,
+        ),
+      )
+      .toList();
 }
 
 /// 同步账户余额：sign=1 应用记录影响，sign=-1 撤销。
@@ -136,11 +150,27 @@ Future<void> _applyBalance(
   );
 }
 
+/// 当前账本作者名：设置了昵称返回昵称，未设置返回 null（不打标签）。
+Future<String?> currentNickname() async {
+  final nickname = await Settings.getString('nickname');
+  if (nickname != null && nickname.trim().isNotEmpty) return nickname;
+  return null;
+}
+
 Future<void> insertRecord(Record record) async {
+  final nickname = await currentNickname();
+  final authorId = await AuthorService.instance.ensureAuthorId();
+  record = record.copyWith(
+    author: record.author ?? nickname,
+    authorId: record.authorId ?? authorId,
+  );
   final db = await DatabaseHelper.instance.database;
   await db.transaction((txn) async {
-    await txn.insert('records', record.toDbMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await txn.insert(
+      'records',
+      record.toDbMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     await _applyBalance(
       txn,
       accountId: record.accountId,
@@ -151,15 +181,28 @@ Future<void> insertRecord(Record record) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(record.accountId);
+  SyncService.instance.enqueueRecord(record, op: 'insert');
 }
 
 Future<void> updateRecord(Record record) async {
+  final nickname = await currentNickname();
+  final authorId = await AuthorService.instance.ensureAuthorId();
+  record = record.copyWith(
+    author: record.author ?? nickname,
+    authorId: record.authorId ?? authorId,
+  );
   final db = await DatabaseHelper.instance.database;
+  String? oldAccountId;
   await db.transaction((txn) async {
-    final rows = await txn.query('records',
-        where: 'id = ?', whereArgs: [record.id]);
+    final rows = await txn.query(
+      'records',
+      where: 'id = ?',
+      whereArgs: [record.id],
+    );
     if (rows.isNotEmpty) {
       final old = Record.fromDbMap(rows.first);
+      oldAccountId = old.accountId;
       await _applyBalance(
         txn,
         accountId: old.accountId,
@@ -168,8 +211,12 @@ Future<void> updateRecord(Record record) async {
         sign: -1,
       );
     }
-    await txn.update('records', record.toDbMap(),
-        where: 'id = ?', whereArgs: [record.id]);
+    await txn.update(
+      'records',
+      record.toDbMap(),
+      where: 'id = ?',
+      whereArgs: [record.id],
+    );
     await _applyBalance(
       txn,
       accountId: record.accountId,
@@ -180,29 +227,37 @@ Future<void> updateRecord(Record record) async {
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(oldAccountId);
+  BalanceHistoryService.instance.notifyChanged(record.accountId);
+  SyncService.instance.enqueueRecord(record, op: 'update');
 }
 
 Future<void> deleteRecord(String id) async {
   final db = await DatabaseHelper.instance.database;
+  Record? old;
   await db.transaction((txn) async {
-    final rows = await txn.query('records',
-        where: 'id = ?', whereArgs: [id]);
+    final rows = await txn.query('records', where: 'id = ?', whereArgs: [id]);
     await txn.delete('records', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
-      final old = Record.fromDbMap(rows.first);
+      final oldRecord = Record.fromDbMap(rows.first);
+      old = oldRecord;
       await _applyBalance(
         txn,
-        accountId: old.accountId,
-        isExpense: old.isExpense,
-        amountCents: old.amountCents,
+        accountId: oldRecord.accountId,
+        isExpense: oldRecord.isExpense,
+        amountCents: oldRecord.amountCents,
         sign: -1,
       );
       // 删除关联的图片文件
-      for (final path in old.imagePaths ?? []) {
+      for (final path in oldRecord.imagePaths ?? []) {
         await deleteImage(path);
       }
     }
   });
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(old?.accountId);
+  if (old != null) {
+    await SyncService.instance.enqueueRecord(old!, op: 'delete');
+  }
 }

@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../utils/app_paths.dart';
 
+/// 全局唯一的 SQLite 数据库访问入口（懒打开单例）。
 class DatabaseHelper {
   DatabaseHelper._();
 
@@ -13,14 +14,17 @@ class DatabaseHelper {
   Future<Database>? _dbFuture;
   String? _dbPath;
 
+  /// 已打开的数据库文件路径；尚未打开时抛 StateError。
   String get dbPath {
     final p = _dbPath;
     if (p == null) throw StateError('数据库尚未打开');
     return p;
   }
 
+  /// 惰性打开并缓存数据库实例；首次访问时初始化。
   Future<Database> get database => _dbFuture ??= _open();
 
+  /// 关闭数据库并释放连接；可安全重复调用。
   Future<void> close() async {
     final future = _dbFuture;
     _dbFuture = null;
@@ -36,7 +40,8 @@ class DatabaseHelper {
     try {
       final db = await database;
       await db.execute(
-          'DELETE FROM records WHERE book_id NOT IN (SELECT id FROM books)');
+        'DELETE FROM records WHERE book_id NOT IN (SELECT id FROM books)',
+      );
       await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
       await db.execute('VACUUM');
       // WAL 模式下 VACUUM 的写入先进 WAL，需再次 checkpoint 才物理缩小主库文件
@@ -56,8 +61,9 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 13,
+      version: 3,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
     return db;
   }
@@ -67,7 +73,8 @@ class DatabaseHelper {
       CREATE TABLE books (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT 0
+        created_at INTEGER NOT NULL DEFAULT 0,
+        sync_mode INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -82,7 +89,9 @@ class DatabaseHelper {
         date INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         tag TEXT,
-        image_path TEXT
+        image_path TEXT,
+        author TEXT,
+        author_id TEXT
       )
     ''');
     await db.execute('''
@@ -91,6 +100,7 @@ class DatabaseHelper {
         category_name TEXT NOT NULL,
         name TEXT NOT NULL,
         balance_cents INTEGER NOT NULL DEFAULT 0,
+        opening_balance_cents INTEGER NOT NULL DEFAULT 0,
         remark TEXT NOT NULL DEFAULT '',
         card_last4 TEXT NOT NULL DEFAULT '',
         icon_path TEXT NOT NULL DEFAULT ''
@@ -116,6 +126,80 @@ class DatabaseHelper {
         sort_order INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_records_book_date ON records(book_id, date)');
+    await db.execute(
+      'CREATE INDEX idx_records_book_date ON records(book_id, date)',
+    );
+    await db.execute('''
+      CREATE TABLE balance_snapshots (
+        account_id TEXT NOT NULL,
+        date INTEGER NOT NULL,
+        balance INTEGER NOT NULL,
+        PRIMARY KEY (account_id, date)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE balance_adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL,
+        date INTEGER NOT NULL,
+        delta INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await _createSyncTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE records ADD COLUMN author_id TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE asset_accounts '
+        'ADD COLUMN opening_balance_cents INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute('''
+        CREATE TABLE balance_snapshots (
+          account_id TEXT NOT NULL,
+          date INTEGER NOT NULL,
+          balance INTEGER NOT NULL,
+          PRIMARY KEY (account_id, date)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE balance_adjustments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id TEXT NOT NULL,
+          date INTEGER NOT NULL,
+          delta INTEGER NOT NULL,
+          created_at INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }
+  }
+
+  Future<void> _createSyncTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE sync_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        op TEXT NOT NULL,
+        book_id TEXT NOT NULL DEFAULT '',
+        payload TEXT NOT NULL,
+        device_id TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT 0,
+        state INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX idx_sync_outbox_state ON sync_outbox(state)',
+    );
+    await db.execute('''
+      CREATE TABLE sync_state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
   }
 }

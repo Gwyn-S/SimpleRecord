@@ -4,8 +4,11 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 
-void showToast(BuildContext context, String text,
-    {Duration duration = const Duration(seconds: 2)}) {
+void showToast(
+  BuildContext context,
+  String text, {
+  Duration duration = const Duration(seconds: 2),
+}) {
   final overlay = Overlay.of(context);
   final entry = OverlayEntry(builder: (_) => _Toast(text: text));
   overlay.insert(entry);
@@ -32,7 +35,10 @@ class _Toast extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: spacingXXL, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingXXL,
+              vertical: 10,
+            ),
             decoration: BoxDecoration(
               color: colorBackgroundToast,
               borderRadius: BorderRadius.circular(radiusLarge),

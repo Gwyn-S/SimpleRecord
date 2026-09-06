@@ -169,7 +169,11 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 20, color: colorTextSecondary),
+                    const Icon(
+                      Icons.search,
+                      size: 20,
+                      color: colorTextSecondary,
+                    ),
                     const SizedBox(width: spacingXS),
                     Expanded(
                       child: TextField(
@@ -198,7 +202,10 @@ class _SearchPageState extends State<SearchPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingM),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: spacingM,
+            ),
             child: Row(
               children: [
                 _buildAccountFilter(themeColor),
@@ -227,7 +234,10 @@ class _SearchPageState extends State<SearchPage> {
           ),
           Container(
             color: colorBackgroundSummary,
-            padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: spacingS),
+            padding: const EdgeInsets.symmetric(
+              horizontal: spacingL,
+              vertical: spacingS,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -237,7 +247,10 @@ class _SearchPageState extends State<SearchPage> {
                 const SizedBox(width: spacingM),
                 Text('支出：${formatAmount(expense)}', style: textItemSub),
                 const SizedBox(width: spacingM),
-                Text('结余：${formatAmount(income - expense)}', style: textItemSub),
+                Text(
+                  '结余：${formatAmount(income - expense)}',
+                  style: textItemSub,
+                ),
               ],
             ),
           ),
@@ -247,9 +260,7 @@ class _SearchPageState extends State<SearchPage> {
               child: _filtered.isEmpty
                   ? const SizedBox.shrink()
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: spacingL,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: spacingL),
                       itemCount: _pageRecords.length,
                       itemBuilder: (context, index) {
                         final r = _pageRecords[index];
@@ -280,29 +291,35 @@ class _SearchPageState extends State<SearchPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // 上方灰色细条
-        Container(
-          height: 8,
-          color: colorBackgroundPage,
-        ),
+        Container(height: 8, color: colorBackgroundPage),
         // 白色分页栏主体
         Container(
           color: colorBackgroundCard,
-          padding:
-              const EdgeInsets.fromLTRB(spacingL, spacingS, spacingL, spacingS),
+          padding: const EdgeInsets.fromLTRB(
+            spacingL,
+            spacingS,
+            spacingL,
+            spacingS,
+          ),
           child: Row(
             children: [
-              _pagerButton('上一页', themeColor, canPrev,
-                  () => setState(() => _page--)),
+              _pagerButton(
+                '上一页',
+                themeColor,
+                canPrev,
+                () => setState(() => _page--),
+              ),
               Expanded(
                 child: Center(
-                  child: Text(
-                    '当前页码 $_page 共 $total 页',
-                    style: textBody,
-                  ),
+                  child: Text('当前页码 $_page 共 $total 页', style: textBody),
                 ),
               ),
-              _pagerButton('下一页', themeColor, canNext,
-                  () => setState(() => _page++)),
+              _pagerButton(
+                '下一页',
+                themeColor,
+                canNext,
+                () => setState(() => _page++),
+              ),
             ],
           ),
         ),
@@ -311,7 +328,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _pagerButton(
-      String label, Color themeColor, bool enabled, VoidCallback onTap) {
+    String label,
+    Color themeColor,
+    bool enabled,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
@@ -323,10 +344,7 @@ class _SearchPageState extends State<SearchPage> {
           color: themeColor,
           borderRadius: BorderRadius.circular(radiusSmall),
         ),
-        child: Text(
-          label,
-          style: textPagerButton,
-        ),
+        child: Text(label, style: textPagerButton),
       ),
     );
   }
@@ -359,7 +377,11 @@ class _SearchPageState extends State<SearchPage> {
                   SizedBox(
                     width: 20,
                     height: 20,
-                    child: AccountAvatar(account: a, size: 18, color: colorTextSecondary),
+                    child: AccountAvatar(
+                      account: a,
+                      size: 18,
+                      color: colorTextSecondary,
+                    ),
                   ),
                   const SizedBox(width: spacingS),
                   Expanded(
@@ -425,11 +447,12 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildAmountFilter(Color themeColor) {
     String label;
     if (_minAmountCents != null && _maxAmountCents != null) {
-      label = '金额 ${_fmtAmount(_minAmountCents!)}~${_fmtAmount(_maxAmountCents!)}';
-    } else if (_minAmountCents != null) {
-      label = '金额 ≥${_fmtAmount(_minAmountCents!)}';
-    } else if (_maxAmountCents != null) {
-      label = '金额 ≤${_fmtAmount(_maxAmountCents!)}';
+      label =
+          '金额 ${formatAmountEdit(_minAmountCents!)}~${formatAmountEdit(_maxAmountCents!)}';
+    } else if (_minAmountCents != null && _maxAmountCents == null) {
+      label = '金额 ≥${formatAmountEdit(_minAmountCents!)}';
+    } else if (_minAmountCents == null && _maxAmountCents != null) {
+      label = '金额 ≤${formatAmountEdit(_maxAmountCents!)}';
     } else {
       label = '金额不限';
     }
@@ -446,15 +469,12 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  String _fmtAmount(int cents) =>
-      cents % 100 == 0 ? (cents ~/ 100).toString() : (cents / 100).toString();
-
   Future<void> _openAmountFilter() async {
     final minController = TextEditingController(
-      text: _minAmountCents != null ? _fmtAmount(_minAmountCents!) : '',
+      text: _minAmountCents != null ? formatAmountEdit(_minAmountCents!) : '',
     );
     final maxController = TextEditingController(
-      text: _maxAmountCents != null ? _fmtAmount(_maxAmountCents!) : '',
+      text: _maxAmountCents != null ? formatAmountEdit(_maxAmountCents!) : '',
     );
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     final result = await showDialog<(int?, int?)>(
@@ -466,7 +486,11 @@ class _SearchPageState extends State<SearchPage> {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-              spacingL, spacingM, spacingL, spacingS),
+            spacingL,
+            spacingM,
+            spacingL,
+            spacingS,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -482,15 +506,16 @@ class _SearchPageState extends State<SearchPage> {
                     onTap: () => Navigator.pop(context, (null, null)),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: spacingM, vertical: 6),
+                        horizontal: spacingM,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: colorBackgroundInput,
                         borderRadius: BorderRadius.circular(radiusSmall),
                       ),
                       child: const Text(
                         '不限',
-                        style: TextStyle(
-                            fontSize: 14, color: colorTextPrimary),
+                        style: TextStyle(fontSize: 14, color: colorTextPrimary),
                       ),
                     ),
                   ),
@@ -503,7 +528,9 @@ class _SearchPageState extends State<SearchPage> {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: spacingM, vertical: 6),
+                        horizontal: spacingM,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: themeColor,
                         borderRadius: BorderRadius.circular(radiusSmall),
@@ -511,7 +538,9 @@ class _SearchPageState extends State<SearchPage> {
                       child: const Text(
                         '确定',
                         style: TextStyle(
-                            fontSize: 14, color: colorTextOnPrimary),
+                          fontSize: 14,
+                          color: colorTextOnPrimary,
+                        ),
                       ),
                     ),
                   ),
@@ -551,8 +580,9 @@ class _SearchPageState extends State<SearchPage> {
             ),
             child: TextField(
               controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: textBody,
               decoration: const InputDecoration(
                 border: InputBorder.none,
@@ -592,10 +622,8 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> _openDateFilter() async {
     final result = await showDialog<(DateTime?, DateTime?)>(
       context: context,
-      builder: (context) => DateFilterSheet(
-        initialStart: _dateStart,
-        initialEnd: _dateEnd,
-      ),
+      builder: (context) =>
+          DateFilterSheet(initialStart: _dateStart, initialEnd: _dateEnd),
     );
     if (result == null) return; // 取消，保持原筛选
     setState(() {
@@ -640,7 +668,10 @@ class _SearchPageState extends State<SearchPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_flowLabels[_flowFilter], style: textBody.copyWith(color: color)),
+          Text(
+            _flowLabels[_flowFilter],
+            style: textBody.copyWith(color: color),
+          ),
           Icon(Icons.arrow_drop_down, color: color),
         ],
       ),

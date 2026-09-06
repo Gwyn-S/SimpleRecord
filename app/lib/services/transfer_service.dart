@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/transfer.dart';
 import '../utils/formatters.dart';
 import 'asset_account_service.dart';
+import 'balance_history_service.dart';
 import 'database.dart';
 import '../utils/id.dart';
 
@@ -46,10 +47,19 @@ Future<void> insertTransfer({
       'date': toEpochDay(date ?? now),
       'created_at': now.millisecondsSinceEpoch,
     });
-    await _applyTransfer(txn, fromAccountId, toAccountId, amountCents, feeCents, 1);
+    await _applyTransfer(
+      txn,
+      fromAccountId,
+      toAccountId,
+      amountCents,
+      feeCents,
+      1,
+    );
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(fromAccountId);
+  BalanceHistoryService.instance.notifyChanged(toAccountId);
 }
 
 Future<void> _applyTransfer(
@@ -72,39 +82,73 @@ Future<void> _applyTransfer(
 
 Future<void> updateTransfer(Transfer transfer) async {
   final db = await DatabaseHelper.instance.database;
+  String? oldFrom;
+  String? oldTo;
   await db.transaction((txn) async {
-    final rows = await txn.query('transfers',
-        where: 'id = ?', whereArgs: [transfer.id]);
+    final rows = await txn.query(
+      'transfers',
+      where: 'id = ?',
+      whereArgs: [transfer.id],
+    );
     if (rows.isNotEmpty) {
       final old = Transfer.fromDbMap(rows.first);
+      oldFrom = old.fromAccountId;
+      oldTo = old.toAccountId;
       await _applyTransfer(
-          txn, old.fromAccountId, old.toAccountId, old.amountCents, old.feeCents, -1);
-    }
-    await txn.update('transfers', transfer.toDbMap(),
-        where: 'id = ?', whereArgs: [transfer.id]);
-    await _applyTransfer(
         txn,
-        transfer.fromAccountId,
-        transfer.toAccountId,
-        transfer.amountCents,
-        transfer.feeCents,
-        1);
+        old.fromAccountId,
+        old.toAccountId,
+        old.amountCents,
+        old.feeCents,
+        -1,
+      );
+    }
+    await txn.update(
+      'transfers',
+      transfer.toDbMap(),
+      where: 'id = ?',
+      whereArgs: [transfer.id],
+    );
+    await _applyTransfer(
+      txn,
+      transfer.fromAccountId,
+      transfer.toAccountId,
+      transfer.amountCents,
+      transfer.feeCents,
+      1,
+    );
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(oldFrom);
+  BalanceHistoryService.instance.notifyChanged(oldTo);
+  BalanceHistoryService.instance.notifyChanged(transfer.fromAccountId);
+  BalanceHistoryService.instance.notifyChanged(transfer.toAccountId);
 }
 
 Future<void> deleteTransfer(String id) async {
   final db = await DatabaseHelper.instance.database;
+  String? fromId;
+  String? toId;
   await db.transaction((txn) async {
-    final rows = await txn.query('transfers',
-        where: 'id = ?', whereArgs: [id]);
+    final rows = await txn.query('transfers', where: 'id = ?', whereArgs: [id]);
     await txn.delete('transfers', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
       final t = Transfer.fromDbMap(rows.first);
-      await _applyTransfer(txn, t.fromAccountId, t.toAccountId, t.amountCents, t.feeCents, -1);
+      fromId = t.fromAccountId;
+      toId = t.toAccountId;
+      await _applyTransfer(
+        txn,
+        t.fromAccountId,
+        t.toAccountId,
+        t.amountCents,
+        t.feeCents,
+        -1,
+      );
     }
   });
   transfersVersion.value++;
   assetAccountsVersion.value++;
+  BalanceHistoryService.instance.notifyChanged(fromId);
+  BalanceHistoryService.instance.notifyChanged(toId);
 }

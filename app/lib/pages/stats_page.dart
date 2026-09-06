@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../services/record_service.dart';
 import '../services/stats_service.dart';
 import '../services/theme_service.dart';
 import '../utils/formatters.dart';
@@ -34,9 +35,11 @@ class _StatsPageState extends State<StatsPage> {
   DateTime _customEnd = DateTime.now();
 
   // 数据状态
+  int _loadSeq = 0;
   int _totalExpense = 0;
   int _totalIncome = 0;
-  List<({String categoryName, int amountCents, int count})> _expenseByCategory = [];
+  List<({String categoryName, int amountCents, int count})> _expenseByCategory =
+      [];
   List<({String label, int amountCents})> _periodData = [];
   List<({String label, int amountCents})> _weekSummaryData = [];
   List<({String label, int amountCents})> _monthSummaryData = [];
@@ -47,13 +50,7 @@ class _StatsPageState extends State<StatsPage> {
 
   int get _lastIndex => _items.length - 1;
 
-  String get _yearLabel {
-    final now = DateTime.now().year;
-    if (_selectedYear == now) return '今年';
-    if (_selectedYear == now - 1) return '去年';
-    if (_selectedYear == now - 2) return '前年';
-    return '$_selectedYear';
-  }
+  String get _yearLabel => yearLabel(_selectedYear);
 
   @override
   void initState() {
@@ -65,6 +62,8 @@ class _StatsPageState extends State<StatsPage> {
       _scrollToEnd();
       _loadData();
     });
+    recordsVersion.addListener(_loadData);
+    currentLedgerId.addListener(_loadData);
   }
 
   void _scrollToEnd() {
@@ -99,8 +98,30 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  /// 自定义范围内，若用户选的是"相对当天"的预设（本周/近三月/最近30天等），
+  /// 每次加载都按当前日期重算起止，避免跨天仍停留在旧时间段；
+  /// 手动选死的固定区间（如 2026-01-01~2026-01-31）保持不动。
+  void _refreshCustomRangeIfRelative() {
+    if (_selectedRange != StatsRange.custom) return;
+    final now = DateTime.now();
+    final presets = datePresets(now);
+    for (final p in presets) {
+      if (p.label == _customPreset) {
+        _customStart = p.start;
+        _customEnd = p.end;
+        return;
+      }
+    }
+    if (_customPreset == '最近30天') {
+      _customStart = now.subtract(const Duration(days: 30));
+      _customEnd = now;
+    }
+  }
+
   Future<void> _loadData() async {
     try {
+      final seq = ++_loadSeq;
+      _refreshCustomRangeIfRelative();
       final data = await loadStatsData(
         range: _selectedRange,
         index: _selectedIndex,
@@ -109,9 +130,10 @@ class _StatsPageState extends State<StatsPage> {
         customStart: _customStart,
         customEnd: _customEnd,
       );
-      
-      if (!mounted || data == null) return;
-      
+
+      // 已有更新的查询发出：丢弃本次过期结果，避免旧数据覆盖新数据。
+      if (!mounted || data == null || seq != _loadSeq) return;
+
       setState(() {
         _totalExpense = data.totalExpense;
         _totalIncome = data.totalIncome;
@@ -121,11 +143,14 @@ class _StatsPageState extends State<StatsPage> {
         _monthSummaryData = data.monthSummary;
         _yearSummaryData = data.yearSummary;
       });
-      
+
       final cacheKey = StatsCacheKey(
         range: _selectedRange,
         index: _selectedIndex,
         year: _selectedYear,
+        ledgerId: currentLedgerId.value,
+        customStart: _customStart,
+        customEnd: _customEnd,
       );
       _dataCache[cacheKey.toString()] = data;
     } catch (e) {
@@ -135,6 +160,8 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   void dispose() {
+    recordsVersion.removeListener(_loadData);
+    currentLedgerId.removeListener(_loadData);
     _scrollController.dispose();
     super.dispose();
   }
@@ -162,10 +189,8 @@ class _StatsPageState extends State<StatsPage> {
   Future<void> _showCustomDateFilter() async {
     final result = await showDialog<(DateTime?, DateTime?)>(
       context: context,
-      builder: (context) => DateFilterSheet(
-        initialStart: _customStart,
-        initialEnd: _customEnd,
-      ),
+      builder: (context) =>
+          DateFilterSheet(initialStart: _customStart, initialEnd: _customEnd),
     );
     if (result != null && mounted) {
       setState(() {
@@ -180,7 +205,8 @@ class _StatsPageState extends State<StatsPage> {
           if (presetName != null) {
             _customPreset = presetName;
           } else {
-            _customPreset = '${_formatDate(result.$1!)}~${_formatDate(result.$2!)}';
+            _customPreset =
+                '${_formatDate(result.$1!)}~${_formatDate(result.$2!)}';
           }
         }
       });
@@ -188,7 +214,8 @@ class _StatsPageState extends State<StatsPage> {
     }
   }
 
-  String _formatDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +249,9 @@ class _StatsPageState extends State<StatsPage> {
                   range: _selectedRange,
                   index: _selectedIndex,
                   year: _selectedYear,
+                  ledgerId: currentLedgerId.value,
+                  customStart: _customStart,
+                  customEnd: _customEnd,
                 );
                 final cached = _dataCache[cacheKey.toString()];
                 setState(() {
@@ -249,7 +279,8 @@ class _StatsPageState extends State<StatsPage> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: spacingXS),
                     itemCount: _items.length,
-                    separatorBuilder: (_, a) => const SizedBox(width: spacingXXS),
+                    separatorBuilder: (_, a) =>
+                        const SizedBox(width: spacingXXS),
                     itemBuilder: (context, index) {
                       final isSelected = _selectedIndex == index;
                       return GestureDetector(
@@ -265,14 +296,18 @@ class _StatsPageState extends State<StatsPage> {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: spacingM),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: spacingM,
+                          ),
                           alignment: Alignment.center,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 _items[index],
-                                style: isSelected && _selectedRange != StatsRange.custom
+                                style:
+                                    isSelected &&
+                                        _selectedRange != StatsRange.custom
                                     ? textTagSmall.copyWith(color: themeColor)
                                     : textTagSmall,
                               ),
@@ -291,12 +326,16 @@ class _StatsPageState extends State<StatsPage> {
                     },
                   ),
                 ),
-                if (_selectedRange == StatsRange.week || _selectedRange == StatsRange.month) ...[
+                if (_selectedRange == StatsRange.week ||
+                    _selectedRange == StatsRange.month) ...[
                   const SizedBox(width: spacingS),
                   GestureDetector(
                     onTap: _showYearPicker,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: spacingM,
+                        vertical: spacingXS,
+                      ),
                       decoration: BoxDecoration(
                         color: colorBackgroundCard,
                         borderRadius: BorderRadius.circular(radiusSmall),
@@ -328,7 +367,8 @@ class _StatsPageState extends State<StatsPage> {
     final title = '${formatDateYmd(range.start)}~${formatDateYmd(range.end)}';
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StatsDetailPage(start: range.start, end: range.end, title: title),
+        builder: (_) =>
+            StatsDetailPage(start: range.start, end: range.end, title: title),
       ),
     );
   }
@@ -341,7 +381,7 @@ class _StatsPageState extends State<StatsPage> {
       final days = range.end.difference(range.start).inDays;
       if (days > 0) dailyAvg = _totalExpense ~/ days;
     }
-    
+
     return CardContainer(
       title: '收支统计',
       trailing: _buildTrailingButton('详情', onTap: _openDetail),
@@ -384,7 +424,10 @@ class _StatsPageState extends State<StatsPage> {
     return GestureDetector(
       onTap: onTap ?? () {},
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: spacingM, vertical: spacingXS),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingM,
+          vertical: spacingXS,
+        ),
         decoration: BoxDecoration(
           color: colorDivider,
           borderRadius: BorderRadius.circular(radiusSmall),
@@ -403,10 +446,9 @@ class _StatsPageState extends State<StatsPage> {
       );
     }
 
-    final points = _periodData.map((e) => TrendPoint(
-      label: e.label,
-      value: e.amountCents,
-    )).toList();
+    final points = _periodData
+        .map((e) => TrendPoint(label: e.label, value: e.amountCents))
+        .toList();
 
     return CardContainer(
       title: '支出统计图',
@@ -420,10 +462,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildPieChart() {
     if (_expenseByCategory.isEmpty) {
-      return CardContainer(
-        title: '支出占比',
-        child: const SizedBox.shrink(),
-      );
+      return CardContainer(title: '支出占比', child: const SizedBox.shrink());
     }
 
     final total = _expenseByCategory.fold(0, (s, e) => s + e.amountCents);
@@ -451,20 +490,28 @@ class _StatsPageState extends State<StatsPage> {
   Widget _buildRankingCard() {
     return StatsRankingCard(
       title: '支出排行',
-      items: _expenseByCategory.map((e) => RankingItem(
-        name: e.categoryName,
-        amountCents: e.amountCents,
-        count: e.count,
-      )).toList(),
+      items: _expenseByCategory
+          .map(
+            (e) => RankingItem(
+              name: e.categoryName,
+              amountCents: e.amountCents,
+              count: e.count,
+            ),
+          )
+          .toList(),
     );
   }
 
   String get _periodTitle {
     switch (_selectedRange) {
-      case StatsRange.week: return '周支出汇总';
-      case StatsRange.month: return '月支出汇总';
-      case StatsRange.year: return '年支出汇总';
-      case StatsRange.custom: return '';
+      case StatsRange.week:
+        return '周支出汇总';
+      case StatsRange.month:
+        return '月支出汇总';
+      case StatsRange.year:
+        return '年支出汇总';
+      case StatsRange.custom:
+        return '';
     }
   }
 
@@ -473,10 +520,17 @@ class _StatsPageState extends State<StatsPage> {
 
     List<({String label, int amountCents})> summaryData;
     switch (_selectedRange) {
-      case StatsRange.week: summaryData = _weekSummaryData; break;
-      case StatsRange.month: summaryData = _monthSummaryData; break;
-      case StatsRange.year: summaryData = _yearSummaryData; break;
-      case StatsRange.custom: return const SizedBox.shrink();
+      case StatsRange.week:
+        summaryData = _weekSummaryData;
+        break;
+      case StatsRange.month:
+        summaryData = _monthSummaryData;
+        break;
+      case StatsRange.year:
+        summaryData = _yearSummaryData;
+        break;
+      case StatsRange.custom:
+        return const SizedBox.shrink();
     }
 
     if (summaryData.isEmpty) {
@@ -486,10 +540,9 @@ class _StatsPageState extends State<StatsPage> {
       );
     }
 
-    final points = summaryData.map((e) => TrendPoint(
-      label: e.label,
-      value: e.amountCents,
-    )).toList();
+    final points = summaryData
+        .map((e) => TrendPoint(label: e.label, value: e.amountCents))
+        .toList();
 
     return CardContainer(
       title: _periodTitle,

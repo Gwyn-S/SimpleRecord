@@ -62,7 +62,9 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
     }
 
     final config = configs[configIndex];
-    if (config.url.isEmpty || config.key.isEmpty || config.visionModel.isEmpty) {
+    if (config.url.isEmpty ||
+        config.key.isEmpty ||
+        config.visionModel.isEmpty) {
       safeShowToast(context, '请完善AI配置（需设置视觉模型）');
       return;
     }
@@ -135,7 +137,10 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('识别'),
               ),
@@ -144,24 +149,14 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
               const SizedBox(height: spacingM),
               Text(_error!, style: const TextStyle(color: colorDelete)),
             ],
-            if (_results.isNotEmpty) ...[
-              const SizedBox(height: spacingL),
+            if (_results.isNotEmpty)
               Expanded(
-                child: ListView.separated(
-                  itemCount: _results.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: spacingM),
-                  itemBuilder: (_, i) => AiRecordResultCard(result: _results[i], accounts: _accounts),
+                child: AiRecordResultSection(
+                  results: _results,
+                  accounts: _accounts,
+                  onSave: _saveRecords,
                 ),
               ),
-              const SizedBox(height: spacingM),
-              SizedBox(
-                height: 44,
-                child: FilledButton(
-                  onPressed: _saveRecords,
-                  child: Text('确认记账${_results.length > 1 ? '(${_results.length}笔)' : ''}'),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -192,7 +187,11 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -202,7 +201,11 @@ class _AiImageRecordPageState extends State<AiImageRecordPage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildPickButton(Icons.camera_alt, '拍照', ImageSource.camera),
-                _buildPickButton(Icons.photo_library, '相册', ImageSource.gallery),
+                _buildPickButton(
+                  Icons.photo_library,
+                  '相册',
+                  ImageSource.gallery,
+                ),
               ],
             ),
     );

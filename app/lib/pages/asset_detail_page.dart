@@ -61,25 +61,29 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
       }
 
       final isIn = t.toAccountId == account.id;
-      entries.add(_FlowEntry(
-        date: t.date,
-        createdAt: t.createdAt,
-        isIn: isIn,
-        amountCents: t.amountCents,
-        feeCents: t.feeCents,
-        remark: t.remark,
-        fromLabel: label(byId[t.fromAccountId], t.fromAccountName),
-        toLabel: label(byId[t.toAccountId], t.toAccountName),
-        transfer: t,
-      ));
+      entries.add(
+        _FlowEntry(
+          date: t.date,
+          createdAt: t.createdAt,
+          isIn: isIn,
+          amountCents: t.amountCents,
+          feeCents: t.feeCents,
+          remark: t.remark,
+          fromLabel: label(byId[t.fromAccountId], t.fromAccountName),
+          toLabel: label(byId[t.toAccountId], t.toAccountName),
+          transfer: t,
+        ),
+      );
     }
     entries.sort((a, b) {
       final d = b.date.compareTo(a.date);
       return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
     });
-    setState(() => _flows
-      ..clear()
-      ..addAll(entries));
+    setState(
+      () => _flows
+        ..clear()
+        ..addAll(entries),
+    );
   }
 
   @override
@@ -103,10 +107,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               overlayColor: Colors.transparent,
               foregroundColor: colorTextOnPrimary,
             ),
-            child: const Text(
-              '趋势图',
-              style: textAppBarAction,
-            ),
+            child: const Text('趋势图', style: textAppBarAction),
           ),
           TextButton(
             onPressed: () => Navigator.push(
@@ -121,10 +122,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               overlayColor: Colors.transparent,
               foregroundColor: colorTextOnPrimary,
             ),
-            child: const Text(
-              '账单',
-              style: textAppBarAction,
-            ),
+            child: const Text('账单', style: textAppBarAction),
           ),
         ],
       ),
@@ -251,7 +249,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 ),
               ),
               const Spacer(),
-              AccountAvatar(account: account, size: iconSizeLarge, color: themeColor),
+              AccountAvatar(
+                account: account,
+                size: iconSizeLarge,
+                color: themeColor,
+              ),
             ],
           ),
           const SizedBox(height: spacingM),
@@ -364,7 +366,9 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                     children: [
                       Text(
                         '转账',
-                        style: textListItem.copyWith(fontWeight: FontWeight.w600),
+                        style: textListItem.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: spacingXS),
                       Row(
@@ -403,9 +407,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: f.isIn
-                      ? Theme.of(
-                          context,
-                        ).extension<AppThemeColors>()!.primary
+                      ? Theme.of(context).extension<AppThemeColors>()!.primary
                       : colorExpense,
                 ),
               ),
@@ -449,9 +451,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             ),
             focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Theme.of(
-                  context,
-                ).extension<AppThemeColors>()!.primary,
+                color: Theme.of(context).extension<AppThemeColors>()!.primary,
               ),
             ),
           ),
