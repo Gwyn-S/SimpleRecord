@@ -366,10 +366,15 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
           ),
           TextButton(
             onPressed: () {
+              final v = controller.text.trim();
+              if (v.isEmpty) {
+                showToast(context, '昵称不能为空');
+                return;
+              }
               Navigator.pop(dialogContext);
-              _nicknameController.text = controller.text;
+              _nicknameController.text = v;
               setState(() {});
-              _onNicknameChanged(controller.text);
+              _onNicknameChanged(v);
             },
             child: const Text('确定'),
           ),
@@ -381,11 +386,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   void _onNicknameChanged(String value) {
     final t = value.trim();
     _lastNickname = persistIfChanged(t, _lastNickname, (v) {
-      if (v.isEmpty) {
-        Settings.remove('nickname');
-      } else {
-        Settings.setString('nickname', v);
-      }
+      Settings.setString('nickname', v);
       _broadcastNickname(v);
     });
   }
