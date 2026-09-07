@@ -1,84 +1,78 @@
 ====================================================================
-SimpleRecord 审查清单（2026-09-07 复核版）
+SimpleRecord 审查清单（2026-09-08 重核版）
 来源：四维度审查 38 项(09-04，9 个远端提交)
       + 既有清单遗留项 3 项(自 md 合并)
       + 远端 5 笔提交审查 15 项(09-07)
-修正：2026-09-07 四个复核子代理逐项实读，行号对齐当前 dev 工作区。
-      误判 3 项：#13(弹窗泄漏已修复，降P3)、#51(d275af5 有意变更取消)、#44(文件更正)、#36(升P1)。
+重核：2026-09-08 三个复核子代理逐项实读，行号对齐当前 dev(71bcce7 之后)。
+      删除 3 项：旧#13/旧#51(误判取消)、旧#49(前缀改 AutoBackupScene 枚举，已修复)。
+      修正 1 项：旧#36 补确认 main.dart catchError 为死代码。经重新排序后全新连续编号。
 维度：冗余代码 / 分层耦合 / 代码风格 / 改进写法
 
 P0 — 建议修（正确性/健壮性）
 | # | 位置 | 问题 |
 |---|------|------|
 | 1 | author_service.dart:156 | _defaultNickname RangeError 崩溃：device_id 为空或长度<2 时 substring(0,2) 抛异常；注册流程若在设备初始化 device_id 前触发即崩 |
-| 2 | supabase_service.dart:363-378 | upsertProfile 吞异常且返回 void：云端写失败仅 appLog，调用方无法区分成败；注册/改昵称/换头像"看起来成功实则未同步" |
-| 3 | record_service.dart:156 vs author_service.dart:104 | currentNickname 不 trim vs ownNickname 会 trim：带首尾空格的昵称导致同一人在 author 字段与映射表出现两个不同标签 |
-| 4 | sync_service.dart:364,412 | "日常"账本禁多人仅 UI 校验、服务层无兜底：enableSync/joinByInvite 无校验；他端 joinByInvite 可绕过 |
+| 2 | supabase_service.dart:363-379 | upsertProfile 吞异常且返回 void：云端写失败仅 appLog，调用方无法区分成败；注册/改昵称/换头像"看起来成功实则未同步" |
+| 3 | record_service.dart:154-158 vs author_service.dart:101-105 | currentNickname 不 trim vs ownNickname 会 trim：带首尾空格的昵称导致同一人在 author 字段与映射表出现两个不同标签 |
+| 4 | sync_service.dart:364-401,412-453 | "日常"账本禁多人仅 UI 校验、服务层无兜底：enableSync/joinByInvite 无校验；他端 joinByInvite 可绕过 |
 
 P1 — 建议修（结构/性能/可维护）
 | # | 位置 | 问题 |
 |---|------|------|
 | 5 | supabase_sync_page.dart:390,203; ai_record_page.dart:463 | void+async fire-and-forget：_broadcastNickname、_onRecordDisplayChanged、_savePrompt 异常被吞 |
-| 6 | bills_page.dart:59-93 | async 函数注册为同步 listener：_onRecordsChanged 返回 Future 被 addListener 丢弃，异常成全局未捕获 |
+| 6 | bills_page.dart:44,59-93 | async 函数注册为同步 listener：_onRecordsChanged 返回 Future 被 addListener 丢弃，异常成全局未捕获 |
 | 7 | author_service.dart:64-77 | _ensureLoaded 无并发保护：多调用同时触发重复读 Settings 文件 |
-| 8 | author_service.dart:288-306 | displayNameFor/displayAvatarFor 高度重复，每次走 4 次异步 Settings 读，未批量 |
-| 9 | ledger_list_page.dart:80-86 | 显示作者昵称 N+1：_loadStats 双重 for 循环逐个 await displayNameFor，每作者触发异步 I/O 链 |
+| 8 | author_service.dart:288-307 | displayNameFor/displayAvatarFor 高度重复，每次走 4 次异步 Settings 读，未批量 |
+| 9 | ledger_list_page.dart:81-88 | 显示作者昵称 N+1：_loadStats 双重 for 循环逐个 await displayNameFor，每作者触发异步 I/O 链 |
 | 10 | record_item.dart:180-207 | StatelessWidget 直接执行 DB 删改(deleteRecord/updateRecord/deleteImage)，无 try-catch/loading/用户反馈 |
 | 11 | sync_service.dart:80-82,284-286,387-389 | record payload 净化逻辑重复 3 处(remove image_path/account_id=null) |
 | 12 | sync_service.dart:263 | pullForRoom 无条件 recordsVersion.value++：无新数据也触发全局重建 |
-| 14 | author_avatar.dart:48-78 | 快速切换 URL 时旧 _load 竞态：旧请求先完成会闪现旧头像 |
-| 15 | sync_service.dart:24,290-294,304-308 [遗留] | 云同步冲突策略与注释不符：注释声称"按 created_at 最后写赢"，实际按 oplog id 升序 + ConflictAlgorithm.replace = "最后上传赢"；离线旧编辑可静默覆盖在线新编辑，陈旧 update 会复活已删记录 |
-| 16 | ledger_service.dart:92-131 + ledger_list_page.dart:430 [遗留] | 共享账本删除无权限校验/无警示：任一成员删除会同步删云端全部记录，确认框无"影响所有成员"提示、无恢复路径 |
-| 17 | webdav_page.dart:94,195,143,160-169 [新提交] | 连接加载态失效 + 可连点：弹窗是 StatefulBuilder，_connecting 由页面级 setState(195行) 驱动，弹窗不重建；spinner 永不显示、连接期间按钮可并发重复请求 |
-| 18 | tag_manage_page.dart:71-80 [新提交] | 删 try/catch 属健壮性回退：insertTag/renameTag 是真实 DB 操作，异常冒泡为未处理异步异常，_load 与 Navigator.pop 不执行、弹窗卡死 |
-| 36 | auto_backup_service.dart:74-87 + main.dart:45-47 [新提交] | 自动备份失败静默丢弃：runOnce 返回 error 被 runAll 丢弃，_run* 恒 catch 使 catchError 永不触发；无日志、用户无感知(复核升P1) |
+| 13 | author_avatar.dart:48-78 | 快速切换 URL 时旧 _load 竞态：旧请求先完成会闪现旧头像 |
+| 14 | sync_service.dart:24,274-299 | 云同步冲突策略与注释不符：注释声称"按 created_at 最后写赢"，实际按 oplog id 升序 + ConflictAlgorithm.replace = "最后上传赢"；离线旧编辑可静默覆盖在线新编辑，陈旧 update 会复活已删记录 |
+| 15 | ledger_service.dart:92-131 + ledger_list_page.dart:417-448 | 共享账本删除无权限校验/无警示：任一成员删除会同步删云端全部记录，确认框无"影响所有成员"提示、无恢复路径 |
+| 16 | webdav_page.dart:88-215 | 连接加载态失效 + 可连点：弹窗是 StatefulBuilder，_connecting 由页面级 setState 驱动，弹窗不重建；spinner 永不显示、连接期间按钮可并发重复请求 |
+| 17 | tag_manage_page.dart:71-81 | 删 try/catch 属健壮性回退：insertTag/renameTag 是真实 DB 操作，异常冒泡为未处理异步异常，_load 与 Navigator.pop 不执行、弹窗卡死 |
+| 18 | auto_backup_service.dart:87-90 + main.dart:45-47 | 自动备份失败静默丢弃：runOnce 返回 error 被 runAll 丢弃；_run* 恒 catch 使外层 catchError 永不触发(死代码)；无日志、用户无感知 |
 
 P2 — 可优化
 | # | 位置 | 问题 |
 |---|------|------|
 | 19 | author_service.dart:30,35 | 魔术值碰撞：_keyOwnNickname='nickname' 与 recordDisplayNickname='nickname' 同值不同义 |
 | 20 | author_service.dart:101-112 | ownNickname/ownAvatar 每调都异步读 Settings，高频调用可加内存缓存 |
-| 21 | author_service.dart:141-143 | ownName.trim() 双重 trim(ownNickname 已 trim) |
+| 21 | author_service.dart:141,143 | ownName.trim() 双重 trim(ownNickname 已 trim) |
 | 22 | record_service.dart:154-158 | currentNickname() 是 AuthorService.ownNickname() 的劣质副本，应统一(顺带解 #3) |
-| 23 | record_item.dart:54-55,85,90,101,136,151 | 多处硬编码尺寸/间距/圆角/字号未走 constants |
-| 24 | supabase_sync_page.dart:511,550,565 | 用 Colors.black 而非 colorTextPrimary；间距 8(width:8) 未走 spacingS |
-| 25 | supabase_sync_page:236-246,345-355 + ledger_list_page:134-147,152-165,238-251 | InputDecoration 下划线模式 5 处重复，可抽工厂 |
-| 26 | ledger_list_page.dart:266-270,295-299,333-337 | 同一 TextStyle 重复 3 次、Switch 三色配置重复 2 次(278-282,345-349) |
+| 23 | record_item.dart:54,89,94,101,151 | 多处硬编码尺寸/间距/圆角/字号未走 constants |
+| 24 | supabase_sync_page.dart:511,516,550,565,623 | 用 Colors.black 而非 colorTextPrimary(511,550,565,623)；间距 8(width:8) 未走 spacingS(516) |
+| 25 | supabase_sync:238,347 + ledger_list:137,155,241 + tag_manage:54 (+transfer:165、asset_detail:449) | InputDecoration 下划线模式 6+ 处重复，可抽工厂 |
+| 26 | ledger_list_page.dart:267-269,296-298,334-336 + 278-282,345-349 | 同一 TextStyle 重复 3 次、Switch 三色配置重复 2 次 |
 | 27 | calendar_page:113-119、bills_page:72-73 | 页面直接查 service 判断共享账本，应由 service 封装 |
-| 28 | record.dart:68-80 | fromDbMap 重复实现 imagePathsFromDb(同文件:25-32) 逻辑 |
-| 29 | record_service.dart:37-65 vs 68-96 | loadRecords 与 loadRecordsByDateRange SQL 模板重复 |
-| 30 | sync_service.dart:384-397 | enableSync 逐条 _enqueue，应 db.batch 批量 |
-| 31 | sync_service.dart:110-133 | enqueueProfileChange 向所有共享账本广播，房间多时写放大 |
-| 32 | supabase_service.dart:382-413 | getProfileNickname+getProfileAvatar 可合并为一次 getProfile 查询 |
+| 28 | record.dart:69-80 | fromDbMap 重复实现 imagePathsFromDb(同文件:25-32) 逻辑 |
+| 29 | record_service.dart:52-60 vs 85-91 | loadRecords 与 loadRecordsByDateRange SQL 模板重复 |
+| 30 | sync_service.dart:383-397 | enableSync 逐条 _enqueue，应 db.batch 批量 |
+| 31 | sync_service.dart:111-133 | enqueueProfileChange 向所有共享账本广播，房间多时写放大 |
+| 32 | supabase_service.dart:382-414 | getProfileNickname+getProfileAvatar 可合并为一次 getProfile 查询 |
 | 33 | database.dart:49-51 | vacuum() 空 catch 吞异常，应 appLog |
 | 34 | sync_service(587)/supabase_sync_page(691)/ledger_list_page(612) | 单文件超 500 行，多职责混一应拆 |
-| 35 | ledger_service.dart:88 [遗留] | 共享账本改名 renameRoom 结果被 unawaited 丢弃：失败时新加入者拿到旧账本名，无重试无提示 |
-| 37 | supabase_sync_page.dart:304-308 + supabase_service.dart:428-430 [新提交] | 误删网络异常分支：isProfileExists 异常返 null，_login 的 exists!=true 把 null 误报"该账号不存在" |
-| 38 | auto_backup_service.dart:89-110 vs webdav_page.dart:247-282 [新提交] | WebDAV 上传备份逻辑两处重复：createTemp+createSrbBackup(dir)+upload+finally 删临时目录，自动/手动各一份 |
-| 39 | webdav_page.dart:94-175 vs supabase_sync_page.dart:158,179-182 [新提交] | 连接过程交互模式不一致："仿 supabase"改造未对齐——supabase 先 pop 弹窗再弹全局 busyDialog；webdav 弹窗内嵌 spinner(且因 #17 不显示) |
-| 40 | webdav_page.dart:451-481 vs local_backup_page.dart:198-234 [新提交] | 备份文件列表 UI 高度重复：ListView.separated+ListTile+恢复/删除 trailing 约 20 行一致，可抽 BackupFileList |
+| 35 | ledger_service.dart:88 | 共享账本改名 renameRoom 结果被 unawaited 丢弃：失败时新加入者拿到旧账本名，无重试无提示 |
+| 36 | supabase_sync_page.dart:280,304 + supabase_service.dart:418-432 | 误删网络异常分支：isProfileExists 异常返 null，_register/_login 无显式 null 分支——null 时分别"放行继续注册"或误报"该账号不存在" |
+| 37 | auto_backup_service.dart:92-113 vs webdav_page.dart:247-282 | WebDAV 上传备份逻辑两处重复：createTemp+createSrbBackup(dir)+upload+finally 删临时目录，自动/手动各一份 |
+| 38 | webdav_page.dart:88-175 vs supabase_sync_page.dart:158-192 | 连接过程交互模式不一致：supabase 先 pop 弹窗再弹全局 busyDialog；webdav 弹窗内嵌 spinner(且因 #16 不显示) |
+| 39 | webdav_page.dart:448-478 vs local_backup_page.dart:211-248 | 备份文件列表 UI 高度重复：ListView.separated+ListTile+恢复/删除 trailing 约 20 行一致，可抽 BackupFileList |
 
 P3 — 可选/洁癖
 | # | 位置 | 问题 |
 |---|------|------|
-| 41 | sync_service.dart:369 | 建房间重试 5 次为魔法值、无退避间隔 |
-| 42 | ledger_list_page.dart:377 + ledger_service.dart:138 | "日常"硬编码字符串比较，建议模型/常量定义 |
-| 43 | record.dart:91 | created_at as int 缺 null 保护，应 (as int?) ?? 0 |
-| 44 | supabase_service.dart:59-62 [更正] | reconnect 中 Supabase.instance.dispose() 异常被 catch(_) 吞，无 appLog(原清单误标 database.dart) |
-| 45 | 10 个公开 Widget 类 | 缺 /// 文档注释：AiRecordResultCard/BillDetailSheet/CommonAppBar/DonutPieChart/FilterTabBar/HomeTopBar/RecordItem/SpeedDialFAB/SummaryBlock/TabSwitcherAppBar |
-| 46 | 部分文件 | import 排序未分组：ledger_list 等 package/relative 无空行分隔、relative 组内未字母序(部分文件已正确) |
-| 47 | auto_backup_service.dart:84-87 [新提交] | runAll 串行：webdav 最坏网络超时约 75s 会阻塞 local；可 Future.wait(需 DB vacuum 互斥) |
-| 48 | webdav_service.dart:120-129 + webdav_page.dart:330-337 [新提交] | download 临时目录：调用方 finally 仅 localPath!=null 才删，中途失败残留 tmpDir |
-| 49 | auto_backup_service.dart:34,85-86 + webdav_page:398 + local_backup_page:159 [新提交] | 'webdav_'/'local_' 前缀硬编码散落，_isWebdav 非 webdav_ 静默回退 local，拼写错即误入 |
-| 50 | auto_backup_service.dart:11 [新提交] | monthly=720h 固定 30 天，与自然月(28-31天)偏差最多 2 天 |
-| 52 | 多文件 [新提交] | showToast 与 safeShowToast 使用混杂：webdav/local_backup/supabase 用裸 showToast，ai_*/transfer 用 safeShowToast，ledger_list 内部两种都用 |
+| 40 | sync_service.dart:369 | 建房间重试 5 次为魔法值、无退避间隔 |
+| 41 | ledger_list_page.dart:377 + ledger_service.dart:138 | "日常"硬编码字符串比较，建议模型/常量定义 |
+| 42 | record.dart:91 | created_at as int 缺 null 保护，应 (as int?) ?? 0 |
+| 43 | supabase_service.dart:56-65 | reconnect 中 Supabase.instance.dispose() 异常被 catch(_) 吞，无 appLog |
+| 44 | 10 个公开 Widget 类 | 缺 /// 文档注释：AiRecordResultCard/BillDetailSheet/CommonAppBar/DonutPieChart/FilterTabBar/HomeTopBar/RecordItem/SpeedDialFAB/SummaryBlock/TabSwitcherAppBar |
+| 45 | ledger_list_page.dart:1-19 | import 排序未分组：package/relative 无空行分隔、relative 组内未字母序(部分文件已正确) |
+| 46 | auto_backup_service.dart:87-90 | runAll 串行：webdav 最坏网络超时约 75s 会阻塞 local；可 Future.wait(需 DB vacuum 互斥) |
+| 47 | webdav_service.dart:120-129 + webdav_page.dart:331 | download 临时目录：调用方 finally 仅 localPath!=null 才删，中途失败残留 tmpDir |
+| 48 | auto_backup_service.dart:12 | monthly=720h 固定 30 天，与自然月(28-31天)偏差最多 2 天 |
+| 49 | 多文件 | showToast 与 safeShowToast 使用混杂：webdav(9)/supabase(16)/ledger_list(13)/local_backup/budget/search/ai_config_detail(7) 用裸 showToast，ai_*/transfer/manual_entry 用 safeShowToast，ledger_list 内部两种都有 |
 
-取消(复核后判定不成立)
-| # | 位置 | 原问题 | 判定 |
-|---|------|--------|------|
-| 13 | supabase_sync_page.dart:179-192 | _connect !mounted 提前 return 致 loading 弹窗泄漏 | 误判：reconfigure 完成后才判断 mounted 并 pop，弹窗不泄漏；仅剩 dispose 后状态更新边缘小问题，降为不处理 |
-| 51 | ledger_list_page.dart:408-414 | _ensureCloudConfigured 删 nickname 前置校验边界收紧 | 误判：d275af5 已在注册层保证昵称非空，属有意变更，无回归风险 |
-
-汇总：P0×4 / P1×14 / P2×21 / P3×11 = 50 项 + 取消 2 项(#13/#51)。
-复核：49 项属实，3 项修正(#13/#51 取消、#44 文件更正、#36 升P1、#45 数量更正)。误判 0。
+汇总：P0×4 / P1×14 / P2×21 / P3×10 = 49 项。
+本次变更：删除 3 项(旧#13/#51 误判取消、旧#49 AutoBackupScene 已修复)；重核行号全量对齐当前代码。
 状态：全部待决。最高优先 P0 四项(#1 RangeError 崩溃 / #2 云端失败无感知 / #3 昵称 trim 不一致 / #4 日常账本禁多人服务层兜底)。
