@@ -17,7 +17,6 @@ import '../services/supabase_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../utils/log.dart';
-import '../utils/persist.dart';
 import '../utils/toast.dart';
 import '../widgets/author_avatar.dart';
 import '../widgets/busy_dialog.dart';
@@ -35,7 +34,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   final _nicknameController = TextEditingController();
   final _urlController = TextEditingController();
   final _keyController = TextEditingController();
-  String? _lastNickname;
   String _authorId = '';
   String _avatarUrl = '';
   bool _loading = true;
@@ -64,7 +62,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     final avatar = await AuthorService.instance.ownAvatar();
     if (!mounted) return;
     _nicknameController.text = nickname;
-    _lastNickname = nickname.trim();
     _urlController.text = config.supabaseUrl;
     _keyController.text = config.supabaseAnonKey;
     _authorId = authorId ?? '';
@@ -221,7 +218,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     setState(() {
       _authorId = '';
       _nicknameController.text = '';
-      _lastNickname = '';
       _avatarUrl = '';
     });
     showToast(context, '已退出同步');
@@ -298,7 +294,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     setState(() {
       _authorId = id;
       _nicknameController.text = nickname;
-      _lastNickname = nickname;
       _avatarUrl = '';
     });
     showToast(context, '注册成功');
@@ -371,24 +366,24 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                 showToast(context, '昵称不能为空');
                 return;
               }
+              // 输入未变化时不重复广播，仅关闭弹窗。
+              // 基准取 _nicknameController.text（弹窗打开时的昵称）。
+              if (v == _nicknameController.text.trim()) {
+                Navigator.pop(dialogContext);
+                return;
+              }
+              // 输入有变化：写本地昵称 + 同步云端 + 广播给共享账本成员。
+              Settings.setString('nickname', v);
+              _broadcastNickname(v);
               Navigator.pop(dialogContext);
               _nicknameController.text = v;
               setState(() {});
-              _onNicknameChanged(v);
             },
             child: const Text('确定'),
           ),
         ],
       ),
     );
-  }
-
-  void _onNicknameChanged(String value) {
-    final t = value.trim();
-    _lastNickname = persistIfChanged(t, _lastNickname, (v) {
-      Settings.setString('nickname', v);
-      _broadcastNickname(v);
-    });
   }
 
   /// 改昵称后：存云端 profiles + 向共享账本广播 profile 事件。
