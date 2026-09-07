@@ -388,20 +388,17 @@ class _WebDavPageState extends State<WebDavPage> {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Column(
       children: [
-        Container(
-          margin: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
-          padding: const EdgeInsets.symmetric(vertical: spacingXS),
-          decoration: BoxDecoration(
-            color: colorBackgroundCard,
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
-          child: const AutoBackupTile(prefix: 'webdav_'),
-        ),
-        const SizedBox(height: spacingXS),
         Padding(
           padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
           child: Row(
             children: [
+              const Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: AutoBackupTile(prefix: 'webdav_'),
+                ),
+              ),
+              const SizedBox(width: spacingM),
               Expanded(
                 child: SizedBox(
                   height: 44,

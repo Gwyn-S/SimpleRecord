@@ -6,6 +6,7 @@ import 'webdav_service.dart';
 
 /// 自动备份频率。
 enum AutoBackupFrequency {
+  closed('关闭', 0),
   daily('每天', 24),
   weekly('每周', 168),
   monthly('每月', 720);
@@ -18,10 +19,12 @@ enum AutoBackupFrequency {
   /// 对应的小时间隔。
   final int hours;
 
+  bool get isClosed => this == closed;
+
   static AutoBackupFrequency fromName(String? name) {
     return AutoBackupFrequency.values.firstWhere(
       (f) => f.name == name,
-      orElse: () => AutoBackupFrequency.daily,
+      orElse: () => closed,
     );
   }
 }

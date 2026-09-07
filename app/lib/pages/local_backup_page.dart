@@ -149,45 +149,58 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
       ),
 body: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
-            padding: const EdgeInsets.symmetric(vertical: spacingXS),
-            decoration: BoxDecoration(
-              color: colorBackgroundCard,
-              borderRadius: BorderRadius.circular(radiusMedium),
-            ),
-            child: const AutoBackupTile(prefix: 'local_'),
-          ),
-          const SizedBox(height: spacingXS),
           Padding(
             padding: const EdgeInsets.fromLTRB(spacingL, spacingL, spacingL, 0),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : _doBackup,
-                      icon: const Icon(Icons.backup_outlined),
-                      label: const Text('立即备份'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).extension<AppThemeColors>()!.primary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: AutoBackupTile(prefix: 'local_'),
+                    ),
+                    const SizedBox(width: spacingM),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: FilledButton.icon(
+                          onPressed: _busy ? null : _doBackup,
+                          icon: const Icon(Icons.backup_outlined),
+                          label: const Text('立即备份'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).extension<AppThemeColors>()!.primary,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: spacingM),
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: OutlinedButton.icon(
-                      onPressed: _busy ? null : _exportCsv,
-                      icon: const Icon(Icons.table_chart_outlined),
-                      label: const Text('导出 CSV'),
+                const SizedBox(height: spacingXS),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : _exportCsv,
+                          icon: const Icon(Icons.file_download_outlined),
+                          label: const Text('导出 CSV'),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: spacingM),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: null,
+                          icon: const Icon(Icons.file_upload_outlined),
+                          label: const Text('导入 CSV'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/auto_backup_service.dart';
-import '../services/theme_service.dart';
 
-/// 自动备份设置组件：开关 + 频率下拉（每天/每3天/每周/每月）。
-/// 开关与频率按 [prefix]（webdav_ / local_）独立持久化，UI 结束后自动落盘。
+/// 自动备份设置组件：点击弹窗选择频率，点即选中并关闭。
+/// 按 [prefix]（webdav_ / local_）独立持久化。
 class AutoBackupTile extends StatefulWidget {
   const AutoBackupTile({
     super.key,
@@ -18,7 +16,7 @@ class AutoBackupTile extends StatefulWidget {
   /// 场景前缀，用于读写独立的持久化 key。
   final String prefix;
 
-  /// 开关行左侧标题。
+  /// 按钮行左侧标题。
   final String title;
 
   @override
@@ -26,8 +24,7 @@ class AutoBackupTile extends StatefulWidget {
 }
 
 class _AutoBackupTileState extends State<AutoBackupTile> {
-  bool _enabled = false;
-  AutoBackupFrequency _frequency = AutoBackupFrequency.daily;
+  AutoBackupFrequency _frequency = AutoBackupFrequency.closed;
 
   @override
   void initState() {
@@ -36,84 +33,56 @@ class _AutoBackupTileState extends State<AutoBackupTile> {
   }
 
   Future<void> _load() async {
-    final enabled = await AutoBackupService.isEnabled(widget.prefix);
     final frequency = await AutoBackupService.frequency(widget.prefix);
     if (!mounted) return;
-    setState(() {
-      _enabled = enabled;
-      _frequency = frequency;
-    });
+    setState(() => _frequency = frequency);
   }
 
-  Future<void> _onToggle(bool value) async {
-    setState(() => _enabled = value);
-    await AutoBackupService.save(widget.prefix, enabled: value);
-  }
+  String get _label => '${widget.title}：${_frequency.label}';
 
-  Future<void> _onFrequencyChanged(AutoBackupFrequency f) async {
+  Future<void> _openSettings() async {
+    final f = await showDialog<AutoBackupFrequency>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        contentPadding: const EdgeInsets.fromLTRB(spacingXL, spacingXL, spacingXL, spacingS),
+        children: [
+          RadioGroup<AutoBackupFrequency>(
+            groupValue: _frequency,
+            onChanged: (v) => Navigator.pop(dialogContext, v),
+            child: Column(
+              children: AutoBackupFrequency.values
+                  .map(
+                    (f) => RadioListTile<AutoBackupFrequency>(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(f.label, style: textBody),
+                      value: f,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (f == null || f == _frequency) return;
+    final enabled = !f.isClosed;
+    await AutoBackupService.save(
+      widget.prefix,
+      enabled: enabled,
+      freq: f,
+    );
     setState(() => _frequency = f);
-    await AutoBackupService.save(widget.prefix, freq: f);
   }
 
   @override
   Widget build(BuildContext context) {
-    final titleText = _enabled
-        ? '${widget.title}：${_frequency.label}'
-        : widget.title;
-    final title = Text(
-      titleText,
-      style: textListItem,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-    return Row(
-      children: [
-        Expanded(
-          child: _enabled
-              ? PopupMenuButton<AutoBackupFrequency>(
-                  tooltip: '',
-                  menuPadding: EdgeInsets.zero,
-                  onSelected: _onFrequencyChanged,
-                  itemBuilder: (context) => [
-                    for (final f in AutoBackupFrequency.values)
-                      PopupMenuItem<AutoBackupFrequency>(
-                        value: f,
-                        height: 36,
-                        padding: EdgeInsets.zero,
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(f.label, style: textBody)),
-                            if (_frequency == f)
-                              Icon(
-                                Icons.check,
-                                size: 18,
-                                color: Theme.of(
-                                  context,
-                                ).extension<AppThemeColors>()!.primary,
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Flexible(child: title),
-                      Icon(
-                        Icons.arrow_drop_down,
-                        size: iconSizeDefault,
-                        color: colorTextSecondary,
-                      ),
-                    ],
-                  ),
-                )
-              : title,
-        ),
-        Switch(
-          value: _enabled,
-          onChanged: _onToggle,
-        ),
-      ],
+    return SizedBox(
+      height: 44,
+      child: OutlinedButton.icon(
+        onPressed: _openSettings,
+        icon: const Icon(Icons.schedule_outlined),
+        label: Text(_label),
+      ),
     );
   }
 }
