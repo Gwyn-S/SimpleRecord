@@ -7,6 +7,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../utils/formatters.dart';
+import '../services/auto_backup_service.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
 import '../models/webdav_config.dart';
@@ -395,7 +396,7 @@ class _WebDavPageState extends State<WebDavPage> {
               const Expanded(
                 child: SizedBox(
                   height: 44,
-                  child: AutoBackupTile(prefix: 'webdav_'),
+                  child: AutoBackupTile(scene: AutoBackupScene.webdav),
                 ),
               ),
               const SizedBox(width: spacingM),

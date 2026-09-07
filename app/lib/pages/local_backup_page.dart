@@ -6,6 +6,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/export_service.dart';
+import '../services/auto_backup_service.dart';
 import '../utils/formatters.dart';
 import '../services/srb_backup_service.dart';
 import '../services/theme_service.dart';
@@ -156,7 +157,7 @@ body: Column(
                 Row(
                   children: [
                     Expanded(
-                      child: AutoBackupTile(prefix: 'local_'),
+                      child: AutoBackupTile(scene: AutoBackupScene.local),
                     ),
                     const SizedBox(width: spacingM),
                     Expanded(

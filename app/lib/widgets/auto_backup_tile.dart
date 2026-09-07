@@ -5,16 +5,16 @@ import '../constants/app_text_styles.dart';
 import '../services/auto_backup_service.dart';
 
 /// 自动备份设置组件：点击弹窗选择频率，点即选中并关闭。
-/// 按 [prefix]（webdav_ / local_）独立持久化。
+/// 按 [scene]（webdav / local）独立持久化。
 class AutoBackupTile extends StatefulWidget {
   const AutoBackupTile({
     super.key,
-    required this.prefix,
+    required this.scene,
     this.title = '自动备份',
   });
 
-  /// 场景前缀，用于读写独立的持久化 key。
-  final String prefix;
+  /// 场景，用于读写独立的持久化 key。
+  final AutoBackupScene scene;
 
   /// 按钮行左侧标题。
   final String title;
@@ -33,7 +33,7 @@ class _AutoBackupTileState extends State<AutoBackupTile> {
   }
 
   Future<void> _load() async {
-    final frequency = await AutoBackupService.frequency(widget.prefix);
+    final frequency = await AutoBackupService.frequency(widget.scene);
     if (!mounted) return;
     setState(() => _frequency = frequency);
   }
@@ -67,7 +67,7 @@ class _AutoBackupTileState extends State<AutoBackupTile> {
     if (f == null || f == _frequency) return;
     final enabled = !f.isClosed;
     await AutoBackupService.save(
-      widget.prefix,
+      widget.scene,
       enabled: enabled,
       freq: f,
     );
