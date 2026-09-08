@@ -143,11 +143,11 @@ class AuthorService {
         : ownName.trim();
     await Settings.setString(_keyOwnNickname, nickname);
     await registerNickname(id, nickname);
-    await SupabaseManager.instance.upsertProfile(
+    // 云端占位 profile 必须成功，否则换设备时该账号不存在。
+    return await SupabaseManager.instance.upsertProfile(
       authorId: id,
       nickname: nickname,
     );
-    return true;
   }
 
   /// 默认昵称：Sr + device_id 前两位，共 4 位。
@@ -192,14 +192,14 @@ class AuthorService {
     return id;
   }
 
-  /// 把昵称同步到云端 profiles。未就绪时静默失败。
-  Future<void> syncNicknameToCloud() async {
+  /// 把昵称同步到云端 profiles。写入成功返回 true；未就绪/失败返回 false。
+  Future<bool> syncNicknameToCloud() async {
     final id = await ensureAuthorId();
-    if (id == null) return;
+    if (id == null) return false;
     final nickname = await ownNickname();
-    if (nickname == null) return;
+    if (nickname == null) return false;
     await registerNickname(id, nickname);
-    await SupabaseManager.instance.upsertProfile(
+    return await SupabaseManager.instance.upsertProfile(
       authorId: id,
       nickname: nickname,
     );
@@ -244,7 +244,12 @@ class AuthorService {
     if (url == null) return null;
     await Settings.setString(_keyOwnAvatar, url);
     await registerAvatar(id, url);
-    await SupabaseManager.instance.upsertProfile(authorId: id, avatarUrl: url);
+    // 图片已上传成功，但资料库没写上则视为失败，让上层提示"未上传成功"。
+    final saved = await SupabaseManager.instance.upsertProfile(
+      authorId: id,
+      avatarUrl: url,
+    );
+    if (!saved) return null;
     return url;
   }
 

@@ -360,21 +360,27 @@ class SupabaseManager {
   }
 
   /// upsert 一条 profile（author_id 主键）；[avatarUrl] 为可选的单独更新。
-  Future<void> upsertProfile({
+  /// 写入成功返回 true；云端未就绪或超时/失败返回 false，调用方可据此提示用户。
+  Future<bool> upsertProfile({
     required String authorId,
     String? nickname,
     String? avatarUrl,
   }) async {
     final client = this.client;
-    if (client == null) return;
+    if (client == null) return false;
     try {
-      await client.from('profiles').upsert({
-        'author_id': authorId,
-        'nickname': ?nickname,
-        'avatar_url': ?avatarUrl,
-      });
+      await client
+          .from('profiles')
+          .upsert({
+            'author_id': authorId,
+            'nickname': ?nickname,
+            'avatar_url': ?avatarUrl,
+          })
+          .timeout(const Duration(seconds: 15));
+      return true;
     } catch (e) {
       appLog('[sync] upsertProfile failed: $e');
+      return false;
     }
   }
 

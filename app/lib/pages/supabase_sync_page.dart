@@ -388,7 +388,10 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
   /// 改昵称后：存云端 profiles + 向共享账本广播 profile 事件。
   void _broadcastNickname(String nickname) async {
-    await AuthorService.instance.syncNicknameToCloud();
+    final saved = await AuthorService.instance.syncNicknameToCloud();
+    if (!saved && mounted) {
+      showToast(context, '昵称同步失败，请检查云端连接');
+    }
     final authorId = await AuthorService.instance.existingAuthorId();
     if (authorId == null) return;
     if (nickname.isEmpty) return;
@@ -409,47 +412,58 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       return;
     }
     if (picked == null || !mounted) return;
-    // 复制到系统临时目录，仅用于上传，避免污染记账 images 图库。
-    final String tmpPath;
-    try {
-      final ext = picked.path.contains('.')
-          ? picked.path.substring(picked.path.lastIndexOf('.'))
-          : '';
-      final tmp = File(
-        '${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext',
-      );
-      await tmp.writeAsBytes(
-        await File(picked.path).readAsBytes(),
-        flush: true,
-      );
-      tmpPath = tmp.path;
-    } catch (e) {
-      appLog('[avatar] copy failed: $e');
-      if (mounted) showToast(context, '读取图片失败');
-      return;
-    }
-    final url = await AuthorService.instance.changeAvatar(tmpPath);
-    // 上传完成即清理临时副本。
-    try {
-      final tmp = File(tmpPath);
-      if (tmp.existsSync()) tmp.deleteSync();
-    } catch (_) {}
-    if (!mounted) return;
-    if (url == null) {
-      showToast(context, '头像上传失败，请检查云端连接');
-      return;
-    }
-    setState(() => _avatarUrl = url);
-    final authorId = await AuthorService.instance.existingAuthorId();
-    if (authorId == null) return;
-    await SyncService.instance.enqueueProfileChange(
-      authorId: authorId,
-      avatarUrl: url,
+    // 选图完成，进入读图/上传/云端写入阶段：弹阻塞式进度弹窗，期间不可关闭。
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('头像上传中'),
     );
-    // 触发各页面重新加载并反查最新头像，保证条目头像即时刷新。
-    recordsVersion.value++;
-    if (!mounted) return;
-    showToast(context, '头像已更新');
+    try {
+      // 复制到系统临时目录，仅用于上传，避免污染记账 images 图库。
+      final String tmpPath;
+      try {
+        final ext = picked.path.contains('.')
+            ? picked.path.substring(picked.path.lastIndexOf('.'))
+            : '';
+        final tmp = File(
+          '${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext',
+        );
+        await tmp.writeAsBytes(
+          await File(picked.path).readAsBytes(),
+          flush: true,
+        );
+        tmpPath = tmp.path;
+      } catch (e) {
+        appLog('[avatar] copy failed: $e');
+        if (mounted) showToast(context, '读取图片失败');
+        return;
+      }
+      final url = await AuthorService.instance.changeAvatar(tmpPath);
+      // 上传完成即清理临时副本。
+      try {
+        final tmp = File(tmpPath);
+        if (tmp.existsSync()) tmp.deleteSync();
+      } catch (_) {}
+      if (!mounted) return;
+      if (url == null) {
+        showToast(context, '头像上传失败，请检查云端连接');
+        return;
+      }
+      setState(() => _avatarUrl = url);
+      final authorId = await AuthorService.instance.existingAuthorId();
+      if (authorId == null) return;
+      await SyncService.instance.enqueueProfileChange(
+        authorId: authorId,
+        avatarUrl: url,
+      );
+      // 触发各页面重新加载并反查最新头像，保证条目头像即时刷新。
+      recordsVersion.value++;
+      if (!mounted) return;
+      showToast(context, '头像已更新');
+    } finally {
+      navigator.pop();
+    }
   }
 
   void _showAvatarPicker() {

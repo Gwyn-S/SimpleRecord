@@ -151,10 +151,9 @@ Future<void> _applyBalance(
 }
 
 /// 当前账本作者名：设置了昵称返回昵称，未设置返回 null（不打标签）。
-Future<String?> currentNickname() async {
-  final nickname = await Settings.getString('nickname');
-  if (nickname != null && nickname.trim().isNotEmpty) return nickname;
-  return null;
+/// 与 ownNickname() 读同一 Settings key，统一委托避免重复实现。
+Future<String?> currentNickname() {
+  return AuthorService.instance.ownNickname();
 }
 
 Future<void> insertRecord(Record record) async {
