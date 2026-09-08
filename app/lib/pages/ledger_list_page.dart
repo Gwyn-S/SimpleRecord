@@ -183,11 +183,15 @@ class _LedgerListPageState extends State<LedgerListPage> {
                 switch (result) {
                   case JoinSyncResult.success:
                     await _loadLedgers();
-                    if (context.mounted) {
-                      showToast(context, '已加入「${ledger!.name}」');
-                    }
+if (context.mounted) {
+                  showToast(context, '已加入「${ledger!.name}」');
+                }
                   case JoinSyncResult.notReady:
-                    showToast(context, '请先配置云同步');
+                    if (SyncService.instance.isSignedIn) {
+                      showToast(context, '请先配置云同步');
+                    } else {
+                      showToast(context, '请先注册或登录账号');
+                    }
                   case JoinSyncResult.roomNotFound:
                     showToast(context, '房间不存在');
                   case JoinSyncResult.joinFailed:
@@ -392,7 +396,11 @@ class _LedgerListPageState extends State<LedgerListPage> {
     if (ok) {
       showToast(context, '已开启共享');
     } else {
-      showToast(context, '开启失败，请检查网络后重试');
+      if (SyncService.instance.isSignedIn) {
+        showToast(context, '开启失败，请检查网络后重试');
+      } else {
+        showToast(context, '请先注册或登录账号');
+      }
     }
     _loadLedgers();
   }
