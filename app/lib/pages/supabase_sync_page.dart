@@ -82,10 +82,10 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   }
 
   /// 用已保存配置做连通性校验，成功才解锁功能。
-  /// 已就绪且已登录则直接解锁；否则才重新建立连接验证（避免每次进页都重连）。
+  /// 已就绪且已登录（有邮箱会话）则直接解锁；否则才重新建立连接验证（避免每次进页都重连）。
   Future<void> _verifyCloud() async {
     final mgr = SupabaseManager.instance;
-    if (mgr.isReady && mgr.uid != null) {
+    if (mgr.isReady && mgr.email != null) {
       if (!mounted) return;
       setState(() => _cloudReady = true);
       return;
@@ -214,6 +214,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       _showAccountDialog();
       return;
     }
+    // 先停引擎再登出：避免残留 outbox 用即将失效的会话继续推送。
+    await SyncService.instance.stop();
     await AuthorService.instance.logout();
     if (!mounted) return;
     setState(() {
@@ -233,50 +235,79 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     recordsVersion.value++;
   }
 
-  /// 注册 / 登录共用账号输入弹窗：填账号后可选「注册」或「登录」。
+  /// 注册 / 登录共用账号输入弹窗：填邮箱+密码后可选「注册」或「登录」。
   void _showAccountDialog() {
-    final controller = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('注册或登录账号'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.transparent),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Theme.of(context).extension<AppThemeColors>()!.primary,
+        contentPadding: const EdgeInsets.fromLTRB(
+          spacingXL,
+          spacingXL,
+          spacingXL,
+          spacingS,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          spacingL,
+          0,
+          spacingL,
+          spacingS,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailController,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: '邮箱',
+                hintText: 'example@mail.com',
+                border: InputBorder.none,
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
               ),
             ),
-          ),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '密码',
+                border: InputBorder.none,
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () {
-              final id = controller.text.trim();
-              if (id.isEmpty) {
-                showToast(context, '请输入账号');
-                return;
-              }
+              final email = emailController.text.trim();
+              final password = passwordController.text;
+              if (!_validateAccountInput(email, password)) return;
               Navigator.pop(dialogContext);
-              _register(id);
+              _register(email, password);
             },
             child: const Text('注册'),
           ),
           FilledButton(
             onPressed: () {
-              final id = controller.text.trim();
-              if (id.isEmpty) {
-                showToast(context, '请输入账号');
-                return;
-              }
+              final email = emailController.text.trim();
+              final password = passwordController.text;
+              if (!_validateAccountInput(email, password)) return;
               Navigator.pop(dialogContext);
-              _login(id);
+              _login(email, password);
             },
             child: const Text('登录'),
           ),
@@ -285,51 +316,58 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     );
   }
 
-  /// 注册：校验账号不重复后绑定本机。
-  Future<void> _register(String id) async {
-    final exists = await AuthorService.instance.accountExists(id);
-    if (!mounted) return;
-    if (exists == true) {
-      showToast(context, '账号已注册，请登录');
-      return;
+  /// 校验邮箱与密码格式，不合法时提示并返回 false。
+  bool _validateAccountInput(String email, String password) {
+    if (!email.contains('@')) {
+      showToast(context, '请输入正确的邮箱');
+      return false;
     }
-    final ok = await AuthorService.instance.registerAccount(id);
+    if (password.isEmpty) {
+      showToast(context, '请输入密码');
+      return false;
+    }
+    return true;
+  }
+
+  /// 注册：真实账号创建成功后绑定本机。
+  Future<void> _register(String email, String password) async {
+    final ok = await AuthorService.instance.registerAccount(email, password);
     if (!mounted) return;
     if (!ok) {
-      showToast(context, '注册失败，请重试');
+      showToast(context, '注册失败，邮箱可能已被占用，请重试');
       return;
     }
     final nickname = await AuthorService.instance.ownNickname() ?? '';
     if (!mounted) return;
     setState(() {
-      _authorId = id;
+      _authorId = email;
       _nicknameController.text = nickname;
       _avatarUrl = '';
     });
     await _refreshAfterIdentityChange();
+    await SyncService.instance.start();
     if (!mounted) return;
     showToast(context, '注册成功');
   }
 
-  /// 登录：校验账号存在后拉回昵称/头像。
-  Future<void> _login(String id) async {
-    final exists = await AuthorService.instance.accountExists(id);
+  /// 登录：真实账号校验通过后拉回昵称/头像。
+  Future<void> _login(String email, String password) async {
+    final ok = await AuthorService.instance.loginAccount(email, password);
     if (!mounted) return;
-    if (exists != true) {
-      showToast(context, '该账号不存在，请先注册');
+    if (!ok) {
+      showToast(context, '登录失败，请检查邮箱和密码');
       return;
     }
-    await AuthorService.instance.loginAccount(id);
-    if (!mounted) return;
     final nickname = await AuthorService.instance.ownNickname() ?? '';
     final avatar = await AuthorService.instance.ownAvatar() ?? '';
     if (!mounted) return;
     setState(() {
-      _authorId = id;
+      _authorId = email;
       _nicknameController.text = nickname;
       _avatarUrl = avatar;
     });
     await _refreshAfterIdentityChange();
+    await SyncService.instance.start();
     if (!mounted) return;
     showToast(context, '登录成功');
   }

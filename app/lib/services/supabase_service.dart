@@ -22,8 +22,11 @@ class SupabaseManager {
   /// 就绪后的客户端；未就绪时为 null
   SupabaseClient? get client => _ready ? Supabase.instance.client : null;
 
-  /// 已登录用户 id（匿名登录后即存在）
+  /// 已登录用户 id；真实邮箱认证登录后才有（不再匿名登录）
   String? get uid => client?.auth.currentUser?.id;
+
+  /// 已登录账号的邮箱（author_id），未登录为 null。
+  String? get email => client?.auth.currentUser?.email;
 
   Future<void> init() async {
     if (_ready) return;
@@ -64,23 +67,50 @@ class SupabaseManager {
     _ready = false;
   }
 
-  /// 确保已匿名登录。返回是否就绪且已登录。
+  /// 确保已用真实账号（邮箱+密码）登录。返回是否已登录。
+  /// 不再匿名登录：共享账本参与需要真实账号身份。
   Future<bool> ensureSignedIn() async {
     final client = this.client;
     if (client == null) return false;
-    if (client.auth.currentUser != null) {
-      return true;
-    }
+    final user = client.auth.currentUser;
+    if (user == null || user.isAnonymous) return false;
+    return true;
+  }
+
+  /// 用邮箱注册。成功返回 true；邮箱已存在/失败返回 false。
+  Future<bool> signUpWithEmail(String email, String password) async {
+    final client = this.client;
+    if (client == null) return false;
     try {
-      final res = await client.auth.signInAnonymously();
-      final user = res.user;
-      if (user != null) {
-        return true;
-      }
-      return false;
+      await client.auth.signUp(email: email, password: password);
+      return true;
     } catch (e) {
-      appLog('[sync] signInAnonymously failed: $e');
+      appLog('[sync] signUp failed: $e');
       return false;
+    }
+  }
+
+  /// 邮箱+密码登录。成功返回 true；凭据错误/失败返回 false。
+  Future<bool> signInWithEmail(String email, String password) async {
+    final client = this.client;
+    if (client == null) return false;
+    try {
+      await client.auth.signInWithPassword(email: email, password: password);
+      return true;
+    } catch (e) {
+      appLog('[sync] signIn failed: $e');
+      return false;
+    }
+  }
+
+  /// 退出登录。
+  Future<void> signOut() async {
+    final client = this.client;
+    if (client == null) return;
+    try {
+      await client.auth.signOut();
+    } catch (e) {
+      appLog('[sync] signOut failed: $e');
     }
   }
 
@@ -95,8 +125,8 @@ class SupabaseManager {
     required String inviteCode,
   }) async {
     final client = this.client;
-    final myUid = uid;
-    if (client == null || myUid == null) return null;
+    final myEmail = email;
+    if (client == null || myEmail == null) return null;
     try {
       final existing = await fetchRoom(roomId);
       if (existing != null) {
@@ -105,8 +135,8 @@ class SupabaseManager {
       await client.from('rooms').insert({
         'id': roomId,
         'name': name,
-        'owner_id': myUid,
-        'members': [myUid],
+        'owner_id': myEmail,
+        'members': [myEmail],
         'invite_code': inviteCode,
         'seq': 0,
       });
@@ -130,57 +160,22 @@ class SupabaseManager {
     }
   }
 
-  /// 按邀请码取房间（加入流程第一步）
-  Future<Map<String, dynamic>?> fetchRoomByInvite(String inviteCode) async {
+  /// 用邀请码加入房间（原子操作 RPC：查房间 + 把自己加入 members）。
+  /// 返回房间数据；邀请码无效/未登录/失败返回 null。
+  Future<Map<String, dynamic>?> joinRoomByInvite(String inviteCode) async {
     final client = this.client;
     if (client == null) return null;
     try {
-      return await client
-          .from('rooms')
-          .select()
-          .eq('invite_code', inviteCode.trim())
-          .maybeSingle();
-    } catch (e) {
-      appLog('[sync] fetchRoomByInvite failed: $e');
+      final res = await client.rpc(
+        'join_by_invite',
+        params: {'p_invite_code': inviteCode.trim().toUpperCase()},
+      );
+      if (res is Map<String, dynamic>) return res;
+      appLog('[sync] joinRoomByInvite: unexpected result ${res.runtimeType}');
       return null;
-    }
-  }
-
-  /// 把自己加入房间 members。幂等：已在成员里直接返回成功。
-  Future<bool> joinRoom(String roomId) async {
-    final client = this.client;
-    final myUid = uid;
-    if (client == null || myUid == null) {
-      appLog('[sync] joinRoom: client/uid unavailable');
-      return false;
-    }
-    try {
-      final room = await fetchRoom(roomId);
-      if (room == null) {
-        appLog('[sync] joinRoom: room not found $roomId');
-        return false;
-      }
-      final rawMembers = room['members'];
-      final existing = <String>[];
-      if (rawMembers is List) {
-        existing.addAll(
-          rawMembers.map((e) => e.toString()).where((e) => e.isNotEmpty),
-        );
-      } else {
-        appLog('[sync] joinRoom: members type ${rawMembers.runtimeType}');
-      }
-      if (existing.contains(myUid)) return true;
-      await client
-          .from('rooms')
-          .update({
-            'members': [...existing, myUid],
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', roomId);
-      return true;
     } catch (e) {
-      appLog('[sync] joinRoom failed: $e');
-      return false;
+      appLog('[sync] joinRoomByInvite failed: $e');
+      return null;
     }
   }
 
@@ -419,21 +414,40 @@ class SupabaseManager {
     }
   }
 
-  /// 账号（author_id）是否已在云端存在。用于注册查重、登录校验。
-  /// 未就绪返回 null（区别于「不存在」false，上层需据此提示未连接）。
-  Future<bool?> isProfileExists(String authorId) async {
+  /// 拉取当前账号所属的全部房间（RLS 已限定为成员）。
+  /// 换新设备/清数据后登录时，据此恢复本地共享账本列表。
+  Future<List<Map<String, dynamic>>> fetchMyRooms() async {
     final client = this.client;
-    if (client == null) return null;
+    if (client == null) return const [];
+    try {
+      final res = await client.from('rooms').select('id,name,created_at,invite_code');
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      appLog('[sync] fetchMyRooms failed: $e');
+      return const [];
+    }
+  }
+
+  /// 拉取全部成员资料（author_id/nickname/avatar_url）。
+  /// 用于新设备/清数据登录后以 profiles 表为权威源恢复昵称头像，
+  /// 不依赖 oplogs 历史事件。失败返回空表，由上层自行容忍。
+  Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
+    final client = this.client;
+    if (client == null) return const [];
     try {
       final res = await client
           .from('profiles')
-          .select('author_id')
-          .eq('author_id', authorId)
-          .maybeSingle();
-      return res != null;
+          .select('author_id,nickname,avatar_url');
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     } catch (e) {
-      appLog('[sync] isProfileExists failed: $e');
-      return null;
+      appLog('[sync] fetchAllProfiles failed: $e');
+      return const [];
     }
   }
 }

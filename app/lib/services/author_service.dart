@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 
 import 'image_storage_service.dart';
 import 'settings.dart';
@@ -11,7 +10,7 @@ import 'supabase_service.dart';
 import '../models/record.dart';
 import '../utils/log.dart';
 
-// 昵称/头像本地与云端的上传、恢复与展示反查。author_id 绑定换设备身份。
+// 昵称/头像本地与云端的上传、恢复与展示反查。author_id 即登录邮箱。
 //
 // 昵称/头像都有两套来源：
 //  - 本机自己的存 Settings['nickname'] / Settings['avatar_url']；
@@ -24,7 +23,6 @@ class AuthorService {
 
   static final AuthorService instance = AuthorService._();
 
-  static const _keyAuthorId = 'author_id';
   static const _keyNamePrefix = 'nickname_of_';
   static const _keyAvatarPrefix = 'avatar_of_';
   static const _keyOwnNickname = 'nickname';
@@ -122,31 +120,24 @@ class AuthorService {
     return u.trim();
   }
 
-  /// 取本机 author_id；未注册/登录（无 author_id）时返回 null，不自动生成。
+  /// 取本机 author_id；未登录（无邮箱会话）时返回 null，不自动生成。
   Future<String?> ensureAuthorId() async {
     return existingAuthorId();
   }
 
-  /// 只读本机 author_id；未生成过返回 null，不触发创建。
+  /// 只读本机 author_id；未登录时返回 null，不触发创建。
+  /// 真实认证后 author_id 即当前登录邮箱，以 Supabase 会话为准。
   Future<String?> existingAuthorId() async {
-    final existing = await Settings.getString(_keyAuthorId);
-    if (existing == null || existing.isEmpty) return null;
-    return existing;
+    return SupabaseManager.instance.email;
   }
 
-  /// 账号（author_id）是否已在云端存在。返回三态：
-  /// null=云端未就绪/查询失败，true=存在，false=不存在。
-  Future<bool?> accountExists(String authorId) {
-    return SupabaseManager.instance.isProfileExists(authorId);
-  }
-
-  /// 注册账号：把用户指定账号绑定为本机 author_id，并在云端占位一条 profile。
-  /// 本机无昵称时自动生成默认昵称（Sr + device_id 前两位，共 4 位）。
-  /// 返回是否成功。
-  Future<bool> registerAccount(String authorId) async {
-    final id = authorId.trim();
-    if (id.isEmpty) return false;
-    await Settings.setString(_keyAuthorId, id);
+  /// 注册账号：用邮箱+密码在 Supabase Auth 创建真实账号，并在 profiles 占位昵称。
+  /// 注册即登录态，author_id 即该邮箱。返回是否成功。
+  Future<bool> registerAccount(String email, String password) async {
+    final id = email.trim().toLowerCase();
+    if (id.isEmpty || password.isEmpty) return false;
+    final ok = await SupabaseManager.instance.signUpWithEmail(id, password);
+    if (!ok) return false;
     await Settings.remove(_keyOwnAvatar);
     final ownName = await ownNickname();
     final nickname = (ownName == null || ownName.trim().isEmpty)
@@ -167,41 +158,31 @@ class AuthorService {
     return 'Sr${dev.substring(0, 2)}';
   }
 
-  /// 登录账号：校验云端存在后，把账号绑定为本机并拉回昵称/头像。
-  /// 存在且成功返回 true；不存在/查询失败返回 false。
-  Future<bool> loginAccount(String authorId) async {
-    final exists = await accountExists(authorId);
-    if (exists != true) return false;
-    await Settings.setString(_keyAuthorId, authorId.trim());
-    await restoreNickname(authorId);
-    await restoreAvatar(authorId);
+  /// 登录账号：用邮箱+密码登录真实账号，并拉回昵称/头像。
+  /// 成功返回 true；凭据错误/查询失败返回 false。
+  Future<bool> loginAccount(String email, String password) async {
+    final id = email.trim().toLowerCase();
+    if (id.isEmpty || password.isEmpty) return false;
+    final ok = await SupabaseManager.instance.signInWithEmail(id, password);
+    if (!ok) return false;
+    await restoreNickname(id);
+    await restoreAvatar(id);
     return true;
   }
 
-  /// 退出同步：清空本机 author_id、昵称、头像及其 mapping 缓存，回到未登录状态。
+  /// 退出登录：登出 Supabase 会话，清空本机昵称、头像及 mapping 缓存，回到未登录状态。
   Future<void> logout() async {
-    final current = await Settings.getString(_keyAuthorId);
+    await SupabaseManager.instance.signOut();
+    final current = await existingAuthorId();
     if (current != null && current.isNotEmpty) {
       await Settings.remove('$_keyNamePrefix$current');
       await Settings.remove('$_keyAvatarPrefix$current');
       _names.remove(current);
       _avatars.remove(current);
     }
-    await Settings.remove(_keyAuthorId);
     await Settings.remove(_keyOwnNickname);
     await Settings.remove(_keyOwnAvatar);
-  }
-
-  /// 主动生成并持久化一个全新的 author_id，并清空本机昵称/头像（全新身份）。
-  Future<String> createNewAuthorId() async {
-    final id = const Uuid().v4();
-    await Settings.setString(_keyAuthorId, id);
-    await Settings.remove(_keyOwnNickname);
-    await Settings.remove(_keyOwnAvatar);
-    _names.remove(id);
-    _avatars.remove(id);
-    return id;
-  }
+} 
 
   /// 把昵称同步到云端 profiles。写入成功返回 true；未就绪/失败返回 false。
   Future<bool> syncNicknameToCloud() async {
@@ -216,7 +197,7 @@ class AuthorService {
     );
   }
 
-  /// 用旧 author_id 从云端拉昵称并写回本地（换设备恢复）。
+  /// 用当前登录邮箱从云端拉昵称并写回本地（换设备/首次登录恢复显示）。
   Future<String?> restoreNickname(String authorId) async {
     final nickname = await SupabaseManager.instance.getProfileNickname(
       authorId,
@@ -224,7 +205,6 @@ class AuthorService {
     if (nickname == null || nickname.trim().isEmpty) return null;
     final n = nickname.trim();
     await Settings.setString(_keyOwnNickname, n);
-    await Settings.setString(_keyAuthorId, authorId);
     await registerNickname(authorId, n);
     return n;
   }

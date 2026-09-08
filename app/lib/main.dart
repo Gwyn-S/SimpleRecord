@@ -9,6 +9,7 @@ import 'services/record_service.dart';
 import 'services/asset_account_service.dart';
 import 'services/author_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/supabase_service.dart';
 import 'services/sync_service.dart';
 import 'utils/log.dart';
 import 'pages/main_page.dart';
@@ -30,12 +31,15 @@ void main() async {
   await loadThemeColor();
   await backfillAccountIcons();
   await loadCurrentLedgerId();
+  // 先让 Supabase 会话就绪（若已配置且曾登录，会同步恢复邮箱会话），
+  // 再校验当前账本：避免启动时未登录而把上次打开的共享账本误判为失效重置。
+  await SupabaseManager.instance.init();
   await ensureCurrentLedgerId();
   // 预热头像缓存目录，使列表头像可同步命中本地缓存（首帧即显示）。
   await AuthorService.instance.initAvatarCache();
   // 加载记账条目作者显示偏好（昵称/头像）到进程内存，供列表首帧按用户选择渲染。
   await AuthorService.instance.loadRecordAuthorDisplay();
-  // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置时静默跳过）。
+  // 后台启动云同步：不阻塞首屏渲染（Supabase 未配置或未登录邮箱时静默跳过）。
   // 失败仅打日志兜底，避免多次 async 步骤失败成为无人接住的全局异常。
   SyncService.instance.start().catchError((Object e) {
     appLog('[sync] start failed: $e');
