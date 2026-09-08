@@ -41,6 +41,7 @@ class AuthorService {
   final Map<String, String> _names = {};
   final Map<String, String> _avatars = {};
   bool _loaded = false;
+  Future<void>? _loading;
 
   /// 加载记账条目作者展示偏好到进程级缓存。
   Future<void> loadRecordAuthorDisplay() async {
@@ -63,17 +64,27 @@ class AuthorService {
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
-    final names = await Settings.stringMapByPrefix(_keyNamePrefix);
-    names.forEach((key, name) {
-      final id = key.substring(_keyNamePrefix.length);
-      if (id.isNotEmpty && name.isNotEmpty) _names[id] = name;
-    });
-    final avatars = await Settings.stringMapByPrefix(_keyAvatarPrefix);
-    avatars.forEach((key, url) {
-      final id = key.substring(_keyAvatarPrefix.length);
-      if (id.isNotEmpty && url.isNotEmpty) _avatars[id] = url;
-    });
-    _loaded = true;
+    // 并发保护：同一批并发调用共享同一个加载过程，避免重复读 Settings。
+    final loading = _loading ??= _loadFromSettings();
+    await loading;
+  }
+
+  Future<void> _loadFromSettings() async {
+    try {
+      final names = await Settings.stringMapByPrefix(_keyNamePrefix);
+      names.forEach((key, name) {
+        final id = key.substring(_keyNamePrefix.length);
+        if (id.isNotEmpty && name.isNotEmpty) _names[id] = name;
+      });
+      final avatars = await Settings.stringMapByPrefix(_keyAvatarPrefix);
+      avatars.forEach((key, url) {
+        final id = key.substring(_keyAvatarPrefix.length);
+        if (id.isNotEmpty && url.isNotEmpty) _avatars[id] = url;
+      });
+      _loaded = true;
+    } finally {
+      _loading = null;
+    }
   }
 
   /// 记录/更新某 author_id 的最新昵称。
