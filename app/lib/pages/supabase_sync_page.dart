@@ -12,6 +12,7 @@ import '../services/author_service.dart';
 import '../models/cloud_config.dart';
 import '../services/cloud_config.dart';
 import '../services/record_service.dart';
+import '../services/ledger_service.dart';
 import '../services/settings.dart';
 import '../services/supabase_service.dart';
 import '../services/sync_service.dart';
@@ -220,7 +221,16 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       _nicknameController.text = '';
       _avatarUrl = '';
     });
+    // 退出后当前账本可能指向已隐藏的共享账本，重置为可见账本并刷新列表。
+    await _refreshAfterIdentityChange();
+    if (!mounted) return;
     showToast(context, '已退出同步');
+  }
+
+  /// 登录/注册/退出后：把当前账本收敛到当前账号可见的范围并触发界面刷新。
+  Future<void> _refreshAfterIdentityChange() async {
+    await ensureCurrentLedgerId();
+    recordsVersion.value++;
   }
 
   /// 注册 / 登录共用账号输入弹窗：填账号后可选「注册」或「登录」。
@@ -296,6 +306,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       _nicknameController.text = nickname;
       _avatarUrl = '';
     });
+    await _refreshAfterIdentityChange();
+    if (!mounted) return;
     showToast(context, '注册成功');
   }
 
@@ -317,6 +329,8 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       _nicknameController.text = nickname;
       _avatarUrl = avatar;
     });
+    await _refreshAfterIdentityChange();
+    if (!mounted) return;
     showToast(context, '登录成功');
   }
 

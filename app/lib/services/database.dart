@@ -61,7 +61,7 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -74,7 +74,8 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         created_at INTEGER NOT NULL DEFAULT 0,
-        sync_mode INTEGER NOT NULL DEFAULT 0
+        sync_mode INTEGER NOT NULL DEFAULT 0,
+        owner_author_id TEXT
       )
     ''');
     await db.execute('''
@@ -175,6 +176,12 @@ class DatabaseHelper {
           created_at INTEGER NOT NULL DEFAULT 0
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      // 共享账本归属本机的哪个账号（换号后按归属过滤显示）。
+      await db.execute(
+        'ALTER TABLE books ADD COLUMN owner_author_id TEXT',
+      );
     }
   }
 

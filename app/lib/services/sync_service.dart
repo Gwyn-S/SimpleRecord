@@ -379,6 +379,17 @@ class SyncService {
     if (!ok) return false;
     _inviteCodeCache[ledger.id] = invite;
     await _setSharedFlag(ledger.id, 1);
+    // 归属当前登录账号：换号后该账本只对当前账号显示。
+    final ownerId = await AuthorService.instance.existingAuthorId();
+    if (ownerId != null) {
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'books',
+        {'owner_author_id': ownerId},
+        where: 'id = ?',
+        whereArgs: [ledger.id],
+      );
+    }
     await supabase.subscribeOplogs(roomId: ledger.id, callback: _onOplogInsert);
     final records = await _loadRecords(ledger.id);
     for (final r in records) {
@@ -425,12 +436,17 @@ class SyncService {
       where: 'id = ?',
       whereArgs: [roomId],
     );
+    // 加入即归属当前登录账号，换号后该账本只对当前账号显示。
+    final ownerId = await AuthorService.instance.existingAuthorId();
     late final Ledger ledger;
     if (existing.isNotEmpty) {
       ledger = Ledger.fromDbMap(existing.first)..syncMode = 1;
       await db.update(
         'books',
-        {'sync_mode': 1},
+        {
+          'sync_mode': 1,
+          'owner_author_id': ownerId,
+        },
         where: 'id = ?',
         whereArgs: [roomId],
       );
@@ -440,6 +456,7 @@ class SyncService {
         name: room['name'].toString(),
         createdAt: DateTime.now().millisecondsSinceEpoch,
         syncMode: 1,
+        ownerAuthorId: ownerId,
       );
       await db.insert('books', ledger.toDbMap());
     }

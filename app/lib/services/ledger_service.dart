@@ -6,6 +6,7 @@ import '../models/ledger.dart';
 import '../models/ledger_stats.dart';
 import '../models/record.dart';
 import '../utils/id.dart';
+import 'author_service.dart';
 import 'database.dart';
 import 'image_storage_service.dart';
 import 'record_service.dart';
@@ -61,7 +62,21 @@ Future<Map<String, Map<String, int>>> loadLedgerPerAuthorBalance() async {
 Future<List<Ledger>> loadLedgers() async {
   final db = await DatabaseHelper.instance.database;
   final rows = await db.query('books', orderBy: 'created_at');
-  return rows.map(Ledger.fromDbMap).toList();
+  final ledgers = rows.map(Ledger.fromDbMap).toList();
+  // 换号归属过滤：本地账本(sync_mode=0)始终可见；共享账本只对
+  // 归属(owner_author_id)匹配当前登录账号可见，其它账号/未登录隐藏。
+  final authorId = await AuthorService.instance.existingAuthorId();
+  if (authorId != null) {
+    return ledgers
+        .where(
+          (l) =>
+              l.syncMode != 1 ||
+              l.ownerAuthorId == null ||
+              l.ownerAuthorId == authorId,
+        )
+        .toList();
+  }
+  return ledgers.where((l) => l.syncMode != 1).toList();
 }
 
 Future<void> insertLedger(Ledger ledger) async {
