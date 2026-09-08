@@ -39,10 +39,13 @@ class SyncService {
   bool get isStarted => _started;
   bool get isOnline => _online;
 
+  /// 是否已用真实邮箱账号登录（会话有效）。未登录时共享能力整体不可用。
+  bool get isSignedIn => SupabaseManager.instance.email != null;
+
   // ==================== 生命周期 ====================
 
-  /// 启动：初始化 -> 匿名登录 -> 订阅实时通道 -> 先吐后拉。
-  /// 未配置 Supabase 时静默返回 false，不阻塞 App 正常使用。
+  /// 启动：初始化 -> 确认真实账号已登录 -> 订阅实时通道 -> 先吐后拉。
+  /// 未配置 Supabase / 未登录（邮箱）时静默返回 false，不阻塞 App 正常使用。
   Future<bool> start() async {
     if (_started) return true;
     await SupabaseManager.instance.init();
@@ -53,19 +56,41 @@ class SyncService {
     _started = true;
     // 清理旧版遗留的"已推送(state=1)"死记录，避免历史堆积。
     await _purgePushed();
+    await _restoreMyRooms();
     await _subscribeRooms();
     await _resubscribeRoomsFromLocal();
     await flush();
     await pullAll();
+    await _restoreRemoteProfiles();
     return true;
   }
 
   /// 云配置更新后重建连接（仅供设置入口调用）。
+  /// 只负责验证配置并准备好引擎；未登录时返回 true（配置有效），同步引擎保持待命，
+  /// 登录成功后再由界面显式调用 start() 开跑。
   Future<bool> reconfigure() async {
     await SupabaseManager.instance.reconnect();
     _started = false;
     _online = false;
-    return start();
+    final ok = await start();
+    if (ok) return true;
+    // start() 返回 false 有两种情况：
+    //  - 配置无效（isReady=false，如 URL/key 错误）→ 判定失败；
+    //  - 配置有效但尚未登录（isReady=true）→ 仍算配置校验通过，等登录后 start()。
+    return SupabaseManager.instance.isReady;
+  }
+
+  /// 完全停止同步引擎：断开实时订阅、停推送并重置状态。
+  /// 登出/切换账号时调用，避免残留 outbox 用已失效的会话继续推送。
+  /// 注意：不清空 outbox——本地记录改动仍需保留，等重新登录后再由
+  /// start() 的 flush() 推送，否则离线期间的改动会永久丢失。
+  Future<void> stop() async {
+    final supabase = SupabaseManager.instance;
+    if (supabase.isReady) {
+      await supabase.disposeChannels();
+    }
+    _started = false;
+    _online = false;
   }
 
   // ==================== 上行：入队与推送 ====================
@@ -193,6 +218,8 @@ class SyncService {
     final deviceId = _deviceId ?? await getOrCreateDeviceId();
     final done = <int>[];
     for (final row in rows) {
+      // 途中被 stop()/登出打断则立即停止本轮推送，避免用失效会话写云端。
+      if (!_online) break;
       final ok = await supabase.appendOplog(
         roomId: row['book_id'] as String,
         entityType: row['entity_type'] as String,
@@ -347,8 +374,29 @@ class SyncService {
     await AuthorService.instance.registerNickname(authorId, nickname);
   }
 
+  /// 记录 author_id -> 头像 URL；传空/null 表示清除。
   Future<void> _setAvatarMapping(String authorId, String? url) async {
     await AuthorService.instance.registerAvatar(authorId, url);
+  }
+
+  /// 以云端 profiles 表为权威源，全量恢复所有成员昵称/头像到本地缓存。
+  /// 解决新设备/清数据登录后：oplogs 历史事件缺失或未广播过资料时，
+  /// 本地昵称头像始终为空的问题。仅在引擎启动时拉一次，随后的变更
+  /// 仍由 profile 事件实时增量。
+  Future<void> _restoreRemoteProfiles() async {
+    final profiles = await SupabaseManager.instance.fetchAllProfiles();
+    if (profiles.isEmpty) return;
+    for (final p in profiles) {
+      final authorId = p['author_id'] as String?;
+      if (authorId == null || authorId.isEmpty) continue;
+      final nickname = p['nickname'] as String?;
+      final avatarUrl = p['avatar_url'] as String?;
+      if (nickname != null && nickname.isNotEmpty) {
+        await _setNicknameMapping(authorId, nickname);
+      }
+      await _setAvatarMapping(authorId, avatarUrl);
+    }
+    recordsVersion.value++;
   }
 
   // ==================== 共享账本编排 ====================
@@ -423,12 +471,9 @@ class SyncService {
   Future<(JoinSyncResult, Ledger?)> joinByInvite(String code) async {
     if (!await ensureOnline()) return (JoinSyncResult.notReady, null);
     final supabase = SupabaseManager.instance;
-    final room = await supabase.fetchRoomByInvite(code);
+    final room = await supabase.joinRoomByInvite(code);
     if (room == null) return (JoinSyncResult.roomNotFound, null);
     final roomId = room['id'].toString();
-    if (!await supabase.joinRoom(roomId)) {
-      return (JoinSyncResult.joinFailed, null);
-    }
 
     final db = await DatabaseHelper.instance.database;
     final existing = await db.query(
@@ -566,6 +611,67 @@ class SyncService {
       final roomId = row['id'] as String;
       await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
     }
+  }
+
+  /// 以云端 rooms 表为准恢复"我加入过的共享账本"到本地。
+  /// 换新设备/清数据后登录时，本地 books 为空，此前只能靠邀请码重新加入；
+  /// 这里直接拉取当前账号（邮箱）所属的全部房间，落库 + 缓存邀请码，
+  /// 使脱离本地的账本也能在登录后自动回来。拉取失败静默容忍。
+  /// 兼容解析时间戳：数字（毫秒）或 ISO 字符串直接返回；无法解析返回 null。
+  static int? _parseEpochOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      return DateTime.tryParse(v)?.millisecondsSinceEpoch;
+    }
+    return null;
+  }
+
+  Future<void> _restoreMyRooms() async {
+    final supabase = SupabaseManager.instance;
+    final myEmail = supabase.email;
+    if (myEmail == null || myEmail.isEmpty) return;
+    final rooms = await supabase.fetchMyRooms();
+    if (rooms.isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    for (final room in rooms) {
+      final roomId = room['id']?.toString();
+      if (roomId == null || roomId.isEmpty) continue;
+      final name = room['name']?.toString();
+      final createdAt = _parseEpochOrNull(room['created_at']);
+      final inviteCode = room['invite_code']?.toString();
+      final existing = await db.query(
+        'books',
+        where: 'id = ?',
+        whereArgs: [roomId],
+      );
+      if (existing.isNotEmpty) {
+        await db.update(
+          'books',
+          {
+            'sync_mode': 1,
+            'owner_author_id': myEmail,
+            if (name != null && name.isNotEmpty) 'name': name,
+          },
+          where: 'id = ?',
+          whereArgs: [roomId],
+        );
+      } else {
+        final ledger = Ledger(
+          id: roomId,
+          name: name ?? '共享账本',
+          createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch,
+          syncMode: 1,
+          ownerAuthorId: myEmail,
+        );
+        await db.insert('books', ledger.toDbMap());
+      }
+      if (inviteCode != null && inviteCode.isNotEmpty) {
+        _inviteCodeCache[roomId] = inviteCode;
+      }
+      await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
+    }
+    recordsVersion.value++;
   }
 
   Future<void> _subscribeRooms() async {
