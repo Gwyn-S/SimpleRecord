@@ -6,6 +6,7 @@ SimpleRecord 审查清单（2026-09-09 合并重排版）
       + 远端 4 笔提交审查 25 项(09-09，0ff9444/5086382/5fa396d/965e7f7)
 重核：2026-09-08 三个复核子代理逐项实读，行号对齐当前 dev。
       2026-09-09 两子代理：四维度审查新 4 笔提交(25 项) + 全量行号核对。
+      修复登记：#1(注册 RangeError，bdab9ef)、#2(logout 顺序，a638810)。
       删除旧#22(已修复)、旧#36(已消失)。合并新旧全部项后按严重度重排，
       全新连续编号 1-65。
 维度：冗余代码 / 分层耦合 / 代码风格 / 改进写法
@@ -18,7 +19,7 @@ P0 — 建议修（正确性/健壮性）
 P1 — 建议修（结构/性能/可维护）
 | # | 位置 | 问题 |
 |---|------|------|
-| 2 | author_service.dart:174-185 | logout 清理逻辑为死代码：先 signOut() 再 existingAuthorId() 恒返回 null，_names/_avatars 内存缓存与 nickname_of_/avatar_of_ 的 Settings 清理全被跳过 |
+| 2 | author_service.dart:174-185 | logout 清理逻辑为死代码：先 signOut() 再 existingAuthorId() 恒返回 null，_names/_avatars 内存缓存与 nickname_of_/avatar_of_ 的 Settings 清理全被跳过（已修复：a638810） |
 | 3 | supabase_service.dart:81-91 + supabase_sync_page.dart:333-351 | 注册未校验是否真正建立会话：signUpWithEmail 只 catch 异常返回 true，不校验 AuthResponse.session；confirm email 未关闭时会话缺失但 UI 显示已登录、toast"注册成功" |
 | 4 | supabase_service.dart:165-180 + sync_service.dart:471-475 + ledger_list_page.dart:197 | 邀请码错误全归一化：joinRoomByInvite 把未认证/网络失败/RPC 异常/邀请码无效全返回 null，上层一律"房间不存在"，JoinSyncResult.joinFailed 成死代码，网络故障误导为邀请码错 |
 | 5 | sync_service.dart:648-658 | _restoreMyRooms 强开用户已关闭的共享账本(db.update sync_mode=1)、覆盖 owner 归属为当前邮箱、拉回本地已删账本，与用户意图冲突 |
