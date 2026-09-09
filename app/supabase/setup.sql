@@ -4,9 +4,23 @@
 -- 前置：Authentication → Sign In / Up → 开启 "Email"（邮箱+密码）。
 --       建议关闭 "Confirm email"，避免注册后还需邮件确认。
 --
--- 注意：本脚本会 DROP 已存在的 rooms/oplogs/profiles 表。
+-- 注意：本脚本会清理并重建——
+--       1. DROP rooms/oplogs/profiles 业务表；
+--       2. 清空 auth.users 全部注册用户。
 --       当前应用尚未发布，允许直接重建；如有已存数据请自行备份。
+--
+-- avatars 桶的头像文件不在本脚本清理：新版 Supabase 对 storage 表启用
+-- protect_delete 触发器并限制属主（supabase_admin），SQL 直接删除会被拦截。
+-- 请用控制台（Storage → avatars → 全选删除）或官方 Storage API 清空，见下：
+--   curl -X DELETE "$SUPABASE_URL/storage/v1/bucket/avatars?emptied=true" -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY"
+-- （SUPABASE_URL / SERVICE_ROLE_KEY 在项目 Settings → API 里获取；
+--   emptied=true 表示清空桶内对象但保留桶本身。）
 -- ============================================================
+
+-- 清空全部注册用户（auth.users 由 Supabase 管理，含密码/会话等）。
+-- cascade 会同时清掉这些用户关联的 storage 对象等其他引用；
+-- public.profiles.author_id 只是 text、无外键，删除用户不影响。
+truncate table auth.users cascade;
 
 -- 房间 = 共享账本。id 与本地账本 id 对齐（客户端生成的 uuid）
 -- owner_id / members 存的是登录邮箱（author_id），非匿名 uid。
