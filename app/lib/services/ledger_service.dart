@@ -61,7 +61,7 @@ Future<Map<String, Map<String, int>>> loadLedgerPerAuthorBalance() async {
 
 Future<List<Ledger>> loadLedgers() async {
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query('books', orderBy: 'created_at DESC');
+  final rows = await db.query('books', orderBy: 'created_at ASC');
   final ledgers = rows.map(Ledger.fromDbMap).toList();
   // 换号归属过滤：本地账本(sync_mode=0)始终可见；共享账本只对
   // 归属(owner_author_id)匹配当前登录账号可见，其它账号/未登录隐藏。
@@ -76,14 +76,8 @@ Future<List<Ledger>> loadLedgers() async {
           )
           .toList()
       : ledgers.where((l) => l.syncMode != 1).toList();
-  // 稳定性排序：本地账本在前、共享账本在后，各自内部按创建时间降序（新的在前）。
-  // 共享账本的 created_at 是云端房间创建时间，与本地账本时间点未必可比，
-  // 若混排会把旧建的共享账本顶到前面。
-  filtered.sort((a, b) {
-    final localCmp = (a.syncMode == 1 ? 1 : 0) - (b.syncMode == 1 ? 1 : 0);
-    if (localCmp != 0) return localCmp;
-    return b.createdAt.compareTo(a.createdAt);
-  });
+  // 稳定性排序：不区分本地/共享，统一按创建时间升序（旧的在前）。
+  filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
   return filtered;
 }
 

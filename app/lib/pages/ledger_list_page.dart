@@ -202,8 +202,8 @@ if (context.mounted) {
                 }
               } else if (name.isNotEmpty) {
                 final ledger = Ledger(id: genId(), name: name);
-                setState(() => _ledgers.add(ledger));
                 await insertLedger(ledger);
+                await _loadLedgers();
                 if (context.mounted) Navigator.pop(context);
               } else {
                 showToast(context, '请输入账本名称或邀请码');
