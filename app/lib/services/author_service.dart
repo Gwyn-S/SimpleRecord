@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import 'cloud_config.dart';
 import 'image_storage_service.dart';
 import 'settings.dart';
 import 'supabase_service.dart';
@@ -153,8 +154,10 @@ class AuthorService {
   }
 
   /// 默认昵称：Sr + device_id 前两位，共 4 位。
+  /// 注册路径可能先于 SyncService.start()，此时 device_id 尚未生成，
+  /// 直接用 getOrCreateDeviceId() 保证非空，避免空串 substring 崩溃。
   Future<String> _defaultNickname() async {
-    final dev = await Settings.getString('device_id') ?? '';
+    final dev = await getOrCreateDeviceId();
     return 'Sr${dev.substring(0, 2)}';
   }
 
