@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secret environment files (real Supabase credentials). Keep template ignored too unless explicitly added.
+.env
+.env.*

@@ -224,14 +224,24 @@ class AuthorService {
     return url;
   }
 
-  /// 改头像：上传原图到公开桶，回写本机 + 云端 profile。
+  /// 改头像：本地压缩出小图供展示缓存，同时上传原图到公开桶。
   /// 返回公开 URL；失败返回 null。文件名带时间戳版本，保证每次 URL 不同
-  /// 以绕开客户端旧 URL 缓存。服务器存原图，本地展示缓存由 [_fetchAndCache] 压缩。
+  /// 以绕开客户端旧 URL 缓存。服务器存原图，本地展示直接用压缩小图
+  /// （无需再下载原图来压缩，省一拍）。
   Future<String?> changeAvatar(String localPath) async {
     final id = await ensureAuthorId();
     if (id == null) return null;
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final ext = p.extension(localPath);
+    // 先本地压缩小图：展示缓存用；上传仍走原图保清晰。
+    final Uint8List? small;
+    try {
+      small = await _resizeBytes(await File(localPath).readAsBytes());
+    } catch (_) {
+      appLog('[avatar] local compress failed');
+      return null;
+    }
+    if (small == null) return null;
     final url = await SupabaseManager.instance.uploadAvatar(
       id,
       localPath,
@@ -246,6 +256,16 @@ class AuthorService {
       avatarUrl: url,
     );
     if (!saved) return null;
+    // 压缩小图直写展示缓存盘，页面 setState 后首帧即可命中显示。
+    // 写盘失败静默（下次展示走下载兜底），不影响主流程。
+    try {
+      final dir = await _avatarCacheDir();
+      final cacheFile = File(_avatarCacheFileIn(dir.path, url));
+      await cacheFile.writeAsBytes(small, flush: true);
+      _urlPathCache[url] = cacheFile.path;
+    } catch (e) {
+      appLog('[avatar] cache write failed: $e');
+    }
     return url;
   }
 

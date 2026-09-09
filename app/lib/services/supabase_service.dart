@@ -36,35 +36,12 @@ class SupabaseManager {
       await Supabase.initialize(
         url: config.supabaseUrl,
         publishableKey: config.supabaseAnonKey,
-      );
+      ).timeout(const Duration(seconds: 15));
       _ready = true;
     } catch (e) {
       appLog('[sync] init failed: $e');
       _ready = false;
     }
-  }
-
-  /// 是否已初始化过 Supabase。
-  /// 从未初始化时直接访问 [Supabase.instance] 会抛
-  /// "You must initialize the supabase instance"，这里安全探测。
-  static bool isSupabaseInitialized() {
-    try {
-      return Supabase.instance.isInitialized;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// 配置变更后重建连接：释放旧客户端（含 auth/实时通道），下次 init 以新配置初始化。
-  Future<void> reconnect() async {
-    if (SupabaseManager.isSupabaseInitialized()) {
-      try {
-        await Supabase.instance.dispose();
-      } catch (_) {
-        // 释放旧实例失败不影响后续用新配置重新初始化
-      }
-    }
-    _ready = false;
   }
 
   /// 确保已用真实账号（邮箱+密码）登录。返回是否已登录。
@@ -82,7 +59,9 @@ class SupabaseManager {
     final client = this.client;
     if (client == null) return false;
     try {
-      await client.auth.signUp(email: email, password: password);
+      await client.auth
+          .signUp(email: email, password: password)
+          .timeout(const Duration(seconds: 15));
       return true;
     } catch (e) {
       appLog('[sync] signUp failed: $e');
@@ -95,7 +74,9 @@ class SupabaseManager {
     final client = this.client;
     if (client == null) return false;
     try {
-      await client.auth.signInWithPassword(email: email, password: password);
+      await client.auth
+          .signInWithPassword(email: email, password: password)
+          .timeout(const Duration(seconds: 15));
       return true;
     } catch (e) {
       appLog('[sync] signIn failed: $e');
@@ -287,6 +268,7 @@ class SupabaseManager {
           ),
           callback: callback,
         )
+        // 连接失败由 SDK 内置 timeout(默认 10s)+回调状态兜底，不阻塞调用方。
         .subscribe();
     _oplogChannels[roomId] = channel;
   }

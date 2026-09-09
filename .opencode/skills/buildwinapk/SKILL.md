@@ -29,6 +29,18 @@ description: Use when the user asks to build/package SimpleRecord for release ("
    ```
    产物：`build\app\outputs\flutter-apk\app-arm64-v8a-release.apk`（约 19MB）
 
+### 内置云端配置（发布给家人的成品版）
+
+- 源码内置 URL/anon key 通过构建时注入实现，密件不入 Git：
+  复制 `app\.env.release.example` 为 `app\.env.release`（已被 `.gitignore` 忽略），
+  填上真实 Supabase URL 与 anon key 后，构建命令追加 `--dart-define-from-file=.env.release`：
+  ```powershell
+  flutter build windows --release --dart-define-from-file=.env.release
+  flutter build apk --release --split-per-abi --target-platform android-arm64 --dart-define-from-file=.env.release
+  ```
+- `.env.release` 属于个人凭据，**永不提交、不放入构建说明的默认命令**——只有用户明确要"发布成品版"时才加注入参数。
+- 未注入时 App 的云同步不可用（登录/共享账本入口被禁用），WebDAV/AI/ASR 手动配置不受影响。
+
 ## 收尾
 
 - 用 `Get-Item` 确认两个产物存在，报告实际大小。

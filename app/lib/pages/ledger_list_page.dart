@@ -176,6 +176,9 @@ class _LedgerListPageState extends State<LedgerListPage> {
               final code = codeController.text.trim().toUpperCase();
               final name = nameController.text.trim();
               if (code.isNotEmpty) {
+                // 先拦配置不可用：坏配置直接提示，避免进入 joinByInvite 内部
+                // 的 ensureOnline 后无提示/误导性提示。
+                if (!await _ensureCloudConfigured()) return;
                 final (result, ledger) = await SyncService.instance
                     .joinByInvite(code);
                 if (!context.mounted) return;

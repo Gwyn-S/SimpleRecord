@@ -65,21 +65,6 @@ class SyncService {
     return true;
   }
 
-  /// 云配置更新后重建连接（仅供设置入口调用）。
-  /// 只负责验证配置并准备好引擎；未登录时返回 true（配置有效），同步引擎保持待命，
-  /// 登录成功后再由界面显式调用 start() 开跑。
-  Future<bool> reconfigure() async {
-    await SupabaseManager.instance.reconnect();
-    _started = false;
-    _online = false;
-    final ok = await start();
-    if (ok) return true;
-    // start() 返回 false 有两种情况：
-    //  - 配置无效（isReady=false，如 URL/key 错误）→ 判定失败；
-    //  - 配置有效但尚未登录（isReady=true）→ 仍算配置校验通过，等登录后 start()。
-    return SupabaseManager.instance.isReady;
-  }
-
   /// 完全停止同步引擎：断开实时订阅、停推送并重置状态。
   /// 登出/切换账号时调用，避免残留 outbox 用已失效的会话继续推送。
   /// 注意：不清空 outbox——本地记录改动仍需保留，等重新登录后再由
@@ -401,7 +386,7 @@ class SyncService {
 
   // ==================== 共享账本编排 ====================
 
-  /// 确保就绪并登录。用于 UI 里的"开启共享/加入"入口。
+  /// 确保云端就绪并登录。用于 UI 里的"开启共享/加入"入口。
   Future<bool> ensureOnline() async {
     if (!_online && !await start()) return false;
     return true;

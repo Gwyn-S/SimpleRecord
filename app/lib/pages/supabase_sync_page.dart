@@ -1,20 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../services/author_service.dart';
-import '../models/cloud_config.dart';
-import '../services/cloud_config.dart';
 import '../services/record_service.dart';
 import '../services/ledger_service.dart';
 import '../services/settings.dart';
-import '../services/supabase_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../utils/log.dart';
@@ -23,7 +17,8 @@ import '../widgets/author_avatar.dart';
 import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 
-/// Supabase 云同步配置页：填写项目地址与 anon key，保存后重建连接。
+/// Supabase 云同步账号页：登录/注册、昵称与头像管理。
+/// 项目地址与 anon key 由构建注入（--dart-define-from-file），无需用户填写。
 class SupabaseSyncPage extends StatefulWidget {
   const SupabaseSyncPage({super.key});
 
@@ -33,13 +28,9 @@ class SupabaseSyncPage extends StatefulWidget {
 
 class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   final _nicknameController = TextEditingController();
-  final _urlController = TextEditingController();
-  final _keyController = TextEditingController();
   String _authorId = '';
   String _avatarUrl = '';
   bool _loading = true;
-  bool _cloudReady = false;
-  bool _dialogOpen = false;
 
   @override
   void initState() {
@@ -50,154 +41,19 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
   @override
   void dispose() {
     _nicknameController.dispose();
-    _urlController.dispose();
-    _keyController.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
     await AuthorService.instance.loadRecordAuthorDisplay();
     final nickname = await Settings.getString('nickname') ?? '';
-    final config = await loadCloudConfig();
     final authorId = await AuthorService.instance.existingAuthorId();
     final avatar = await AuthorService.instance.ownAvatar();
     if (!mounted) return;
     _nicknameController.text = nickname;
-    _urlController.text = config.supabaseUrl;
-    _keyController.text = config.supabaseAnonKey;
     _authorId = authorId ?? '';
     _avatarUrl = avatar ?? '';
     setState(() => _loading = false);
-    // 已保存配置则校验连通性解锁功能；未保存则弹配置弹窗（必填，锁住不进入）。
-    final hasConfig =
-        config.supabaseUrl.trim().isNotEmpty &&
-        config.supabaseAnonKey.trim().isNotEmpty;
-    if (hasConfig) {
-      _verifyCloud();
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _onSyncTap();
-      });
-    }
-  }
-
-  /// 用已保存配置做连通性校验，成功才解锁功能。
-  /// 已就绪且已登录（有邮箱会话）则直接解锁；否则才重新建立连接验证（避免每次进页都重连）。
-  Future<void> _verifyCloud() async {
-    final mgr = SupabaseManager.instance;
-    if (mgr.isReady && mgr.email != null) {
-      if (!mounted) return;
-      setState(() => _cloudReady = true);
-      return;
-    }
-    bool ok;
-    try {
-      ok = await SyncService.instance.reconfigure();
-    } catch (e) {
-      appLog('[sync] verify failed: $e');
-      ok = false;
-    }
-    if (!mounted) return;
-    setState(() => _cloudReady = ok);
-    if (!ok) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _onSyncTap();
-      });
-    }
-  }
-
-  /// 点击「同步」先弹窗填写 URL 与 key。未连通时模态锁死（不能点开别处、不能关），
-  /// 连接成功才关闭并解锁。已有弹窗打开时不重复弹。
-  void _onSyncTap() {
-    if (_dialogOpen) return;
-    _dialogOpen = true;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _urlController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Project URL',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: spacingM),
-            TextField(
-              controller: _keyController,
-              keyboardType: TextInputType.text,
-              decoration: const InputDecoration(
-                labelText: 'Public KEY',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-        actions: [
-          OutlinedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              Navigator.pop(context);
-            },
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final url = _urlController.text.trim();
-              final key = _keyController.text.trim();
-              if (url.isEmpty || key.isEmpty) {
-                showToast(context, '请填写配置');
-                return;
-              }
-              Navigator.pop(dialogContext);
-              await _connect(url, key);
-              if (!mounted) return;
-              if (!_cloudReady) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _onSyncTap();
-                });
-              }
-            },
-            child: const Text('连接'),
-          ),
-        ],
-      ),
-    ).whenComplete(() => _dialogOpen = false);
-  }
-
-  /// 校验 URL/KEY 连通性：阻塞转圈等待，成功后解锁。
-  Future<bool> _connect(String url, String key) async {
-    await saveCloudConfig(CloudConfig(supabaseUrl: url, supabaseAnonKey: key));
-    if (!mounted) return false;
-    final navigator = Navigator.of(context, rootNavigator: true);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => busyDialog('连接中'),
-    );
-    bool ok;
-    try {
-      ok = await SyncService.instance.reconfigure();
-    } catch (e) {
-      appLog('[sync] reconfigure failed: $e');
-      ok = false;
-    }
-    if (!mounted) return ok;
-    navigator.pop();
-    if (ok) {
-      setState(() => _cloudReady = true);
-      showToast(context, '云端连接成功');
-    } else {
-      showToast(context, '云端连接失败，请检查配置');
-    }
-    return ok;
   }
 
   /// 记账条目作者显示偏好变更：持久化并刷新列表中条目展示。
@@ -331,8 +187,16 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
   /// 注册：真实账号创建成功后绑定本机。
   Future<void> _register(String email, String password) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('注册中'),
+    );
     final ok = await AuthorService.instance.registerAccount(email, password);
     if (!mounted) return;
+    navigator.pop();
     if (!ok) {
       showToast(context, '注册失败，邮箱可能已被占用，请重试');
       return;
@@ -352,8 +216,16 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
 
   /// 登录：真实账号校验通过后拉回昵称/头像。
   Future<void> _login(String email, String password) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('登录中'),
+    );
     final ok = await AuthorService.instance.loginAccount(email, password);
     if (!mounted) return;
+    navigator.pop();
     if (!ok) {
       showToast(context, '登录失败，请检查邮箱和密码');
       return;
@@ -424,12 +296,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
                 Navigator.pop(dialogContext);
                 return;
               }
-              // 输入有变化：写本地昵称 + 同步云端 + 广播给共享账本成员。
-              Settings.setString('nickname', v);
-              _broadcastNickname(v);
-              Navigator.pop(dialogContext);
-              _nicknameController.text = v;
-              setState(() {});
+              _saveNicknameAndClose(dialogContext, v);
             },
             child: const Text('确定'),
           ),
@@ -438,19 +305,48 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     );
   }
 
-  /// 改昵称后：存云端 profiles + 向共享账本广播 profile 事件。
-  void _broadcastNickname(String nickname) async {
-    final saved = await AuthorService.instance.syncNicknameToCloud();
-    if (!saved && mounted) {
-      showToast(context, '昵称同步失败，请检查云端连接');
-    }
-    final authorId = await AuthorService.instance.existingAuthorId();
-    if (authorId == null) return;
-    if (nickname.isEmpty) return;
-    await SyncService.instance.enqueueProfileChange(
-      authorId: authorId,
-      nickname: nickname,
+  /// 强一致保存昵称：先阻塞上传云端 success 才写本地并收尾。
+  /// 强一致保存昵称：先阻塞上传云端，成功才写本地并关弹窗。
+  /// 失败提示且本地保持原值，避免"本地看似成功云端没有"的不一致。
+  Future<void> _saveNicknameAndClose(
+    BuildContext dialogContext,
+    String nickname,
+  ) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final oldNickname = _nicknameController.text.trim();
+    // 先写本地供上传接口读取；只有上传成功才保留，失败回滚。
+    Settings.setString('nickname', nickname);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('昵称同步中'),
     );
+    final saved = await AuthorService.instance.syncNicknameToCloud();
+    if (!mounted) return;
+    navigator.pop();
+    if (!saved) {
+      // 回滚本地，展示保持旧昵称。
+      Settings.setString('nickname', oldNickname);
+      if (mounted) showToast(context, '昵称同步失败，请检查云端连接');
+      return;
+    }
+    // 上传成功：广播给共享账本成员，然后更新展示态并关弹窗。
+    final authorId = await AuthorService.instance.existingAuthorId();
+    if (authorId != null && nickname.isNotEmpty) {
+      await SyncService.instance.enqueueProfileChange(
+        authorId: authorId,
+        nickname: nickname,
+      );
+    }
+    if (!mounted) return;
+    // 弹窗可能在等待期间被用户关闭（barrier 不可关但保险起见），
+    // dialogContext.mounted 为 false 说明已不在导航栈，直接放弃关窗。
+    if (dialogContext.mounted) {
+      Navigator.pop(dialogContext);
+    }
+    _nicknameController.text = nickname;
+    setState(() {});
+    showToast(context, '昵称同步成功');
   }
 
   /// 选头像（相册/拍照）→ 上传 → 更新本机 + 云端 + 广播。
@@ -472,36 +368,14 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       builder: (_) => busyDialog('头像上传中'),
     );
     try {
-      // 复制到系统临时目录，仅用于上传，避免污染记账 images 图库。
-      final String tmpPath;
-      try {
-        final ext = picked.path.contains('.')
-            ? picked.path.substring(picked.path.lastIndexOf('.'))
-            : '';
-        final tmp = File(
-          '${Directory.systemTemp.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$ext',
-        );
-        await tmp.writeAsBytes(
-          await File(picked.path).readAsBytes(),
-          flush: true,
-        );
-        tmpPath = tmp.path;
-      } catch (e) {
-        appLog('[avatar] copy failed: $e');
-        if (mounted) showToast(context, '读取图片失败');
-        return;
-      }
-      final url = await AuthorService.instance.changeAvatar(tmpPath);
-      // 上传完成即清理临时副本。
-      try {
-        final tmp = File(tmpPath);
-        if (tmp.existsSync()) tmp.deleteSync();
-      } catch (_) {}
+      final url = await AuthorService.instance.changeAvatar(picked.path);
       if (!mounted) return;
       if (url == null) {
         showToast(context, '头像上传失败，请检查云端连接');
         return;
       }
+      // changeAvatar 内部已把压缩小图写入展示缓存，此处直接切换展示态即可，
+      // 首帧同步命中缓存立即显示新头像（不再等下载原图压缩）。
       setState(() => _avatarUrl = url);
       final authorId = await AuthorService.instance.existingAuthorId();
       if (authorId == null) return;
@@ -641,20 +515,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     return Scaffold(
       appBar: CommonAppBar(
         title: 'Supabase 同步',
-        actions: [
-          IconButton(
-            onPressed: _onSyncTap,
-            icon: SvgPicture.asset(
-              'assets/icons/supabase.svg',
-              width: 22,
-              height: 22,
-              colorFilter: const ColorFilter.mode(
-                colorTextOnPrimary,
-                BlendMode.srcIn,
-              ),
-            ),
-          ),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(
@@ -665,8 +525,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : !_cloudReady
-          ? const SizedBox.shrink()
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: spacingL),
               child: Column(

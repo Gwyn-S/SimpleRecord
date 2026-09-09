@@ -1,4 +1,5 @@
-/// 云同步配置：Supabase 项目地址与匿名密钥，来自用户在建项目后填写。
+/// 云同步配置：Supabase 项目地址与匿名密钥，构建时注入（--dart-define-from-file），
+/// 用户无需手动填写。
 class CloudConfig {
   final String supabaseUrl;
   final String supabaseAnonKey;
@@ -7,10 +8,4 @@ class CloudConfig {
 
   bool get isConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
-
-  CloudConfig copyWith({String? supabaseUrl, String? supabaseAnonKey}) =>
-      CloudConfig(
-        supabaseUrl: supabaseUrl ?? this.supabaseUrl,
-        supabaseAnonKey: supabaseAnonKey ?? this.supabaseAnonKey,
-      );
 }
