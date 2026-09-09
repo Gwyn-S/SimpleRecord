@@ -173,19 +173,21 @@ class AuthorService {
     return true;
   }
 
-  /// 退出登录：登出 Supabase 会话，清空本机昵称、头像及 mapping 缓存，回到未登录状态。
+/// 退出登录：登出 Supabase 会话，清空本机昵称、头像及 mapping 缓存，回到未登录状态。
   Future<void> logout() async {
-    await SupabaseManager.instance.signOut();
-    final current = await existingAuthorId();
+    // 先记下登出前的邮箱，否则 signOut 后会话已清，existingAuthorId() 恒 null，
+    // 无法清理以旧邮箱为 key 的昵称/头像映射（避免换账号后残留）。
+    final current = SupabaseManager.instance.email;
     if (current != null && current.isNotEmpty) {
       await Settings.remove('$_keyNamePrefix$current');
       await Settings.remove('$_keyAvatarPrefix$current');
       _names.remove(current);
       _avatars.remove(current);
     }
+    await SupabaseManager.instance.signOut();
     await Settings.remove(_keyOwnNickname);
     await Settings.remove(_keyOwnAvatar);
-} 
+  }
 
   /// 把昵称同步到云端 profiles。写入成功返回 true；未就绪/失败返回 false。
   Future<bool> syncNicknameToCloud() async {
