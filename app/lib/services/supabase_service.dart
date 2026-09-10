@@ -5,10 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cloud_config.dart';
 import '../utils/log.dart';
 
-/// Supabase 基础设施：初始化、匿名登录、rooms/oplogs 存取、Realtime 订阅。
+/// Supabase 基础设施：初始化、邮箱认证、rooms/oplogs 存取、Realtime 订阅。
 ///
-/// 未配置 URL/anonKey 时保持「未就绪」但不抛错，等待用户在设置页填写
-/// 后重新 [init]。所有云端方法失败返回空结果，由上层同步引擎决定是否重试。
+/// 构建未注入配置或初始化失败时保持「未就绪」但不抛错。所有云端方法失败
+/// 返回空结果/ false，由上层同步引擎决定是否重试。
 class SupabaseManager {
   SupabaseManager._();
 
@@ -142,22 +142,19 @@ class SupabaseManager {
   }
 
   /// 用邀请码加入房间（原子操作 RPC：查房间 + 把自己加入 members）。
-  /// 返回房间数据；邀请码无效/未登录/失败返回 null。
+  ///
+  /// 返回房间数据；邀请码无效返回 null；网络/超时/服务端 RPC 异常原样上抛，
+  /// 由上层 [SyncService.joinByInvite] 按类型区分提示。
   Future<Map<String, dynamic>?> joinRoomByInvite(String inviteCode) async {
     final client = this.client;
-    if (client == null) return null;
-    try {
-      final res = await client.rpc(
-        'join_by_invite',
-        params: {'p_invite_code': inviteCode.trim().toUpperCase()},
-      );
-      if (res is Map<String, dynamic>) return res;
-      appLog('[sync] joinRoomByInvite: unexpected result ${res.runtimeType}');
-      return null;
-    } catch (e) {
-      appLog('[sync] joinRoomByInvite failed: $e');
-      return null;
-    }
+    if (client == null) throw StateError('Supabase 未就绪');
+    final res = await client.rpc(
+      'join_by_invite',
+      params: {'p_invite_code': inviteCode.trim().toUpperCase()},
+    );
+    if (res is Map<String, dynamic>) return res;
+    // RPC 对不存在的邀请码返回 null（见 join_by_invite 的 `return null`）。
+    return null;
   }
 
   /// 改房间名（共享账本改名同步给对方）

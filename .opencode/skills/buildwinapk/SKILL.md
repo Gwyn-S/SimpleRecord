@@ -5,7 +5,7 @@ description: Use when the user asks to build/package SimpleRecord for release ("
 
 # Build Win + APK
 
-构建 SimpleRecord 的 Windows 版和 Android APK。工作目录固定为 `E:\KeepBook\app`。
+构建 SimpleRecord 的 Windows 版和 Android APK。工作目录固定为 `D:\My_Note\simple-record\app`。
 
 ## 前置步骤
 
@@ -13,9 +13,9 @@ description: Use when the user asks to build/package SimpleRecord for release ("
    ```powershell
    Get-Process -Name simple_record -ErrorAction SilentlyContinue | Stop-Process -Force
    ```
-2. 先运行 `flutter analyze`（工作目录 `E:\KeepBook\app`），有错误先修复再构建。
+2. 先运行 `flutter analyze`（工作目录 `D:\My_Note\simple-record\app`），有错误先修复再构建。
 
-## 构建命令（均在 `E:\KeepBook\app` 下执行）
+## 构建命令（均在 `D:\My_Note\simple-record\app` 下执行）
 
 1. **Windows release**：
    ```powershell

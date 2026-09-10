@@ -415,7 +415,7 @@ if (context.mounted) {
     _loadLedgers();
   }
 
-  /// 确保先完成「备份 → Supabase 同步」的云同步配置。
+  /// 确保构建已注入 Supabase 配置。
   Future<bool> _ensureCloudConfigured() async {
     final config = await loadCloudConfig();
     if (!config.isConfigured) {

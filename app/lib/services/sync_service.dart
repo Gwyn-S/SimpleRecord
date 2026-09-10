@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:sqflite/sqflite.dart';
@@ -254,6 +255,8 @@ class SyncService {
     final supabase = SupabaseManager.instance;
     final db = await DatabaseHelper.instance.database;
     var cursor = await _getCursor(roomId);
+    // 仅当本轮实际应用到远端变更时才广播版本号，避免空拉取引发全量重建。
+    var appliedAny = false;
     while (true) {
       final ops = await supabase.fetchOplogs(
         roomId,
@@ -267,12 +270,13 @@ class SyncService {
         if (id > maxId) maxId = id;
         if (op['device_id'] == _deviceId) continue;
         await _applyRemoteOp(db, op);
+        appliedAny = true;
       }
       await _setCursor(roomId, maxId);
       cursor = maxId;
       if (ops.length < 200) break;
     }
-    recordsVersion.value++;
+    if (appliedAny) recordsVersion.value++;
   }
 
   /// 收到 oplog INSERT 回调：按房间拉取增量（三处订阅统一入口）。
@@ -456,7 +460,19 @@ class SyncService {
   Future<(JoinSyncResult, Ledger?)> joinByInvite(String code) async {
     if (!await ensureOnline()) return (JoinSyncResult.notReady, null);
     final supabase = SupabaseManager.instance;
-    final room = await supabase.joinRoomByInvite(code);
+    final Map<String, dynamic>? room;
+    try {
+      room = await supabase.joinRoomByInvite(code);
+    } on SocketException {
+      // 网络层失败：断网/对端不可达，与邀请码本身无关，提示检查网络。
+      return (JoinSyncResult.joinFailed, null);
+    } on TimeoutException {
+      // 请求超时：网络差或服务器慢，同样不是邀请码问题。
+      return (JoinSyncResult.joinFailed, null);
+    } catch (_) {
+      // RPC 服务端异常（如 RLS 拒绝、函数报错）：也不应归咎于邀请码。
+      return (JoinSyncResult.joinFailed, null);
+    }
     if (room == null) return (JoinSyncResult.roomNotFound, null);
     final roomId = room['id'].toString();
 
@@ -602,6 +618,8 @@ class SyncService {
   /// 换新设备/清数据后登录时，本地 books 为空，此前只能靠邀请码重新加入；
   /// 这里直接拉取当前账号（邮箱）所属的全部房间，落库 + 缓存邀请码，
   /// 使脱离本地的账本也能在登录后自动回来。拉取失败静默容忍。
+  /// 已存在的账本仅同步名字，不覆盖 sync_mode(用户可已关闭共享) 与归属，
+  /// 尊重用户本地的主动选择；只有本地缺失(换设备/清数据)才新建。
   /// 兼容解析时间戳：数字（毫秒）或 ISO 字符串直接返回；无法解析返回 null。
   static int? _parseEpochOrNull(dynamic v) {
     if (v == null) return null;
@@ -631,16 +649,16 @@ class SyncService {
         whereArgs: [roomId],
       );
       if (existing.isNotEmpty) {
-        await db.update(
-          'books',
-          {
-            'sync_mode': 1,
-            'owner_author_id': myEmail,
-            if (name != null && name.isNotEmpty) 'name': name,
-          },
-          where: 'id = ?',
-          whereArgs: [roomId],
-        );
+        // 本地已存在该账本（含用户主动关闭共享/仅本地保留的），
+        // 仅同步名字，不覆盖 sync_mode 与归属，尊重用户本地的主动选择。
+        if (name != null && name.isNotEmpty) {
+          await db.update(
+            'books',
+            {'name': name},
+            where: 'id = ?',
+            whereArgs: [roomId],
+          );
+        }
       } else {
         final ledger = Ledger(
           id: roomId,

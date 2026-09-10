@@ -305,7 +305,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     );
   }
 
-  /// 强一致保存昵称：先阻塞上传云端 success 才写本地并收尾。
   /// 强一致保存昵称：先阻塞上传云端，成功才写本地并关弹窗。
   /// 失败提示且本地保持原值，避免"本地看似成功云端没有"的不一致。
   Future<void> _saveNicknameAndClose(

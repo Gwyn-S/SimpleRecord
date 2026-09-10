@@ -193,15 +193,21 @@ class _WebDavPageState extends State<WebDavPage> {
       password: config.password,
       directory: config.directory,
     );
-    setState(() => _connecting = true);
+    // 阻断式加载：弹全局转圈，避免连接期间重复点击/无反馈。
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('连接中'),
+    );
+    _connecting = true;
     try {
       final files = await service.listBackups();
       await saveWebDavConfig(config);
       if (!mounted) return;
-      setState(() {
-        _connecting = false;
-        _showPassword = false;
-      });
+      navigator.pop();
+      _connecting = false;
+      _showPassword = false;
       if (dialogContext.mounted) Navigator.pop(dialogContext);
       setState(() {
         _config = config;
@@ -210,7 +216,8 @@ class _WebDavPageState extends State<WebDavPage> {
       showToast(context, '连接成功');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _connecting = false);
+      navigator.pop();
+      _connecting = false;
       showToast(context, '连接失败，请检查配置与网络');
     }
   }
