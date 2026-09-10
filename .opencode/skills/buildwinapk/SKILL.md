@@ -5,7 +5,7 @@ description: Use when the user asks to build/package SimpleRecord for release ("
 
 # Build Win + APK
 
-构建 SimpleRecord 的 Windows 版和 Android APK。工作目录固定为 `D:\My_Note\simple-record\app`。
+构建 SimpleRecord 的 Windows 版和 Android APK。工作目录固定为 `E:\KeepBook\app`。
 
 ## 前置步骤
 
@@ -13,7 +13,7 @@ description: Use when the user asks to build/package SimpleRecord for release ("
    ```powershell
    Get-Process -Name simple_record -ErrorAction SilentlyContinue | Stop-Process -Force
    ```
-2. 先运行 `flutter analyze`（工作目录 `D:\My_Note\simple-record\app`），有错误先修复再构建。
+2. 先运行 `flutter analyze`（工作目录 `E:\KeepBook\app`），有错误先修复再构建。
 
 ## 构建命令（均在 `D:\My_Note\simple-record\app` 下执行）
 
@@ -31,15 +31,15 @@ description: Use when the user asks to build/package SimpleRecord for release ("
 
 ### 内置云端配置（发布给家人的成品版）
 
-- 源码内置 URL/anon key 通过构建时注入实现，密件不入 Git：
+- 云端配置（Supabase URL/anon key）与腾讯云语音识别密钥通过构建时注入实现，密件不入 Git：
   复制 `app\.env.release.example` 为 `app\.env.release`（已被 `.gitignore` 忽略），
-  填上真实 Supabase URL 与 anon key 后，构建命令追加 `--dart-define-from-file=.env.release`：
+  填上真实值后，构建命令追加 `--dart-define-from-file=.env.release`：
   ```powershell
   flutter build windows --release --dart-define-from-file=.env.release
   flutter build apk --release --split-per-abi --target-platform android-arm64 --dart-define-from-file=.env.release
   ```
 - `.env.release` 属于个人凭据，**永不提交、不放入构建说明的默认命令**——只有用户明确要"发布成品版"时才加注入参数。
-- 未注入时 App 的云同步不可用（登录/共享账本入口被禁用），WebDAV/AI/ASR 手动配置不受影响。
+- 未注入时 App 的云同步与语音识别（ASR）不可用（登录/共享账本、语音记账均依赖注入的内置密钥），WebDAV/AI 手动配置不受影响。
 
 ## 收尾
 

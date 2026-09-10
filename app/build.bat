@@ -22,7 +22,7 @@ exit /b 1
 :build_windows
 echo.
 echo === Building Windows release ===
-flutter build windows --release --split-debug-info=%SYMBOLS%\windows --obfuscate
+flutter build windows --release --split-debug-info=%SYMBOLS%\windows --obfuscate --dart-define-from-file=.env.release
 if errorlevel 1 exit /b 1
 echo.
 echo Windows build OK: build\windows\x64\runner\Release\
@@ -31,7 +31,7 @@ exit /b 0
 :build_apk
 echo.
 echo === Building Android arm64-v8a release ===
-flutter build apk --release --target-platform android-arm64 --split-per-abi --split-debug-info=%SYMBOLS%\android --obfuscate
+flutter build apk --release --target-platform android-arm64 --split-per-abi --split-debug-info=%SYMBOLS%\android --obfuscate --dart-define-from-file=.env.release
 if errorlevel 1 exit /b 1
 echo.
 echo Android build OK: build\app\outputs\flutter-apk\app-arm64-v8a-release.apk
