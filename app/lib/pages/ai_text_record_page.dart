@@ -133,7 +133,12 @@ class _AiTextRecordPageState extends State<AiTextRecordPage> {
             SizedBox(
               height: 44,
               child: FilledButton(
-                onPressed: _loading ? null : _analyze,
+                onPressed: _loading
+                    ? null
+                    : () {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        _analyze();
+                      },
                 child: _loading
                     ? const SizedBox(
                         width: 18,

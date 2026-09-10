@@ -61,6 +61,7 @@ class _TagPickerSheetState extends State<_TagPickerSheet> {
 
   /// 创建标签后不自动选择，清空搜索框并刷新列表。
   Future<void> _create() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final name = _controller.text.trim();
     if (name.isEmpty) return;
     await insertTag(name);

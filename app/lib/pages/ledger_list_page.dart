@@ -172,6 +172,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
           ),
           TextButton(
             onPressed: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final code = codeController.text.trim().toUpperCase();
               final name = nameController.text.trim();
               if (code.isNotEmpty) {
@@ -362,6 +363,7 @@ if (context.mounted) {
           ),
           TextButton(
             onPressed: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 setState(() => _ledgers[index].name = name);

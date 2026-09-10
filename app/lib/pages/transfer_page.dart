@@ -178,7 +178,10 @@ class _TransferPageState extends State<TransferPage> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.pop(dialogContext, controller.text);
+            },
             child: const Text('确定'),
           ),
         ],
@@ -297,6 +300,7 @@ class _TransferPageState extends State<TransferPage> {
             extraLabel: '返回',
             onExtra: () => Navigator.pop(context),
             onDone: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               _saveTransfer().then((ok) {
                 if (ok && context.mounted) Navigator.pop(context, true);
               });

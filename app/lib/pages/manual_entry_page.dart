@@ -303,6 +303,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             onChanged: (v) => setState(() => _amount = v),
             extraLabel: '再记',
             onExtra: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               _saveRecord().then((ok) {
                 if (!ok || !mounted) return;
                 setState(() {
@@ -315,6 +316,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               });
             },
             onDone: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               _saveRecord().then((ok) {
                 if (ok && context.mounted) Navigator.pop(context);
               });

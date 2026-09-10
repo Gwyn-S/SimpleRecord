@@ -215,7 +215,10 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
             child: SizedBox(
               height: 44,
               child: FilledButton(
-                onPressed: _save,
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  _save();
+                },
                 style: FilledButton.styleFrom(
                   backgroundColor: themeColor,
                   foregroundColor: colorTextOnPrimary,

@@ -167,7 +167,12 @@ class _WebDavPageState extends State<WebDavPage> {
               child: const Text('取消'),
             ),
             FilledButton(
-              onPressed: _connecting ? null : () => _verifyAndEnter(dialogContext),
+              onPressed: _connecting
+                  ? null
+                  : () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      _verifyAndEnter(dialogContext);
+                    },
               child: const Text('连接'),
             ),
           ],

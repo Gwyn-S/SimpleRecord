@@ -522,6 +522,7 @@ class _SearchPageState extends State<SearchPage> {
                   const SizedBox(width: spacingS),
                   GestureDetector(
                     onTap: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
                       final min = _parseAmount(minController.text);
                       final max = _parseAmount(maxController.text);
                       Navigator.pop(context, (min, max));

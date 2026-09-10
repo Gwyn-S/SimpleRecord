@@ -69,6 +69,7 @@ class _TagManagePageState extends State<TagManagePage> {
           ),
           TextButton(
             onPressed: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final name = controller.text.trim();
               if (name.isEmpty) return;
               if (editing == null) {

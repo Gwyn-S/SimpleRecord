@@ -314,7 +314,10 @@ class _AiRecordPageState extends State<AiRecordPage> {
                     const SizedBox(width: spacingM),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _savePrompt,
+                        onPressed: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          _savePrompt();
+                        },
                         child: const Text('保存'),
                       ),
                     ),

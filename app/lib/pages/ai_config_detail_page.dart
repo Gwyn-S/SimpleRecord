@@ -212,7 +212,12 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                   child: SizedBox(
                     height: 44,
                     child: OutlinedButton(
-                      onPressed: _testing ? null : _test,
+                      onPressed: _testing
+                          ? null
+                          : () {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              _test();
+                            },
                       child: _testing
                           ? const SizedBox(
                               width: 18,
@@ -228,7 +233,10 @@ class _AiConfigDetailPageState extends State<AiConfigDetailPage> {
                   child: SizedBox(
                     height: 44,
                     child: FilledButton(
-                      onPressed: _save,
+                      onPressed: () {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        _save();
+                      },
                       child: const Text('保存'),
                     ),
                   ),

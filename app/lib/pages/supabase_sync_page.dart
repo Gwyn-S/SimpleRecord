@@ -149,6 +149,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
         actions: [
           TextButton(
             onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               final email = emailController.text.trim();
               final password = passwordController.text;
               if (!_validateAccountInput(email, password)) return;
@@ -159,6 +160,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
           ),
           FilledButton(
             onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               final email = emailController.text.trim();
               final password = passwordController.text;
               if (!_validateAccountInput(email, password)) return;
@@ -285,6 +287,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
           ),
           TextButton(
             onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               final v = controller.text.trim();
               if (v.isEmpty) {
                 showToast(context, '昵称不能为空');

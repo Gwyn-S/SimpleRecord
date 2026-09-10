@@ -133,7 +133,10 @@ class _BudgetPageState extends State<BudgetPage> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.pop(context, controller.text);
+            },
             child: const Text('确定'),
           ),
         ],

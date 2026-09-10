@@ -463,6 +463,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           ),
           TextButton(
             onPressed: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final text = controller.text.trim();
               final cents = text.isEmpty || double.tryParse(text) == null
                   ? 0
