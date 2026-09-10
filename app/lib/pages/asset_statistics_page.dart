@@ -355,7 +355,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
             int pointIndex,
             int seriesIndex,
           ) {
-            final p = points[pointIndex];
+            final p = data as _TrendPoint;
             return Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: spacingS,

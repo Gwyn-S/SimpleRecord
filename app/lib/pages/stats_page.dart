@@ -29,6 +29,7 @@ class _StatsPageState extends State<StatsPage> {
   late int _selectedIndex;
   int _selectedYear = DateTime.now().year;
   final ScrollController _scrollController = ScrollController();
+  final Map<int, GlobalKey> _itemKeys = {};
   final Map<StatsRange, int> _selectedIndexMap = {};
   String _customPreset = '最近30天';
   DateTime _customStart = DateTime.now().subtract(const Duration(days: 30));
@@ -59,32 +60,39 @@ class _StatsPageState extends State<StatsPage> {
     _selectedIndexMap[_selectedRange] = _selectedIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _scrollToEnd();
+      _scrollToSelected();
       _loadData();
     });
     recordsVersion.addListener(_loadData);
     currentLedgerId.addListener(_loadData);
   }
 
-  void _scrollToEnd() {
-    try {
-      if (_scrollController.hasClients &&
-          _scrollController.position.hasContentDimensions &&
-          _scrollController.position.maxScrollExtent > 0) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        return;
-      }
-    } catch (_) {}
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+  void _scrollToSelected() {
+    void apply() {
       try {
-        if (mounted &&
-            _scrollController.hasClients &&
-            _scrollController.position.hasContentDimensions &&
-            _scrollController.position.maxScrollExtent > 0) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        if (!mounted || !_scrollController.hasClients) return;
+        final pos = _scrollController.position;
+        final ctx = _itemKeys[_selectedIndex]?.currentContext;
+        if (ctx != null && ctx.mounted) {
+          // 目标项已构建：平滑滚动到视口居中。
+          Scrollable.ensureVisible(
+            ctx,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+          return;
+        }
+        // 目标项未构建（超出视口，如“本周/本月/本年”在末尾）：
+        // 直接跳转到滚动范围末尾。
+        if (pos.hasContentDimensions && pos.maxScrollExtent > 0) {
+          _scrollController.jumpTo(pos.maxScrollExtent);
         }
       } catch (_) {}
-    });
+    }
+
+    // 等一帧，确保 setState 引起重建后再定位。
+    WidgetsBinding.instance.addPostFrameCallback((_) => apply());
   }
 
   ({DateTime start, DateTime end})? _getDateRange() {
@@ -266,6 +274,7 @@ class _StatsPageState extends State<StatsPage> {
                   }
                 });
                 _loadData();
+                _scrollToSelected();
               },
             ),
           ),
@@ -284,6 +293,7 @@ class _StatsPageState extends State<StatsPage> {
                     itemBuilder: (context, index) {
                       final isSelected = _selectedIndex == index;
                       return GestureDetector(
+                        key: _itemKeys.putIfAbsent(index, GlobalKey.new),
                         onTap: () {
                           if (_selectedRange == StatsRange.custom) {
                             _showCustomDateFilter();
@@ -293,6 +303,7 @@ class _StatsPageState extends State<StatsPage> {
                               _selectedIndexMap[_selectedRange] = index;
                             });
                             _loadData();
+                            _scrollToSelected();
                           }
                         },
                         child: Container(

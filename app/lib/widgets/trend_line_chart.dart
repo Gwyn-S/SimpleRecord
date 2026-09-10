@@ -46,15 +46,15 @@ class TrendLineChart extends StatelessWidget {
       animationDuration: 0,
       header: showTooltipHeader ? '' : null,
       canShowMarker: false,
-      builder:
-          (
+builder:
+            (
             dynamic data,
             dynamic point,
             dynamic series,
             int pointIndex,
             int seriesIndex,
           ) {
-            final p = points[pointIndex];
+            final p = data as TrendPoint;
             final text = tooltipFormatter != null
                 ? tooltipFormatter!(p)
                 : '${p.label} ${formatAmount(p.value)}';

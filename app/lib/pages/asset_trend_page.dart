@@ -31,12 +31,24 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     _load();
   }
 
+  /// 当月的截止日：选中当前月时只到当天，历史月份到月末。
+  int get _daysToShow {
+    final daysInMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+      0,
+    ).day;
+    final now = DateTime.now();
+    final isCurrentMonth =
+        now.year == _selectedMonth.year && now.month == _selectedMonth.month;
+    return isCurrentMonth ? now.day : daysInMonth;
+  }
+
   Future<void> _load() async {
     final year = _selectedMonth.year;
     final month = _selectedMonth.month;
-    final daysInMonth = DateTime(year, month + 1, 0).day;
     final from = toEpochDay(DateTime(year, month, 1));
-    final to = toEpochDay(DateTime(year, month, daysInMonth));
+    final to = toEpochDay(DateTime(year, month, _daysToShow));
     final balances = await BalanceHistoryService.instance.balancesForAccount(
       widget.account.id,
       from,
@@ -143,10 +155,9 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
   List<_DailyPoint> _generateDailyPoints() {
     final year = _selectedMonth.year;
     final month = _selectedMonth.month;
-    final daysInMonth = DateTime(year, month + 1, 0).day;
     final points = <_DailyPoint>[];
     var running = 0;
-    for (var i = 1; i <= daysInMonth; i++) {
+    for (var i = 1; i <= _daysToShow; i++) {
       final day = toEpochDay(DateTime(year, month, i));
       running = _balances[day] ?? running;
       points.add(_DailyPoint(date: DateTime(year, month, i), value: running));
@@ -182,7 +193,7 @@ class _DailyTrendChart extends StatelessWidget {
             int pointIndex,
             int seriesIndex,
           ) {
-            final p = points[pointIndex];
+            final p = data as _DailyPoint;
             return Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: spacingS,
