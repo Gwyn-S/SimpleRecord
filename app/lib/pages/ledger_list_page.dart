@@ -15,7 +15,6 @@ import '../utils/log.dart';
 import '../widgets/busy_dialog.dart';
 import '../widgets/common_app_bar.dart';
 import '../utils/toast.dart';
-import '../services/cloud_config.dart';
 import '../services/sync_service.dart';
 
 class LedgerListPage extends StatefulWidget {
@@ -176,9 +175,6 @@ class _LedgerListPageState extends State<LedgerListPage> {
               final code = codeController.text.trim().toUpperCase();
               final name = nameController.text.trim();
               if (code.isNotEmpty) {
-                // 先拦配置不可用：坏配置直接提示，避免进入 joinByInvite 内部
-                // 的 ensureOnline 后无提示/误导性提示。
-                if (!await _ensureCloudConfigured()) return;
                 final (result, ledger) = await SyncService.instance
                     .joinByInvite(code);
                 if (!context.mounted) return;
@@ -191,7 +187,7 @@ if (context.mounted) {
                 }
                   case JoinSyncResult.notReady:
                     if (SyncService.instance.isSignedIn) {
-                      showToast(context, '请先配置云同步');
+                      showToast(context, '云同步未就绪，请检查网络');
                     } else {
                       showToast(context, '请先注册或登录账号');
                     }
@@ -385,7 +381,6 @@ if (context.mounted) {
       if (mounted) showToast(context, '「日常」账本不允许开启多人记账');
       return;
     }
-    if (!await _ensureCloudConfigured()) return;
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
     showDialog<void>(
@@ -413,16 +408,6 @@ if (context.mounted) {
     if (!mounted) return;
     showToast(context, '已关闭多人记账');
     _loadLedgers();
-  }
-
-  /// 确保构建已注入 Supabase 配置。
-  Future<bool> _ensureCloudConfigured() async {
-    final config = await loadCloudConfig();
-    if (!config.isConfigured) {
-      if (mounted) showToast(context, '请先配置云同步');
-      return false;
-    }
-    return true;
   }
 
   void _showDeleteDialog(int index) {

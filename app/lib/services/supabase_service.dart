@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'cloud_config.dart';
 import '../utils/log.dart';
 
 /// Supabase 基础设施：初始化、邮箱认证、rooms/oplogs 存取、Realtime 订阅。
 ///
-/// 构建未注入配置或初始化失败时保持「未就绪」但不抛错。所有云端方法失败
-/// 返回空结果/ false，由上层同步引擎决定是否重试。
+/// 发布版由构建注入配置（--dart-define-from-file），初始化失败时保持
+/// 「未就绪」但不抛错。所有云端方法失败返回空结果/ false，
+/// 由上层同步引擎决定是否重试。
 class SupabaseManager {
   SupabaseManager._();
 
@@ -30,12 +30,11 @@ class SupabaseManager {
 
   Future<void> init() async {
     if (_ready) return;
-    final config = await loadCloudConfig();
-    if (!config.isConfigured) return;
     try {
+      // 发布版通过 --dart-define-from-file 注入，配置恒存在；未注入时为空字符串。
       await Supabase.initialize(
-        url: config.supabaseUrl,
-        publishableKey: config.supabaseAnonKey,
+        url: const String.fromEnvironment('SUPABASE_URL'),
+        publishableKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
       ).timeout(const Duration(seconds: 15));
       _ready = true;
     } catch (e) {
