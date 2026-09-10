@@ -6,6 +6,7 @@ import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../models/asset_account.dart';
 import '../services/theme_service.dart';
+import 'account_avatar.dart';
 
 /// 选择「不关联账户」时由底部弹层返回的标记；区别于取消（返回 null）。
 const Object noAccountSelection = Object();
@@ -75,8 +76,8 @@ class _AccountPickerSheet extends StatelessWidget {
                 children: [
                   _buildItem(
                     context,
-                    icon: Icons.remove_circle_outline,
-                    title: '不关联账户',
+                    iconPath: 'assets/icons/assets.svg',
+                    title: '无账户',
                     subtitle: null,
                     selected: selectedId == null,
                     onTap: () => Navigator.pop(context, noAccountSelection),
@@ -87,7 +88,7 @@ class _AccountPickerSheet extends StatelessWidget {
                     ...accounts.map(
                       (a) => _buildItem(
                         context,
-                        iconPath: a.category?.iconPath,
+                        account: a,
                         title: a.name,
                         subtitle: a.categoryName,
                         selected: a.id == selectedId,
@@ -107,6 +108,7 @@ class _AccountPickerSheet extends StatelessWidget {
     BuildContext context, {
     IconData? icon,
     String? iconPath,
+    AssetAccount? account,
     required String title,
     required String? subtitle,
     required bool selected,
@@ -120,32 +122,27 @@ class _AccountPickerSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
         child: Row(
           children: [
-            Container(
-              width: sizeIconContainer,
-              height: sizeIconContainer,
-              decoration: BoxDecoration(
-                color: themeColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: icon != null
-                  ? Icon(icon, size: iconSizeXLarge, color: themeColor)
-                  : iconPath != null
-                  ? SvgPicture.asset(
-                      iconPath,
-                      width: iconSizeXLarge,
-                      height: iconSizeXLarge,
-                      fit: BoxFit.contain,
-                      colorFilter: ColorFilter.mode(
-                        themeColor,
-                        BlendMode.srcIn,
-                      ),
-                    )
-                  : Icon(
-                      Icons.account_balance_wallet,
-                      size: iconSizeXLarge,
-                      color: themeColor,
+            account != null
+                ? AccountAvatar(
+                    account: account,
+                    size: iconSizeXLarge,
+                    color: themeColor,
+                  )
+                : iconPath != null
+                ? SvgPicture.asset(
+                    iconPath,
+                    width: iconSizeXLarge,
+                    height: iconSizeXLarge,
+                    fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(
+                      themeColor,
+                      BlendMode.srcIn,
                     ),
-            ),
+                  )
+                : Icon(icon ?? Icons.account_balance_wallet,
+                    size: iconSizeXLarge,
+                    color: themeColor,
+                  ),
             const SizedBox(width: spacingM),
             Expanded(
               child: Column(

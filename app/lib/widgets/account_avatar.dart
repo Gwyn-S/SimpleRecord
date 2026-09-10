@@ -4,7 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import '../constants/app_dimensions.dart';
 import '../models/asset_account.dart';
 
-/// 账户图标：优先 SVG，降级为分类 Icon。
+/// 账户图标：SVG 优先，空路径降级为默认图标。
 class AccountAvatar extends StatelessWidget {
   final AssetAccount account;
   final double size;
@@ -17,18 +17,12 @@ class AccountAvatar extends StatelessWidget {
     this.color,
   });
 
-  /// 解析后的图标路径（account 自定义 > 分类默认）。
-  String get _iconPath {
-    if (account.iconPath.isNotEmpty) return account.iconPath;
-    return account.category?.iconPath ?? '';
-  }
-
   @override
   Widget build(BuildContext context) {
     final iconColor = color ?? Theme.of(context).primaryColor;
-    if (_iconPath.isNotEmpty) {
+    if (account.iconPath.isNotEmpty) {
       return SvgPicture.asset(
-        _iconPath,
+        account.iconPath,
         width: size,
         height: size,
         fit: BoxFit.contain,

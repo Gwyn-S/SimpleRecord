@@ -82,8 +82,8 @@ class AssetCategorySelectPage extends StatelessWidget {
               child: Row(
                 children: [
                   SizedBox(
-                    width: sizeIconContainer,
-                    height: sizeIconContainer,
+                    width: 24,
+                    height: 24,
                     child: option.iconPath != null
                         ? SvgPicture.asset(
                             option.iconPath!,
