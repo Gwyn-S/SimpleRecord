@@ -1,67 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import '../models/tencent_asr_config.dart';
-import 'settings.dart';
 
-const _asrSecretIdKey = 'tencent_asr_secret_id';
-const _asrSecretKeyKey = 'tencent_asr_secret_key';
+/// 构建注入的腾讯云语音识别密钥（--dart-define-from-file 注入，密件不入 Git）。
+/// 发布/分发版本内置，用户无需手动填写。
+const _envAsrSecretId = String.fromEnvironment('TENCENT_ASR_SECRET_ID');
+const _envAsrSecretKey = String.fromEnvironment('TENCENT_ASR_SECRET_KEY');
 const _host = 'asr.tencentcloudapi.com';
 final _dio = Dio();
 
-/// 保存腾讯云语音识别密钥
-Future<void> saveAsrConfig(TencentAsrConfig config) async {
-  await Settings.setString(_asrSecretIdKey, config.secretId);
-  await Settings.setString(_asrSecretKeyKey, config.secretKey);
-}
-
-/// 加载腾讯云语音识别密钥
-Future<TencentAsrConfig> loadAsrConfig() async {
-  final id = await Settings.getString(_asrSecretIdKey) ?? '';
-  final key = await Settings.getString(_asrSecretKeyKey) ?? '';
-  return TencentAsrConfig(secretId: id, secretKey: key);
-}
-
-/// 测试腾讯云语音识别连通性（用 1 秒静音 WAV 验证密钥与签名）
-Future<String> testAsr(TencentAsrConfig config) {
-  final bytes = _buildSilentWav();
-  return _callSentenceRecognition(
-    config,
-    base64Encode(bytes),
-    bytes.length,
-    allowEmpty: true,
-  );
-}
-
-/// 生成 16k 16bit 单声道 PCM 静音 WAV（用于连通性测试）
-Uint8List _buildSilentWav() {
-  const sampleRate = 16000;
-  const bitsPerSample = 16;
-  const channels = 1;
-  const durationMs = 1000;
-  final dataLen =
-      sampleRate * channels * (bitsPerSample ~/ 8) * durationMs ~/ 1000;
-
-  final bytes = Uint8List(44 + dataLen);
-  final b = ByteData.sublistView(bytes);
-  bytes.setRange(0, 4, utf8.encode('RIFF'));
-  b.setUint32(4, 36 + dataLen, Endian.little);
-  bytes.setRange(8, 12, utf8.encode('WAVE'));
-  bytes.setRange(12, 16, utf8.encode('fmt '));
-  b.setUint32(16, 16, Endian.little);
-  b.setUint16(20, 1, Endian.little);
-  b.setUint16(22, channels, Endian.little);
-  b.setUint32(24, sampleRate, Endian.little);
-  b.setUint32(28, sampleRate * channels * (bitsPerSample ~/ 8), Endian.little);
-  b.setUint16(32, channels * (bitsPerSample ~/ 8), Endian.little);
-  b.setUint16(34, bitsPerSample, Endian.little);
-  bytes.setRange(36, 40, utf8.encode('data'));
-  b.setUint32(40, dataLen, Endian.little);
-  return bytes;
-}
+/// 加载腾讯云语音识别密钥（发布版由构建注入，配置恒存在）。
+Future<TencentAsrConfig> loadAsrConfig() async =>
+    TencentAsrConfig(secretId: _envAsrSecretId, secretKey: _envAsrSecretKey);
 
 /// 调用腾讯云一句话识别，返回识别文本。
 /// [audioFile] 建议为 16k 采样率 wav/amr 格式。
@@ -76,9 +29,8 @@ Future<String> recognizeSpeech({
 Future<String> _callSentenceRecognition(
   TencentAsrConfig config,
   String data,
-  int dataLen, {
-  bool allowEmpty = false,
-}) async {
+  int dataLen,
+) async {
   final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final sessionId = const Uuid().v4();
 
@@ -121,7 +73,6 @@ Future<String> _callSentenceRecognition(
       }
       final result = resp['Result'] as String? ?? '';
       if (result.isEmpty) {
-        if (allowEmpty) return '';
         throw Exception('未识别到语音内容');
       }
       return result;

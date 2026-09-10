@@ -88,10 +88,6 @@ class _AiVoiceRecordPageState extends State<AiVoiceRecordPage> {
     try {
       final asrConfig = await loadAsrConfig();
       if (!mounted) return;
-      if (!asrConfig.isValid) {
-        safeShowToast(context, '请先在AI设置配置语音识别密钥');
-        return;
-      }
 
       final configs = await loadAiConfigs();
       if (!mounted) return;
