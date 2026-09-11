@@ -166,60 +166,57 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
         itemCount: assetAccountCategories.length,
         separatorBuilder: (_, _) => Container(height: 1, color: colorDivider),
         itemBuilder: (context, index) {
-final cat = assetAccountCategories[index];
-              final color = cat.color;
-              final isCash = cat.name == '现金';
-              // 分类图标配色：现金白底绿图标；储蓄卡~投资黄底白图标；
-              // 负债红底、债券蓝底、自定义资产紫底（均白图标）
-              final bgColor = switch (cat.name) {
-                '现金' => colorBackgroundCard,
-                '储蓄卡' ||
-                '信用卡' ||
-                '网络账户' ||
-                '投资' => colorAssetInvestIcon,
-                '负债' => const Color(0xFFF44336),
-                '债券' => const Color(0xFF2196F3),
-                '自定义资产' => const Color(0xFF9C27B0),
-                _ => color.withValues(alpha: 0.12),
-              };
-              final iconColor = isCash ? colorIncome : colorTextOnPrimary;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => _buildEntry(index)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: spacingL,
-                    vertical: spacingXS,
+          final cat = assetAccountCategories[index];
+          final color = cat.color;
+          final isCash = cat.name == '现金';
+          // 分类图标配色：现金白底绿图标；储蓄卡~投资黄底白图标；
+          // 负债红底、债券蓝底、自定义资产紫底（均白图标）
+          final bgColor = switch (cat.name) {
+            '现金' => colorBackgroundCard,
+            '储蓄卡' || '信用卡' || '网络账户' || '投资' => colorAssetInvestIcon,
+            '负债' => const Color(0xFFF44336),
+            '债券' => const Color(0xFF2196F3),
+            '自定义资产' => const Color(0xFF9C27B0),
+            _ => color.withValues(alpha: 0.12),
+          };
+          final iconColor = isCash ? colorIncome : colorTextOnPrimary;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => _buildEntry(index)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingL,
+                vertical: spacingXS,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: cat.iconPath != null
+                        ? SvgPicture.asset(
+                            cat.iconPath!,
+                            width: 24,
+                            height: 24,
+                            fit: BoxFit.contain,
+                            colorFilter: ColorFilter.mode(
+                              iconColor,
+                              BlendMode.srcIn,
+                            ),
+                          )
+                        : Icon(
+                            cat.icon ?? Icons.account_balance_wallet,
+                            size: 24,
+                            color: iconColor,
+                          ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: bgColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: cat.iconPath != null
-                            ? SvgPicture.asset(
-                                cat.iconPath!,
-                                width: 24,
-                                height: 24,
-                                fit: BoxFit.contain,
-                                colorFilter: ColorFilter.mode(
-                                  iconColor,
-                                  BlendMode.srcIn,
-                                ),
-                              )
-                            : Icon(
-                                cat.icon ?? Icons.account_balance_wallet,
-                                size: 24,
-                                color: iconColor,
-                              ),
-                      ),
                   const SizedBox(width: spacingL),
                   Text(cat.name, style: textPickerItem),
                   const Spacer(),

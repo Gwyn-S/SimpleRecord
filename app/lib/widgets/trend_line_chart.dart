@@ -46,8 +46,8 @@ class TrendLineChart extends StatelessWidget {
       animationDuration: 0,
       header: showTooltipHeader ? '' : null,
       canShowMarker: false,
-builder:
-            (
+      builder:
+          (
             dynamic data,
             dynamic point,
             dynamic series,

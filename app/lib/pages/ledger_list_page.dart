@@ -183,9 +183,9 @@ class _LedgerListPageState extends State<LedgerListPage> {
                 switch (result) {
                   case JoinSyncResult.success:
                     await _loadLedgers();
-if (context.mounted) {
-                  showToast(context, '已加入「${ledger!.name}」');
-                }
+                    if (context.mounted) {
+                      showToast(context, '已加入「${ledger!.name}」');
+                    }
                   case JoinSyncResult.notReady:
                     if (SyncService.instance.isSignedIn) {
                       showToast(context, '云同步未就绪，请检查网络');
