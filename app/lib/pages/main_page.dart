@@ -1,20 +1,22 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../services/theme_service.dart';
-import '../services/settings.dart';
-import '../services/ai_service.dart';
+import '../services/core/theme_service.dart';
+import '../services/core/settings.dart';
+import '../services/ai/ai_service.dart';
 import '../main.dart';
-import '../widgets/speed_dial_fab.dart';
-import 'bills_page.dart';
-import 'calendar_page.dart';
-import 'stats_page.dart';
-import 'assets_page.dart';
-import 'manual_entry_page.dart';
-import 'add_asset_account_page.dart';
-import 'ai_text_record_page.dart';
-import 'ai_image_record_page.dart';
-import 'ai_voice_record_page.dart';
+import '../widgets/common/speed_dial_fab.dart';
+import '../widgets/ai/ai_text_record_panel.dart';
+import '../widgets/ai/ai_image_record_panel.dart';
+import '../widgets/ai/voice_record_helper.dart';
+import 'record/bills_page.dart';
+import 'record/calendar_page.dart';
+import 'record/stats_page.dart';
+import 'asset/assets_page.dart';
+import 'record/manual_entry_page.dart';
+import 'asset/add_asset_account_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -27,6 +29,8 @@ class _MainPageState extends State<MainPage> with RouteAware {
   int _tab = 0;
   bool _aiEnabled = false;
   int get _todayDay => DateTime.now().day;
+  static const _voiceActionIndex = 1;
+  final _voiceHelper = VoiceRecordHelper();
 
   @override
   void initState() {
@@ -43,6 +47,7 @@ class _MainPageState extends State<MainPage> with RouteAware {
   @override
   void dispose() {
     routeObserver.unsubscribe(this);
+    _voiceHelper.dispose();
     super.dispose();
   }
 
@@ -55,6 +60,129 @@ class _MainPageState extends State<MainPage> with RouteAware {
     final enabled = await Settings.getBool(aiRecordKey) ?? false;
     if (!mounted) return;
     setState(() => _aiEnabled = enabled);
+  }
+
+  Future<void> _openTextRecord() async {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: colorBackgroundPage,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: spacingXL,
+          vertical: spacingL,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(dialogContext).size.height * 0.6,
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(spacingL),
+            child: AiTextRecordPanel(autofocus: true),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startVoiceRecord() async {
+    final started = await _voiceHelper.start(context);
+    if (started) {
+      // 开始录音，提示已显示；松手时 _finishVoiceRecord 处理转写
+    }
+  }
+
+  /// hover 到麦克风 action 时开始录音；移开不停止，松手才停。
+  void _onVoiceHoverChanged(int? index) {
+    if (index == _voiceActionIndex && !_voiceHelper.isRecording) {
+      _startVoiceRecord();
+    }
+  }
+
+  Future<void> _finishVoiceRecord() async {
+    if (!_voiceHelper.isRecording) return;
+    final text = await _voiceHelper.finish();
+    if (!mounted) return;
+    final trimmed = text?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: colorBackgroundPage,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: spacingXL,
+          vertical: spacingL,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(dialogContext).size.height * 0.6,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(spacingL),
+            child: AiTextRecordPanel(
+              autofocus: false,
+              initialText: trimmed,
+              autoAnalyze: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openImageRecord() async {
+    final controller = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('拍照'),
+              leading: const Icon(Icons.photo_camera_outlined),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              title: const Text('相册'),
+              leading: const Icon(Icons.photo_library_outlined),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await controller.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    if (!mounted) return;
+
+    final file = File(picked.path);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: colorBackgroundPage,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: spacingXL,
+          vertical: spacingL,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(dialogContext).size.height * 0.7,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(spacingL),
+            child: AiImageRecordPanel(
+              initialImage: file,
+              autoAnalyze: true,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   static final _pages = const [
@@ -95,32 +223,29 @@ class _MainPageState extends State<MainPage> with RouteAware {
         },
         icon: Icons.add,
         longPressEnabled: _tab != 4 && _aiEnabled,
+        onHoverChanged: _onVoiceHoverChanged,
+        onRelease: () {
+          if (_voiceHelper.isRecording) {
+            _finishVoiceRecord();
+            return true;
+          }
+          return false;
+        },
         actions: [
           SpeedDialAction(
             icon: Icons.edit,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AiTextRecordPage()),
-              );
+            onTap: () async {
+              await _openTextRecord();
             },
           ),
-          SpeedDialAction(
+          const SpeedDialAction(
             icon: Icons.mic,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AiVoiceRecordPage()),
-              );
-            },
+            onTap: null,
           ),
           SpeedDialAction(
             icon: Icons.camera_alt,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AiImageRecordPage()),
-              );
+            onTap: () async {
+              await _openImageRecord();
             },
           ),
         ],

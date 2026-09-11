@@ -1,4 +1,4 @@
-import '../models/record.dart';
+import '../models/data/record.dart';
 
 DateTime weekStart(DateTime day) {
   return day.subtract(Duration(days: day.weekday - 1));

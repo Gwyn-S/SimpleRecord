@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'constants/app_colors.dart';
-import 'services/theme_service.dart';
-import 'services/database.dart';
-import 'services/ledger_service.dart';
-import 'services/record_service.dart';
-import 'services/asset_account_service.dart';
-import 'services/author_service.dart';
-import 'services/auto_backup_service.dart';
-import 'services/supabase_service.dart';
-import 'services/sync_service.dart';
-import 'utils/log.dart';
-import 'pages/main_page.dart';
+import '../constants/app_colors.dart';
+import '../services/core/theme_service.dart';
+import '../services/core/database.dart';
+import '../services/data/ledger_service.dart';
+import '../services/data/record_service.dart';
+import '../services/data/asset_account_service.dart';
+import '../services/core/author_service.dart';
+import '../services/cloud/auto_backup_service.dart';
+import '../services/cloud/supabase_service.dart';
+import '../services/cloud/sync_service.dart';
+import '../utils/log.dart';
+import '../pages/main_page.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
