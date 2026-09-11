@@ -424,12 +424,13 @@ List<AiRecordResult> _parseResults(
   return _resolveAccounts(parsedList.map(_parseOneResult).toList(), accounts);
 }
 
-/// 将 AI 返回的账户名/账户id解析为真实账户id
+/// 将 AI 返回的账户名/账户id解析为真实账户id。
+/// 无账户上下文(accounts 为空)时 AI 返回的任何账户名都不可信，
+/// 一律置空，避免把编造的字符串当作 account_id 落库产生孤儿记录。
 List<AiRecordResult> _resolveAccounts(
   List<AiRecordResult> results,
   List<AssetAccount> accounts,
 ) {
-  if (accounts.isEmpty) return results;
   final byId = {for (final a in accounts) a.id: a};
   final byName = {
     for (final a in accounts) a.name: a,
