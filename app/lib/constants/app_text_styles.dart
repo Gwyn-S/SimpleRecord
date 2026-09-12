@@ -91,7 +91,7 @@ const TextStyle textBalance = TextStyle(
 );
 const TextStyle textAccountAmount = TextStyle(
   fontSize: 16,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w700,
   color: colorTextPrimary,
 );
 const TextStyle textPickerItem = TextStyle(

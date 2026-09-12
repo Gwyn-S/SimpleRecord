@@ -198,7 +198,12 @@ class _AssetsPageState extends State<AssetsPage> {
                   children: [
                     Text(catName, style: textListItem),
                     const Spacer(),
-                    Text(formatAmount(total), style: textAccountAmount),
+                    Text(
+                      formatAmountEdit(total),
+                      style: textAccountAmount.copyWith(
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                   ],
                 ),
               ),
