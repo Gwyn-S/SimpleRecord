@@ -47,6 +47,8 @@ macos/Flutter/ephemeral/
 
 # Linux
 linux/flutter/ephemeral/
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/ephemeral/*
 
 # Windows
 windows/flutter/ephemeral/
@@ -54,6 +56,18 @@ windows/flutter/generated_plugin_registrant.cc
 windows/flutter/generated_plugin_registrant.h
 linux/flutter/generated_plugin_registrant.cc
 linux/flutter/generated_plugins.cmake
+
+# app/ (subproject)
+app/pubspec.lock
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/macos/Flutter/GeneratedPluginRegistrant.swift
+app/linux/flutter/generated_plugin_registrant.cc
+app/linux/flutter/generated_plugin_registrant.h
+app/linux/flutter/generated_plugins.cmake
+app/windows/flutter/generated_plugin_registrant.cc
+app/windows/flutter/generated_plugin_registrant.h
+app/windows/flutter/generated_plugins.cmake
 
 # opencode
 .opencode/node_modules/
