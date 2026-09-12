@@ -71,9 +71,10 @@ Future<void> updateAssetAccount(AssetAccount account) async {
     where: 'id = ?',
     whereArgs: [account.id],
   );
-  assetAccountsVersion.value++;
-  // 手动改余额：使“今天”起的余额平移到新值，改动之前的历史不动。
+  // 手动改余额：使"今天"起的余额平移到新值，改动之前的历史不动。
+  // 先落调整记录再通知监听，避免流水页面读到尚未写入的调整。
   await BalanceHistoryService.instance.applyManualAdjustment(account.id);
+  assetAccountsVersion.value++;
 }
 
 Future<void> deleteAssetAccount(String id) async {

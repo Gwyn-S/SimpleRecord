@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
@@ -6,6 +7,7 @@ import '../../models/data/asset_account.dart';
 import '../../models/data/transfer.dart';
 import '../../services/core/theme_service.dart';
 import '../../services/data/asset_account_service.dart';
+import '../../services/data/balance_history_service.dart';
 import '../../services/data/transfer_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/common_app_bar.dart';
@@ -49,9 +51,21 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     final byId = {for (final a in accounts) a.id: a};
     final fresh = byId[account.id];
     if (fresh != null) {
+      // 同步所有可变字段，确保改名/备注/卡号/图标/余额修改后立即反映到卡片。
+      account.categoryName = fresh.categoryName;
+      account.name = fresh.name;
       account.balanceCents = fresh.balanceCents;
+      account.openingBalanceCents = fresh.openingBalanceCents;
+      account.remark = fresh.remark;
+      account.cardLast4 = fresh.cardLast4;
+      account.iconPath = fresh.iconPath;
+    }
+    if (!mounted) {
+      return;
     }
     final transfers = await loadTransfersForAccount(account.id);
+    final adjustments =
+        await BalanceHistoryService.instance.adjustmentsForAccount(account.id);
     if (!mounted) return;
     final entries = <_FlowEntry>[];
     for (final t in transfers) {
@@ -72,6 +86,21 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           fromLabel: label(byId[t.fromAccountId], t.fromAccountName),
           toLabel: label(byId[t.toAccountId], t.toAccountName),
           transfer: t,
+        ),
+      );
+    }
+    for (final a in adjustments) {
+      entries.add(
+        _FlowEntry(
+          date: fromEpochDay(a['date'] as int),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(
+            a['created_at'] as int,
+          ),
+          type: _FlowType.adjustment,
+          adjustmentId: a['id'] as int,
+          deltaCents: a['delta'] as int,
+          beforeCents: a['before_cents'] as int,
+          afterCents: a['after_cents'] as int,
         ),
       );
     }
@@ -184,8 +213,8 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                     '修改',
                     Icons.edit_outlined,
                     colorTextPrimary,
-                    () {
-                      Navigator.push(
+                    () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => AddAssetAccountFormPage(
@@ -201,6 +230,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                           ),
                         ),
                       );
+                      if (mounted) await _loadFlows();
                     },
                   ),
                   _buildActionDivider(),
@@ -255,6 +285,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 color: themeColor,
               ),
             ],
+          ),
+          const SizedBox(height: spacingXS),
+          Text(
+            account.remark.isEmpty ? ' ' : account.remark,
+            style: textItemSub,
           ),
           const SizedBox(height: spacingM),
           Row(
@@ -340,6 +375,64 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   }
 
   Widget _buildTransferRow(_FlowEntry f) {
+    if (f.type == _FlowType.adjustment) {
+      final delta = f.deltaCents;
+      final deltaText =
+          '${delta > 0 ? '+' : '-'}${formatAmount(delta.abs())}';
+      return InkWell(
+        onTap: () => _showDeleteAdjustDialog(f),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/adjust_balance.svg',
+                    width: iconSizeDefault,
+                    height: iconSizeDefault,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: spacingXS),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '调整余额',
+                          style: textListItem.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: spacingXS),
+                        Text(
+                          '${formatAmount(f.beforeCents)} -> ${formatAmount(f.afterCents)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textItemSub,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: spacingM),
+            Text(
+              deltaText,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: delta > 0
+                    ? Theme.of(context).extension<AppThemeColors>()!.primary
+                    : colorExpense,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return InkWell(
       onTap: () => Navigator.push(
         context,
@@ -353,10 +446,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.swap_horiz,
-                  size: iconSizeDefault,
-                  color: colorIconGray,
+                SvgPicture.asset(
+                  'assets/icons/transfer.svg',
+                  width: 16,
+                  height: 16,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(width: spacingXS),
                 Expanded(
@@ -471,7 +565,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               account.balanceCents = cents;
               await updateAssetAccount(account);
               if (dialogContext.mounted) Navigator.pop(dialogContext);
-              if (mounted) setState(() {});
+              await _loadFlows();
             },
             child: const Text('确定'),
           ),
@@ -508,6 +602,30 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   bool get _isCardAccount =>
       account.categoryName == '储蓄卡' || account.categoryName == '信用卡';
 
+  void _showDeleteAdjustDialog(_FlowEntry f) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text('确定删除本次余额调整吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await BalanceHistoryService.instance
+                  .deleteAdjustment(account.id, f.adjustmentId);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              await _loadFlows();
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeleteDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -536,6 +654,8 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   }
 }
 
+enum _FlowType { transfer, adjustment }
+
 class _FlowEntry {
   final DateTime date;
   final DateTime createdAt;
@@ -545,17 +665,28 @@ class _FlowEntry {
   final String remark;
   final String fromLabel;
   final String toLabel;
-  final Transfer transfer;
+  final Transfer? transfer;
+
+  final _FlowType type;
+  final int adjustmentId;
+  final int deltaCents;
+  final int beforeCents;
+  final int afterCents;
 
   _FlowEntry({
     required this.date,
     required this.createdAt,
-    required this.isIn,
-    required this.amountCents,
-    required this.feeCents,
-    required this.remark,
-    required this.fromLabel,
-    required this.toLabel,
-    required this.transfer,
+    this.isIn = false,
+    this.amountCents = 0,
+    this.feeCents = 0,
+    this.remark = '',
+    this.fromLabel = '',
+    this.toLabel = '',
+    this.transfer,
+    this.type = _FlowType.transfer,
+    this.adjustmentId = 0,
+    this.deltaCents = 0,
+    this.beforeCents = 0,
+    this.afterCents = 0,
   });
 }

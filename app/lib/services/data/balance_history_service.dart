@@ -116,10 +116,51 @@ class BalanceHistoryService {
         'account_id': accountId,
         'date': today,
         'delta': delta,
+        'before_cents': before,
+        'after_cents': current,
         'created_at': DateTime.now().millisecondsSinceEpoch,
       });
       await _recompute(accountId);
     }
+  }
+
+  /// 某账户的全部手动改余额记录（按日期升序），用于资产详情流水展示。
+  Future<List<Map<String, dynamic>>> adjustmentsForAccount(
+    String accountId,
+  ) async {
+    final db = await _db;
+    return db.query(
+      'balance_adjustments',
+      where: 'account_id = ?',
+      whereArgs: [accountId],
+      orderBy: 'date, created_at',
+    );
+  }
+
+  /// 删除一条手动改余额记录，还原账户余额，并重算该账户快照。
+  Future<void> deleteAdjustment(String accountId, int id) async {
+    final db = await _db;
+    final rows = await db.query(
+      'balance_adjustments',
+      columns: ['delta'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) return;
+    final delta = rows.first['delta'] as int;
+    await db.delete(
+      'balance_adjustments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    final balance = await _readBalanceCents(db, accountId);
+    await db.update(
+      'asset_accounts',
+      {'balance_cents': balance - delta},
+      where: 'id = ?',
+      whereArgs: [accountId],
+    );
+    await _recompute(accountId);
   }
 
   /// 查询某账户在 [fromDay, toDay]（含）各天的余额；该范围之前无快照的天补 0。
