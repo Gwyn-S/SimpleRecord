@@ -72,7 +72,7 @@ const List<Color> themeColorPalette = [
   Color(0xFFFFEB3B),
   Color(0xFF8BC34A),
   Color(0xFF4CAF50),
-  Color(0xFF009688),
+  colorPrimaryDefault,
   Color(0xFF00BCD4),
   Color(0xFF03A9F4),
   Color(0xFF2196F3),
