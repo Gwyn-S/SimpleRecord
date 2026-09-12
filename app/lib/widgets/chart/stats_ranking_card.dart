@@ -56,8 +56,11 @@ class StatsRankingCard extends StatelessWidget {
           final percent = (ratio * 100).toStringAsFixed(1);
           final category = expenseCategories.firstWhere(
             (c) => c.name == item.name,
-            orElse: () =>
-                Category(icon: item.icon ?? Icons.category, name: item.name),
+            orElse: () => Category(
+              name: item.name,
+              isExpense: true,
+              iconName: '',
+            ),
           );
           return Padding(
             padding: const EdgeInsets.symmetric(

@@ -10,6 +10,7 @@ import '../core/author_service.dart';
 import '../core/database.dart';
 import '../image/image_storage_service.dart';
 import 'record_service.dart';
+import 'category_service.dart';
 import '../cloud/supabase_service.dart';
 import '../cloud/sync_service.dart';
 
@@ -88,6 +89,7 @@ Future<void> insertLedger(Ledger ledger) async {
     ...ledger.toDbMap(),
     'created_at': ledger.createdAt != 0 ? ledger.createdAt : now,
   }, conflictAlgorithm: ConflictAlgorithm.replace);
+  await seedCategoriesForLedger(ledger.id);
   SyncService.instance.enqueueLedger(ledger, op: 'insert');
 }
 
@@ -136,6 +138,7 @@ Future<void> deleteLedger(String id) async {
   }
   await db.transaction((txn) async {
     await txn.delete('records', where: 'book_id = ?', whereArgs: [id]);
+    await txn.delete('categories', where: 'ledger_id = ?', whereArgs: [id]);
     await txn.delete('books', where: 'id = ?', whereArgs: [id]);
   });
   recordsVersion.value++;

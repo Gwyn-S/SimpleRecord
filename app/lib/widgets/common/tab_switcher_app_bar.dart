@@ -10,6 +10,7 @@ class TabSwitcherAppBar extends AppBar {
     required ValueChanged<int> onChanged,
     super.backgroundColor,
     super.leading,
+    super.actions,
   }) : super(
          foregroundColor: colorTextOnPrimary,
          elevation: 0,

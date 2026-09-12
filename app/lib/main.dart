@@ -6,6 +6,7 @@ import '../services/core/theme_service.dart';
 import '../services/core/database.dart';
 import '../services/data/ledger_service.dart';
 import '../services/data/record_service.dart';
+import '../services/data/category_service.dart';
 import '../services/data/asset_account_service.dart';
 import '../services/core/author_service.dart';
 import '../services/cloud/auto_backup_service.dart';
@@ -35,6 +36,10 @@ void main() async {
   // 再校验当前账本：避免启动时未登录而把上次打开的共享账本误判为失效重置。
   await SupabaseManager.instance.init();
   await ensureCurrentLedgerId();
+  // 创建/选中当前账本后再加载其分类缓存（首次启动会先建默认账本并写入种子）。
+  await loadCategoryCache();
+  // 注册远端分类变更回调：共享账本成员新增/删除分类时本地即时刷新。
+  initCategorySync();
   // 预热头像缓存目录，使列表头像可同步命中本地缓存（首帧即显示）。
   await AuthorService.instance.initAvatarCache();
   // 加载记账条目作者显示偏好（昵称/头像）到进程内存，供列表首帧按用户选择渲染。

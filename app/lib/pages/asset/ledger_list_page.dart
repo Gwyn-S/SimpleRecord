@@ -8,6 +8,7 @@ import '../../models/data/ledger.dart';
 import '../../models/data/ledger_stats.dart';
 import '../../services/data/record_service.dart';
 import '../../services/data/ledger_service.dart';
+import '../../services/data/category_service.dart';
 import '../../services/core/author_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/id.dart';
@@ -482,6 +483,7 @@ class _LedgerListPageState extends State<LedgerListPage> {
                 return GestureDetector(
                   onTap: () {
                     saveCurrentLedgerId(ledger.id);
+                    loadCategoryCache();
                     Navigator.pop(context);
                   },
                   child: Padding(

@@ -13,6 +13,7 @@ import '../core/database.dart';
 import '../data/export_service.dart';
 import '../image/image_storage_service.dart';
 import '../data/record_service.dart';
+import '../data/category_service.dart';
 
 const _xorKey = 'SimpleRecord_SRB_v1';
 const _magic = 'SRB1';
@@ -124,6 +125,7 @@ Future<void> restoreSrbBackup(String filePath) async {
   await helper.database;
   recordsVersion.value++;
   assetAccountsVersion.value++;
+  await loadCategoryCache();
 }
 
 Future<void> _restoreImages(Uint8List bytes) async {

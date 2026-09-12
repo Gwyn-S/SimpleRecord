@@ -11,6 +11,7 @@ import '../../models/data/record.dart';
 import '../core/author_service.dart';
 import '../core/cloud_config.dart';
 import '../core/database.dart';
+import '../data/category_service.dart';
 import '../data/record_service.dart';
 import 'supabase_service.dart';
 
@@ -117,6 +118,30 @@ class SyncService {
     );
     unawaited(flush());
   }
+
+  /// 分类写入钩子：本地已落库后调用（共享账本）。[op] 为 insert/update/delete。
+  /// 远端收到后按主键 (ledger_id, name, is_expense) 整行应用。
+  Future<void> enqueueCategory(
+    Map<String, dynamic> categoryMap, {
+    required String op,
+  }) async {
+    final ledgerId = categoryMap['ledger_id'] as String?;
+    if (ledgerId == null) return;
+    if (!await isSharedBook(ledgerId)) return;
+    final name = categoryMap['name'] as String? ?? '';
+    final isExpense = (categoryMap['is_expense'] as int? ?? 0) == 1;
+    await _enqueue(
+      entityType: 'category',
+      entityId: '$name|${isExpense ? 1 : 0}',
+      op: op,
+      bookId: ledgerId,
+      payload: categoryMap,
+    );
+    unawaited(flush());
+  }
+
+  /// 远端分类变更回调；由使用方注册（category_service），用于刷新分类缓存。
+  Future<void> Function()? onCategoryRemoteChanged;
 
   /// 昵称/头像变更广播：向所有共享账本发 profile 事件，对方收到后更新映射。
   Future<void> enqueueProfileChange({
@@ -340,6 +365,38 @@ class SyncService {
           await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
           break;
       }
+    } else if (entityType == 'category') {
+      final ledgerId = payload['ledger_id'] as String?;
+      if (ledgerId == null) return;
+      final name = payload['name'] as String? ?? '';
+      final isExpense = payload['is_expense'] == 1 ||
+          payload['is_expense'] == '1' ||
+          payload['is_expense'] == true;
+      switch (entityOp) {
+        case 'insert':
+        case 'update':
+          await db.insert(
+            'categories',
+            {
+              'ledger_id': ledgerId,
+              'name': name,
+              'is_expense': isExpense ? 1 : 0,
+              'icon_name': payload['icon_name'] as String? ?? '',
+              'sort_order': payload['sort_order'] as int? ?? 0,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          break;
+        case 'delete':
+          await db.delete(
+            'categories',
+            where: 'ledger_id = ? AND name = ? AND is_expense = ?',
+            whereArgs: [ledgerId, name, isExpense ? 1 : 0],
+          );
+          break;
+      }
+      final cb = onCategoryRemoteChanged;
+      if (cb != null) await cb();
     } else if (entityType == 'profile') {
       // 昵称/头像变更：更新本地 author_id -> 值 映射并触发界面刷新。
       // 仅在 payload 显式携带某字段时才更新对应映射，缺席字段保持现状，
@@ -443,6 +500,16 @@ class SyncService {
         payload: payload,
       );
     }
+    final categories = await _loadCategories(ledger.id);
+    for (final c in categories) {
+      await _enqueue(
+        entityType: 'category',
+        entityId: '${c['name']}|${(c['is_expense'] as int) == 1 ? 1 : 0}',
+        op: 'insert',
+        bookId: ledger.id,
+        payload: c,
+      );
+    }
     await flush();
     await pullForRoom(ledger.id);
     return true;
@@ -512,6 +579,11 @@ class SyncService {
       _inviteCodeCache[roomId] = inviteCode;
     }
     await pullForRoom(roomId);
+    // 拉取后分类为空（房间尚无分类记录，如老账本/功能上线前创建）时，
+    // 用默认分类兜底，保证新加入成员也有可用分类。
+    if (await _hasNoCategories(roomId)) {
+      await seedCategoriesForLedger(roomId);
+    }
     return (JoinSyncResult.success, ledger);
   }
 
@@ -571,6 +643,28 @@ class SyncService {
       orderBy: 'created_at',
     );
     return rows.map(Record.fromDbMap).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadCategories(String bookId) async {
+    final db = await DatabaseHelper.instance.database;
+    return db.query(
+      'categories',
+      where: 'ledger_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'sort_order',
+    );
+  }
+
+  Future<bool> _hasNoCategories(String bookId) async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.query(
+      'categories',
+      columns: ['name'],
+      where: 'ledger_id = ?',
+      whereArgs: [bookId],
+      limit: 1,
+    );
+    return rows.isEmpty;
   }
 
   Future<int> _getCursor(String roomId) async {

@@ -34,6 +34,7 @@ class UserPage extends StatelessWidget {
       body: ListView(
         children: [
           SettingsItem(title: '预算中心', onTap: () => openBudget(context)),
+          SettingsItem(title: '分类管理', onTap: () => openCategoryManage(context)),
           SettingsItem(title: '标签管理', onTap: () => openTagManage(context)),
           SettingsItem(
             title: 'AI 记账',

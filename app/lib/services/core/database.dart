@@ -131,6 +131,16 @@ class DatabaseHelper {
       'CREATE INDEX idx_records_book_date ON records(book_id, date)',
     );
     await db.execute('''
+      CREATE TABLE categories (
+        ledger_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        is_expense INTEGER NOT NULL,
+        icon_name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (ledger_id, name, is_expense)
+      )
+    ''');
+    await db.execute('''
       CREATE TABLE balance_snapshots (
         account_id TEXT NOT NULL,
         date INTEGER NOT NULL,

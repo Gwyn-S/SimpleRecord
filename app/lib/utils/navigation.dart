@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../pages/cloud/backup_page.dart';
 import '../pages/record/budget_page.dart';
 import '../pages/asset/ledger_list_page.dart';
+import '../pages/record/category_manage_page.dart';
 import '../pages/record/manual_entry_page.dart';
 import '../pages/record/search_page.dart';
 import '../pages/record/tag_manage_page.dart';
@@ -27,6 +28,11 @@ void openBudget(BuildContext context) => Navigator.push(
 void openTagManage(BuildContext context) => Navigator.push(
   context,
   MaterialPageRoute(builder: (_) => const TagManagePage()),
+);
+
+void openCategoryManage(BuildContext context) => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const CategoryManagePage()),
 );
 
 void openSearch(BuildContext context) => Navigator.push(

@@ -14,6 +14,7 @@ import '../../services/data/asset_account_service.dart';
 import '../../services/image/image_storage_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/formatters.dart';
+import '../../utils/navigation.dart';
 import '../../widgets/common/option_bar_item.dart';
 import '../../utils/id.dart';
 import '../../utils/toast.dart';
@@ -204,12 +205,25 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   crossAxisSpacing: spacingM,
                   childAspectRatio: 1,
                 ),
-                itemCount: categories.length,
+                itemCount: categories.length + 1,
                 itemBuilder: (context, index) {
-                  final cat = categories[index];
+                  final isSettings = index == categories.length;
+                  final cat = isSettings
+                      ? const Category(
+                          name: '设置',
+                          isExpense: false,
+                          iconName: 'settings_outlined',
+                        )
+                      : categories[index];
                   final selected = _selectedCategory == index;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = index),
+                    onTap: () {
+                      if (isSettings) {
+                        openCategoryManage(context);
+                        return;
+                      }
+                      setState(() => _selectedCategory = index);
+                    },
                     child: Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Column(
@@ -219,7 +233,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             width: sizeCategoryCircle,
                             height: sizeCategoryCircle,
                             decoration: BoxDecoration(
-                              color: selected
+                              color: isSettings
+                                  ? themeColor.withValues(alpha: 0.15)
+                                  : selected
                                   ? themeColor
                                   : colorIconLightBackground,
                               shape: BoxShape.circle,
@@ -227,7 +243,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             child: Icon(
                               cat.icon,
                               size: iconSizeXLarge,
-                              color: selected
+                              color: isSettings
+                                  ? themeColor
+                                  : selected
                                   ? colorTextOnPrimary
                                   : colorIconGray,
                             ),
@@ -237,7 +255,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             cat.name,
                             style: TextStyle(
                               fontSize: 13,
-                              color: selected ? themeColor : colorTextPrimary,
+                              color: isSettings
+                                  ? themeColor
+                                  : selected
+                                  ? themeColor
+                                  : colorTextPrimary,
                             ),
                           ),
                         ],

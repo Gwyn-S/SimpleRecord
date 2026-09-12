@@ -154,9 +154,9 @@ class _TagManagePageState extends State<TagManagePage> {
                             child: GestureDetector(
                               onTap: () => _showInputDialog(editing: tag.name),
                               child: Container(
+                                height: 54,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: spacingL,
-                                  vertical: spacingS,
                                 ),
                                 child: Row(
                                   children: [
