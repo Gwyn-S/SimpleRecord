@@ -15,7 +15,7 @@ import 'record/bills_page.dart';
 import 'record/calendar_page.dart';
 import 'record/stats_page.dart';
 import 'asset/assets_page.dart';
-import 'record/manual_entry_page.dart';
+import 'record/add_record_page.dart';
 import 'asset/add_asset_account_page.dart';
 
 class MainPage extends StatefulWidget {
@@ -217,7 +217,7 @@ class _MainPageState extends State<MainPage> with RouteAware {
           } else {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ManualEntryPage()),
+              MaterialPageRoute(builder: (_) => const AddRecordPage()),
             );
           }
         },

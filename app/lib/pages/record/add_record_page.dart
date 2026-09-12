@@ -25,15 +25,15 @@ import '../../widgets/common/full_image_viewer.dart';
 import '../../widgets/common/tab_switcher_app_bar.dart';
 import '../../widgets/record/tag_picker_sheet.dart';
 
-class ManualEntryPage extends StatefulWidget {
+class AddRecordPage extends StatefulWidget {
   final Record? initialRecord;
-  const ManualEntryPage({super.key, this.initialRecord});
+  const AddRecordPage({super.key, this.initialRecord});
 
   @override
-  State<ManualEntryPage> createState() => _ManualEntryPageState();
+  State<AddRecordPage> createState() => _AddRecordPageState();
 }
 
-class _ManualEntryPageState extends State<ManualEntryPage> {
+class _AddRecordPageState extends State<AddRecordPage> {
   bool _isExpense = true;
   int? _selectedCategory = 0;
   String _amount = '0';

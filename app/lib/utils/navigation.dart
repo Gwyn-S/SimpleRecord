@@ -4,7 +4,7 @@ import '../pages/cloud/backup_page.dart';
 import '../pages/record/budget_page.dart';
 import '../pages/asset/ledger_list_page.dart';
 import '../pages/record/category_manage_page.dart';
-import '../pages/record/manual_entry_page.dart';
+import '../pages/record/add_record_page.dart';
 import '../pages/record/search_page.dart';
 import '../pages/record/tag_manage_page.dart';
 import '../pages/record/user_page.dart';
@@ -47,5 +47,5 @@ void openUser(BuildContext context) => Navigator.push(
 
 void openEditRecord(BuildContext context, Record record) => Navigator.push(
   context,
-  MaterialPageRoute(builder: (_) => ManualEntryPage(initialRecord: record)),
+  MaterialPageRoute(builder: (_) => AddRecordPage(initialRecord: record)),
 );
