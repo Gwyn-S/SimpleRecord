@@ -40,6 +40,7 @@ class _CalendarPageState extends State<CalendarPage>
   int _monthIncome = 0;
   int _loadSeq = 0;
   bool _isShared = false;
+  bool _panelAtTopOnDragStart = false; // 本次下拉手势开始时面板是否已在顶部
   final Map<String, int> _dayExpense = {};
   final Map<String, int> _dayIncome = {};
   final Map<String, List<Record>> _dayRecords = {};
@@ -366,9 +367,15 @@ class _CalendarPageState extends State<CalendarPage>
     return Container(
       color: colorBackgroundPage,
       padding: const EdgeInsets.only(top: 12),
-      child: NotificationListener<OverscrollNotification>(
+      child: NotificationListener<Notification>(
         onNotification: (n) {
-          if (_folded && n.overscroll < 0) {
+          if (n is ScrollStartNotification && n.dragDetails != null) {
+            _panelAtTopOnDragStart = n.metrics.pixels <= 0;
+          }
+          if (n is OverscrollNotification &&
+              _folded &&
+              n.overscroll < 0 &&
+              _panelAtTopOnDragStart) {
             _foldController.reverse();
             return true;
           }
@@ -378,7 +385,7 @@ class _CalendarPageState extends State<CalendarPage>
           physics: _folded
               ? const AlwaysScrollableScrollPhysics()
               : const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: spacingS),
+          padding: EdgeInsets.zero,
           children: [
             DayCard(
               dayRecords: records,
