@@ -7,6 +7,7 @@ import '../../services/core/theme_service.dart';
 import '../../models/data/asset_account.dart';
 import 'asset_account_form_page.dart';
 import 'asset_category_select_page.dart';
+import 'piggy_page.dart';
 
 class AddAssetAccountPage extends StatefulWidget {
   const AddAssetAccountPage({super.key});
@@ -142,6 +143,49 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
     }
   }
 
+  /// 列表尾部「小金库」入口：点击进入小金库总览（不新建资产账户）。
+  Widget _buildPiggyEntry(BuildContext context) {
+    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PiggyPage()),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingL,
+          vertical: spacingXS,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: themeColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.savings,
+                size: 24,
+                color: colorTextOnPrimary,
+              ),
+            ),
+            const SizedBox(width: spacingL),
+            const Text('小金库', style: textPickerItem),
+            const Spacer(),
+            const Icon(
+              Icons.chevron_right,
+              size: iconSizeDefault,
+              color: colorTextSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -163,9 +207,12 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
       ),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: spacingS),
-        itemCount: assetAccountCategories.length,
+        itemCount: assetAccountCategories.length + 1,
         separatorBuilder: (_, _) => Container(height: 1, color: colorDivider),
         itemBuilder: (context, index) {
+          if (index == assetAccountCategories.length) {
+            return _buildPiggyEntry(context);
+          }
           final cat = assetAccountCategories[index];
           final color = cat.color;
           final isCash = cat.name == '现金';

@@ -5,6 +5,7 @@ import '../../constants/app_text_styles.dart';
 import '../../services/core/theme_service.dart';
 import '../../models/data/asset_account.dart';
 import '../../services/data/asset_account_service.dart';
+import '../../services/data/piggy_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/account_avatar.dart';
 import '../../widgets/chart/summary_block.dart';
@@ -22,17 +23,21 @@ class AssetsPage extends StatefulWidget {
 class _AssetsPageState extends State<AssetsPage> {
   List<AssetAccount> _accounts = [];
   List<MapEntry<String, List<AssetAccount>>> _categoryEntries = [];
+  int _piggyPositiveTotal = 0;
 
   @override
   void initState() {
     super.initState();
     _loadAccounts();
+    _loadPiggies();
     assetAccountsVersion.addListener(_loadAccounts);
+    PiggyService.instance.piggyVersion.addListener(_loadPiggies);
   }
 
   @override
   void dispose() {
     assetAccountsVersion.removeListener(_loadAccounts);
+    PiggyService.instance.piggyVersion.removeListener(_loadPiggies);
     super.dispose();
   }
 
@@ -49,9 +54,23 @@ class _AssetsPageState extends State<AssetsPage> {
     });
   }
 
-  int get _totalAssets => _accounts
-      .where((a) => !a.isDebtAccount)
-      .fold(0, (s, a) => s + a.balanceCents);
+  /// 共同小金库余额合计（正余额计入净资产），随 piggyVersion 刷新。
+  Future<void> _loadPiggies() async {
+    final piggies = await PiggyService.instance.loadMyPiggies();
+    var total = 0;
+    for (final p in piggies) {
+      final b = await PiggyService.instance.balanceOf(p.id);
+      if (b > 0) total += b;
+    }
+    if (!mounted) return;
+    setState(() {
+      _piggyPositiveTotal = total;
+    });
+  }
+
+  int get _totalAssets =>
+      _accounts.where((a) => !a.isDebtAccount).fold(0, (s, a) => s + a.balanceCents) +
+      _piggyPositiveTotal;
 
   int get _totalDebt => _accounts
       .where((a) => a.isDebtAccount)
@@ -161,63 +180,61 @@ class _AssetsPageState extends State<AssetsPage> {
           ),
         ),
         Expanded(
-          child: _accounts.isEmpty
-              ? const SizedBox.shrink()
-              : _buildCategoryList(),
+          child: ListView(
+            padding: const EdgeInsets.all(spacingM),
+            children: [
+              ..._buildCategorySections(),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCategoryList() {
+  List<Widget> _buildCategorySections() {
     final grouped = _categoryEntries;
-    return ListView.builder(
-      padding: const EdgeInsets.all(spacingM),
-      itemCount: grouped.length,
-      itemBuilder: (context, index) {
-        final entry = grouped[index];
-        final catName = entry.key;
-        final accounts = entry.value;
-        final color = categoryColorByName(catName);
-        final total = accounts.fold(0, (s, a) => s + a.balanceCents);
-        return Container(
-          margin: const EdgeInsets.only(bottom: spacingM),
-          decoration: BoxDecoration(
-            color: colorBackgroundCard,
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: spacingL,
-                  vertical: spacingSM,
-                ),
-                child: Row(
-                  children: [
-                    Text(catName, style: textListItem),
-                    const Spacer(),
-                    Text(
-                      formatAmountEdit(total),
-                      style: textAccountAmount.copyWith(
-                        fontWeight: FontWeight.w400,
-                      ),
+    return grouped.map((entry) {
+      final catName = entry.key;
+      final accounts = entry.value;
+      final color = categoryColorByName(catName);
+      final total = accounts.fold(0, (s, a) => s + a.balanceCents);
+      return Container(
+        margin: const EdgeInsets.only(bottom: spacingM),
+        decoration: BoxDecoration(
+          color: colorBackgroundCard,
+          borderRadius: BorderRadius.circular(radiusMedium),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingL,
+                vertical: spacingSM,
+              ),
+              child: Row(
+                children: [
+                  Text(catName, style: textListItem),
+                  const Spacer(),
+                  Text(
+                    formatAmountEdit(total),
+                    style: textAccountAmount.copyWith(
+                      fontWeight: FontWeight.w400,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Divider(
-                height: 1,
-                thickness: borderWidthThin,
-                color: colorDivider,
-              ),
-              ...accounts.map((account) => _buildAccountRow(account, color)),
-            ],
-          ),
-        );
-      },
-    );
+            ),
+            const Divider(
+              height: 1,
+              thickness: borderWidthThin,
+              color: colorDivider,
+            ),
+            ...accounts.map((account) => _buildAccountRow(account, color)),
+          ],
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildAccountRow(AssetAccount account, Color color) {

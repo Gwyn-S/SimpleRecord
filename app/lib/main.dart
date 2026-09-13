@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,6 +9,7 @@ import '../services/data/ledger_service.dart';
 import '../services/data/record_service.dart';
 import '../services/data/category_service.dart';
 import '../services/data/asset_account_service.dart';
+import '../services/data/piggy_service.dart';
 import '../services/core/author_service.dart';
 import '../services/cloud/auto_backup_service.dart';
 import '../services/cloud/supabase_service.dart';
@@ -50,6 +52,13 @@ void main() async {
     appLog('[sync] start failed: $e');
     return false;
   });
+  // 后台启动小金库同步（依赖同一登录会话，未登录/未配置时静默跳过）。
+  unawaited(
+    PiggyService.instance.start().catchError((Object e) {
+      appLog('[piggy] start failed: $e');
+      return false;
+    }),
+  );
   // 自动备份：启动时对已启用且到期的场景执行一次（WebDAV / 本地），失败仅打日志兜底。
   AutoBackupService.runAll().catchError((Object e) {
     appLog('[auto backup] run failed: $e');

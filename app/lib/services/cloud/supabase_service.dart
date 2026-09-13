@@ -428,4 +428,177 @@ class SupabaseManager {
       return const [];
     }
   }
+
+  // ==================== piggies / piggy_ops（全局小金库）====================
+
+  /// 新建小金库房间（id 本地生成）。成功返回邀请码；失败返回 null。
+  Future<String?> createPiggy({
+    required String piggyId,
+    required String name,
+    required String inviteCode,
+  }) async {
+    final client = this.client;
+    if (client == null) return null;
+    try {
+      final res = await client.rpc(
+        'create_piggy',
+        params: {
+          'p_id': piggyId,
+          'p_name': name,
+          'p_invite_code': inviteCode.trim().toUpperCase(),
+        },
+      );
+      if (res is Map) {
+        return res['invite_code']?.toString();
+      }
+      return null;
+    } catch (e) {
+      appLog('[sync] createPiggy failed: $e');
+      return null;
+    }
+  }
+
+  /// 用邀请码加入小金库。返回 piggy 数据；邀请码无效/已被占用返回 null；
+  /// 网络/超时/服务端 RPC 异常原样上抛（由上层区分提示）。
+  Future<Map<String, dynamic>?> joinPiggyByInvite(String inviteCode) async {
+    final client = this.client;
+    if (client == null) throw StateError('Supabase 未就绪');
+    final res = await client.rpc(
+      'join_piggy_by_invite',
+      params: {'p_invite_code': inviteCode.trim().toUpperCase()},
+    );
+    if (res is Map<String, dynamic>) return res;
+    return null;
+  }
+
+  /// 拉取我参与（owner 或 peer）的全部小金库。
+  Future<List<Map<String, dynamic>>> fetchMyPiggies() async {
+    final client = this.client;
+    if (client == null) return const [];
+    try {
+      final res = await client
+          .from('piggies')
+          .select('id,name,created_at,invite_code,owner_email,peer_email');
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      appLog('[sync] fetchMyPiggies failed: $e');
+      return const [];
+    }
+  }
+
+  /// 改小金库名。成功返回 true。
+  Future<bool> renamePiggy(String piggyId, String name) async {
+    final client = this.client;
+    if (client == null) return false;
+    try {
+      await client
+          .from('piggies')
+          .update({
+            'name': name,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', piggyId);
+      return true;
+    } catch (e) {
+      appLog('[sync] renamePiggy failed: $e');
+      return false;
+    }
+  }
+
+  /// 追加一条小金库事件日志。成功返回云端自增 id，失败返回 null。
+  Future<int?> appendPiggyOp({
+    required String piggyId,
+    required String entityId,
+    required String op,
+    required Map<String, dynamic> payload,
+    required String deviceId,
+  }) async {
+    final client = this.client;
+    final myUid = uid;
+    if (client == null || myUid == null) return null;
+    try {
+      final row = await client
+          .from('piggy_ops')
+          .insert({
+            'piggy_id': piggyId,
+            'entity_id': entityId,
+            'op': op,
+            'payload': payload,
+            'uid': myUid,
+            'device_id': deviceId,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .select('id')
+          .single();
+      final id = row['id'];
+      return id is int ? id : int.tryParse(id.toString());
+    } catch (e) {
+      appLog('[sync] appendPiggyOp failed: $e');
+      return null;
+    }
+  }
+
+  /// 拉取小金库内 id 大于 [afterId] 的增量事件（按 id 升序）。
+  Future<List<Map<String, dynamic>>> fetchPiggyOps(
+    String piggyId, {
+    required int afterId,
+    int limit = 200,
+  }) async {
+    final client = this.client;
+    if (client == null) return const [];
+    try {
+      return await client
+          .from('piggy_ops')
+          .select()
+          .eq('piggy_id', piggyId)
+          .gt('id', afterId)
+          .order('id', ascending: true)
+          .limit(limit);
+    } catch (e) {
+      appLog('[sync] fetchPiggyOps failed: $e');
+      return const [];
+    }
+  }
+
+  final Map<String, RealtimeChannel> _piggyOpChannels = {};
+
+  /// 订阅指定小金库的 piggy_ops INSERT（收到即立即拉增量）。
+  Future<void> subscribePiggyOps({
+    required String piggyId,
+    required void Function(PostgresChangePayload payload) callback,
+  }) async {
+    final client = this.client;
+    if (client == null) return;
+    final existing = _piggyOpChannels.remove(piggyId);
+    if (existing != null) {
+      await existing.unsubscribe();
+    }
+    final channel = client
+        .channel('piggy_ops:$piggyId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'piggy_ops',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'piggy_id',
+            value: piggyId,
+          ),
+          callback: callback,
+        )
+        // 连接失败由 SDK 内置 timeout(默认 10s)+回调状态兜底，不阻塞调用方。
+        .subscribe();
+    _piggyOpChannels[piggyId] = channel;
+  }
+
+  /// 退订（删除小金库/登出时清理）。
+  Future<void> unsubscribePiggyOps(String piggyId) async {
+    final channel = _piggyOpChannels.remove(piggyId);
+    if (channel != null) {
+      await channel.unsubscribe();
+    }
+  }
 }

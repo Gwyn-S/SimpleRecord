@@ -24,6 +24,8 @@ truncate table auth.users cascade;
 
 -- 房间 = 共享账本。id 与本地账本 id 对齐（客户端生成的 uuid）
 -- owner_id / members 存的是登录邮箱（author_id），非匿名 uid。
+drop table if exists public.piggy_ops;
+drop table if exists public.piggies;
 drop table if exists public.oplogs;
 drop table if exists public.rooms;
 drop table if exists public.profiles;
@@ -159,3 +161,147 @@ end;
 $$;
 
 grant execute on function public.join_by_invite(text) to authenticated;
+
+-- ============ 全局小金库（跨账本共享资产）============
+-- 小金库 = 两个账号共享的一个全局资产。一人创建（owner）、另一人凭邀请码加入（peer）。
+-- 双方可见、可存取（存=deposit 支出语义、取=withdraw 收入语义）。
+-- 余额通过 append-only 的 piggy_ops 事件同步。
+-- 本表同样纳入「清空重建」集（见文件头 DROP 区）。
+
+create table public.piggies (
+  id uuid primary key,
+  name text not null default '小金库',
+  owner_email text not null,
+  peer_email text,               -- 未加入前为 null
+  invite_code text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index piggies_invite_code_key on public.piggies (invite_code);
+
+create table public.piggy_ops (
+  id bigserial primary key,
+  piggy_id uuid not null references public.piggies (id) on delete cascade,
+  entity_id text not null,         -- 本地操作事件 id（字符串）
+  op text not null,                -- deposit / withdraw
+  payload jsonb not null,          -- {piggy_id, delta, remark, operator_email}
+  uid text,
+  device_id text not null default '',
+  created_at timestamptz not null default now()
+);
+create index piggy_ops_piggy_id_idx on public.piggy_ops (piggy_id, id);
+
+-- ============ 小金库 RLS：仅 owner/peer 双方可见可写 ============
+alter table public.piggies enable row level security;
+alter table public.piggy_ops enable row level security;
+
+create policy piggies_read_participant on public.piggies
+  for select to authenticated
+  using (auth.jwt() ->> 'email' = owner_email or auth.jwt() ->> 'email' = peer_email);
+create policy piggies_write_participant on public.piggies
+  for all to authenticated
+  using (auth.jwt() ->> 'email' = owner_email or auth.jwt() ->> 'email' = peer_email)
+  with check (auth.jwt() ->> 'email' = owner_email or auth.jwt() ->> 'email' = peer_email);
+
+create policy piggy_ops_read_participant on public.piggy_ops
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.piggies p
+      where p.id = piggy_ops.piggy_id
+        and (auth.jwt() ->> 'email' = p.owner_email or auth.jwt() ->> 'email' = p.peer_email)
+    )
+  );
+create policy piggy_ops_write_participant on public.piggy_ops
+  for all to authenticated
+  using (
+    exists (
+      select 1 from public.piggies p
+      where p.id = piggy_ops.piggy_id
+        and (auth.jwt() ->> 'email' = p.owner_email or auth.jwt() ->> 'email' = p.peer_email)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.piggies p
+      where p.id = piggy_ops.piggy_id
+        and (auth.jwt() ->> 'email' = p.owner_email or auth.jwt() ->> 'email' = p.peer_email)
+    )
+  );
+
+-- Realtime：piggy_ops 加进发布，双方实时收到 INSERT
+alter publication supabase_realtime add table public.piggy_ops;
+
+-- ============ 小金库 RPC ============
+-- create_piggy：id 由客户端生成（与本地小金库 id 对齐），owner = 当前登录邮箱。
+-- invite_code 唯一冲突（或 id 冲突）时返回 null；成功返回该行 jsonb。
+create or replace function public.create_piggy(p_id uuid, p_name text, p_invite_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.piggies;
+begin
+  insert into public.piggies (id, name, owner_email, peer_email, invite_code)
+  values (p_id, p_name, auth.jwt() ->> 'email', null, upper(btrim(p_invite_code)))
+  on conflict do nothing;
+
+  select * into v_row from public.piggies where id = p_id;
+  if not found then
+    return null;
+  end if;
+  return to_jsonb(v_row);
+end;
+$$;
+
+grant execute on function public.create_piggy(uuid, text, text) to authenticated;
+
+-- join_piggy_by_invite：仿 join_by_invite 原子完成「查小金库 + 填 peer」。
+-- 已是 owner 直接返回该行；peer_email 为空则填入当前邮箱并返回行；
+-- 已是 peer 直接返回该行（重复加入幂等）；否则（peer 已被他人占用）返回 null。
+create or replace function public.join_piggy_by_invite(p_invite_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_piggy public.piggies;
+  v_email text := auth.jwt() ->> 'email';
+begin
+  if v_email is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_piggy
+    from public.piggies
+    where invite_code = upper(btrim(p_invite_code));
+
+  if not found then
+    return null;
+  end if;
+
+  if v_email = v_piggy.owner_email then
+    return to_jsonb(v_piggy);
+  end if;
+
+  if v_piggy.peer_email is null then
+    update public.piggies
+      set peer_email = v_email,
+          updated_at = now()
+      where id = v_piggy.id;
+    v_piggy.peer_email := v_email;
+    return to_jsonb(v_piggy);
+  end if;
+
+  if v_email = v_piggy.peer_email then
+    return to_jsonb(v_piggy);
+  end if;
+
+  return null;
+end;
+$$;
+
+grant execute on function public.join_piggy_by_invite(text) to authenticated;
