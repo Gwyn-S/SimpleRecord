@@ -1,105 +1,121 @@
 ====================================================================
-SimpleRecord 审查清单（2026-09-11 重排 v4）
-远端 6 笔提交(b9adb39..ea294e8)四维度审查 18 项并入；行号对齐 HEAD=ea294e8。
-本次删除：#47(loadCloudConfig 随云配置内置注入重构删除，过时)。
-本次移除(用户判定)：语音识别密钥校验(#同fccbd01)/supabase init 空跑
-(#同34a227f)——发布必注入密钥配置，未注入即事故，不视为问题。
-v3 修复删除：#1(邀请码分类)、#2(恢复不动 sync_mode/owner)、#3(空拉取不广播)、
-#6(webdav 连接改 busyDialog)。
+SimpleRecord 审查清单（2026-09-14 重排 v5）
+远端 11 笔提交(add5f4d..7da8424，目录重构/小金库/分类管理/AI面板化)四维度审查 25 项并入；
+行号全部重新核实对齐 HEAD=7da8424。
+本次删除：#42(缩进损坏已随 piggy 入口重构格式化修复)。
+部分变化标记 ◐：#11(缩进已修复，剩余 mounted/switch 问题保留)、#43(builder 折行弱化)、
+#50(顺序已调但 fire-and-forget 本质保留)、#56(SKILL.md 行 8 和行 16 均旧路径)、
+#70(setup.sql 行号移至 47-57)。
+用户维持判定：发布版必注入配置/密钥，"未注入即事故"不视为问题（语音密钥校验/supabase init 空跑）。
 ====================================================================
 
 P1 — 建议修（真实可达）
 | # | 位置 | 问题 |
 |---|------|------|
-| 1 | sync_service.dart:24,290-357 | 云同步冲突策略与注释不符：注释声称"按 created_at 最后写赢"，实际按 oplog id 升序 + ConflictAlgorithm.replace = "最后上传赢"；离线旧编辑可静默覆盖在线新编辑，陈旧 update 会复活已删记录 |
-| 2 | ledger_service.dart:109-148 + ledger_list_page.dart:415-445 | 共享账本删除无权限校验/无警示：任一成员删除会同步删云端全部记录，确认框无"影响所有成员"提示、无恢复路径 |
-| 3 | auto_backup_service.dart:96-98 + main.dart:49-51 | 自动备份失败静默丢弃：runOnce 返回 error 被 runAll 丢弃；_run* 恒 catch 使外层 catchError 永不触发(死代码)；无日志、用户无感知(网络不可达/认证失败为主因) |
+| 1 | sync_service.dart:26,278-305,324-340 | 云同步冲突策略与注释不符：注释声称"最后写赢(按 created_at)"，实际 fetchOplogs 按 oplog id 升序 + ConflictAlgorithm.replace = "最后上传赢"；离线旧编辑可静默覆盖在线新编辑，陈旧 update 会复活已删记录 |
+| 2 | ledger_service.dart:111-151 + ledger_list_page.dart:416-447 | 共享账本删除无权限校验/无警示：任一成员删除会同步删云端全部记录(入队 op:'delete')，确认框无"影响所有成员"提示、无恢复路径 |
+| 3 | auto_backup_service.dart:96-99,101-123 + main.dart:63-65 | 自动备份失败静默丢弃：runAll 丢弃 runOnce 返回的 error，runOnce 恒 catch 使外层 catchError 近乎失效；无日志、用户无感知(网络不可达/认证失败为主因) |
+| 4 | formatters.dart:25-33 + asset_detail_page.dart:518-519,562-564 + asset_account_form_page.dart:56,74-78 | 负金额解析错误：yuanToCents('-1234.56')→-123344(应-123456)、'-0.56'→+56；负余额账户编辑预填负值不改动直接保存即写错余额 |
+| 5 | asset_detail_page.dart:562-564 + asset_account_form_page.dart:74-78 | 余额输入非法/清空静默置 0：text.isEmpty \|\| double.tryParse==null ? 0 : yuanToCents → 非法输入被当作"余额调成 0"持久化进 balance_adjustments，无校验提示无回滚 |
+| 6 | main_page.dart:101-130 + ai_text_record_panel.dart:75,108 | 语音记账模型配置失效：语音转写直接塞文字面板走 textModel，ai_voice_config_index/voiceModel 成死配置，只配语音模型会报"请先选择文本模型"不可用 |
+| 7 | piggy_service.dart:375-386 + setup.sql:182-192 | 小金库云端 append 无幂等键：每次 append 传新 genId()，piggy_ops.entity_id 无唯一约束；断网提交后响应丢失→重试生成新 op→云端双计/双扣余额 |
+| 8 | piggy_service.dart:409-432 + piggy_detail_page.dart:361-386 | 小金库入账与记账非事务：piggy_events 写入与 insertRecord 不在同一 db.transaction，记账异常时余额已变账没记；_PiggyOpSheet._submit 无 try/catch 卡在 _submitting 无法关闭 |
+| 9 | sync_service.dart:519-523 + 341-358 | 关闭共享失效：disableSync 仅置 flag 不退订 realtime(对比 removeSharedState:698 才退订)；_applyRemoteOp 对 ledger update 恒写 sync_mode:1，远端任一改名把已关闭共享的账本静默翻回共享 |
+| 10 | ledger_list_page.dart:485-486 | 切账本竞态：saveCurrentLedgerId 未 await 就调 loadCategoryCache，首次加载读到旧账本 ID 污染分类缓存 |
 
 P2 — 建议修（结构/性能/可维护）
 | # | 位置 | 问题 |
 |---|------|------|
-| 4 | sync_service.dart:401-448 | enableSync 对同一账本连续两次 UPDATE(_setSharedFlag + db.update owner)，可合并一处；joinByInvite 已是合并写法，两处风格不一致 |
-| 5 | ledger_service.dart:69-78 | 归属过滤对"无归属"共享账本失效：ownerAuthorId==null 对任意登录账号可见，与未登录分支全隐藏不一致，与注释意图冲突(需说明旧数据兼容) |
-| 6 | author_service.dart:309-328 | displayNameFor/displayAvatarFor 高度重复，每次走 4 次异步 Settings 读，未批量 |
-| 7 | record_item.dart:180-208 | StatelessWidget 直接执行 DB 删改(deleteRecord/updateRecord/deleteImage)，无 loading/用户反馈(常态 UX 问题)；异常部分仅磁盘触发 |
-| 8 | author_avatar.dart:48-78 | 快速切换 URL 时旧 _load 竞态：旧请求先完成会闪现旧头像 |
-| 9 | supabase_sync_page.dart:199,228 | 页面直接 await start() 无兜底：start() 链路含网络(fetchMyRooms/subscribe/appendOplog)，超时/断连抛错变未接住异常，"注册/登录成功"提示不弹(random) |
-| 10 | author_service.dart:236-244 | 压缩小图前置到上传前：_resizeBytes 异常/返回 null 时直接放弃上传；用户在相册选图(HEIC/RAW/WebP 变体解码失败)或内存不足即触发，旧版压缩失败仅影响展示缓存 |
-| 11 | ledger_list_page.dart:186-188 | 缩进损坏：switch-case 内 if(context.mounted) 顶格书写，掩盖 await _loadLedgers() 无 mounted 保护，与文件内其余 if(!mounted) 风格不一致 |
-| 12 | ledger_list_page.dart:190-194,399-403 | 失败提示用 isSignedIn 区分不准：未配置云同步时 email 同样 null；isSignedIn 分支近死代码(_ready=false 时恒 false)，应结合 isReady 区分"未配置/未登录" |
-| 13 | ledger_service.dart:69-81 等 | syncMode==1 魔法值散落多处，可提取命名常量 |
-| 14 | ledger_service.dart:68 | loadLedgers 被 Supabase 会话状态渗透(归属过滤依赖 existingAuthorId)，"纯本地列表"读取也依赖云登录态,登出后本地账本列表隐藏 |
-| 15 | ledger_list_page.dart:36-50 + main_page.dart:81 | 身份切换后账本列表不刷新：recordsVersion listener 只 _loadStats 不重载账本，IndexedStack 保 state，退出/登录后显隐/排序变化需手动刷新 |
-| 16 | ledger_list_page.dart:186-199 | ledger! 强制解包 + switch-case 无 break，依赖 joinByInvite 隐式约定，弱化语义 |
-| 17 | supabase_sync_page.dart:206-214,235-244,74-86 | 登录/注册/退出三处重复"刷新身份+校验 mounted+toast"流程，可抽统一异步流程 |
-| 18 | author_service.dart:125-133 | ensureAuthorId 与 existingAuthorId 完全同义，保留其一即可 |
-| 19 | supabase_service.dart:48 + sync_service.dart:44 | ensureSignedIn 纯同步读却包成 async Future<bool>，与 isSignedIn 表达同一状态，可统一 getter |
-| 20 | supabase_sync_page.dart:149-172 | 账号弹窗注册/登录按钮"取值→校验→关弹窗→派发"完全重复，可合一 _submit(email, password, isRegister) |
-| 21 | supabase_sync_page.dart:209,239 | _authorId=email 用原始输入：author_service/Supabase 均将邮箱小写化，不同入口大小写不一致 |
-| 22 | sync_service.dart:633-678,607-615 | _restoreMyRooms 逐房间串行+立即订阅，随后 _resubscribeRoomsFromLocal 全量重订，Realtime 通道建/拆两次 |
-| 23 | sync_service.dart:375-389 | _restoreRemoteProfiles 逐条串行 await 写 Settings(每次写盘)，成员多时启动慢；avatar_url null 会清本地已有头像映射 |
-| 24 | sync_service.dart:73-80,171-231 | stop() 与在途 flush() 竞态：flush 卡网络时 _flushing=true，stop→重登→start 内 flush 因 _flushing 直接 return，本轮 outbox 漏推(网络延迟+登出/登入双条件) |
-| 25 | author_service.dart:29,34 | 魔术值碰撞：_keyOwnNickname='nickname' 与 recordDisplayNickname='nickname' 同值不同义 |
-| 26 | author_service.dart:110-122 | ownNickname/ownAvatar 每调都异步读 Settings，高频调用可加内存缓存 |
-| 27 | author_service.dart:143-146 | ownName.trim() 双重 trim(ownNickname 已 trim) |
-| 28 | record_item.dart:54,89-94,102,151 | 多处硬编码尺寸/间距/圆角/字号未走 constants |
-| 29 | supabase_sync_page.dart:453,458,492,507 | 用 Colors.black 而非 colorTextPrimary(453,492,507)；间距 8(width:8) 未走 spacingS(458) |
-| 30 | supabase_sync:121-145 + ledger_list:133,242 + tag_manage:51-63 + transfer:162-173 | InputDecoration 下划线模式多处重复，可抽工厂 |
-| 31 | ledger_list_page.dart:268-278,297-303,335-345 + 282-286,349-353 | 同一 TextStyle 重复 3 次、Switch 三色配置重复 2 次 |
-| 32 | calendar_page:113-119、bills_page:72-73 | 页面直接查 service 判断共享账本，应由 service 封装 |
-| 33 | record.dart:68-80 | fromDbMap 重复实现 imagePathsFromDb(同文件:25-32) 逻辑 |
-| 34 | record_service.dart:52-64,85-95 | loadRecords 与 loadRecordsByDateRange SQL 模板重复 |
-| 35 | sync_service.dart:431-445 | enableSync 逐条 _enqueue，应 db.batch 批量 |
-| 36 | sync_service.dart:121-143 | enqueueProfileChange 向所有共享账本广播，房间多时写放大 |
-| 37 | supabase_service.dart:361-393 | getProfileNickname+getProfileAvatar 可合并为一次 getProfile 查询 |
-| 38 | sync_service(713)/supabase_sync_page(617)/ledger_list_page(610) | 单文件超 500 行，多职责混一应拆 |
-| 39 | ledger_service.dart:105 | 共享账本改名 renameRoom 结果被 unawaited 丢弃：网络失败时新加入者拿到旧账本名，无重试无提示 |
-| 40 | auto_backup_service.dart:101-123 vs webdav_page.dart:260-295 | WebDAV 上传备份逻辑两处重复：createTemp+createSrbBackup(dir)+upload+finally 删临时目录，自动/手动各一份 |
-| 41 | webdav_page.dart:460-491 vs local_backup_page.dart:212-249 | 备份文件列表 UI 高度重复：ListView.separated+ListTile+恢复/删除 trailing 约 20 行一致，可抽 BackupFileList |
-
-P2 新增（本次 6 笔提交审查）
-| # | 位置 | 问题 |
-|---|------|------|
-| 42 | add_asset_account_page.dart:169,173-234 | itemBuilder 回调体内约 60 行缩进完全错位(顶到列 0)，严重违反 dart format 规范(39de5c2) |
-| 43 | trend_line_chart.dart:49-56 | builder: 参数缩进断裂：builder: 关键字顶到列 0，回调参数缩进异常，与文件其余风格不一致(8cfef36) |
-| 44 | add_asset_account_page.dart:180-182 | 魔法颜色 0xFFF44336/0xFF2196F3/0xFF9C27B0 硬编码，app_colors 已有同值 rainbowGradientColors，应抽语义常量(39de5c2) |
-| 45 | add_asset_account_page.dart:171,174-183 | 用中文名"现金/储蓄卡/负债"做 switch 分支匹配分类，改名即静默回退 default，建议用枚举 ID(39de5c2) |
-| 46 | add_asset_account_page.dart:200-201,209-210,219 | 5 处字面量 24 未用 iconSizeXLarge(同文件其他处已用常量)(39de5c2) |
-| 47 | asset_category_select_page.dart:85-86 vs 90-91 | 同组件内容器宽高用字面量 24、SvgPicture 用 iconSizeXLarge(同为24)，两种表达混用(39de5c2) |
-| 48 | tencent_asr_service.dart:16-17 | loadAsrConfig() 标注 async 但函数体无 await(纯同步常量返回)，多余 Future 包装，调用方 await 白跑微任务(fccbd01) |
-| 49 | stats_page.dart:32,296 | _itemKeys 的 Map<int,GlobalKey> 经 putIfAbsent 只增不减，跨 range(周/月/年/自定义) 切换留垃圾 Key，微内存泄漏(8cfef36) |
-| 50 | stats_page.dart:251-277 | 切换 range tab 时 _scrollToSelected 在 _loadData 异步完成前调用，快速连续切换可能滚动闪烁/定位旧 tab(8cfef36) |
+| 11 | sync_service.dart:475-486 | enableSync 对同一账本连续两次 UPDATE(_setSharedFlag + db.update owner)，可合并一处；joinByInvite 已是合并写法，两处风格不一致 |
+| 12 | ledger_service.dart:69-79 | 归属过滤对"无归属"共享账本失效：ownerAuthorId==null 对任意登录账号可见，与未登录分支全隐藏不一致，与注释意图冲突(需说明旧数据兼容) |
+| 13 | author_service.dart:309-317,320-328 | displayNameFor/displayAvatarFor 高度重复，各自每次走 4 次异步 Settings 读，未批量 |
+| 14 | record_item.dart:180-208 | StatelessWidget 直接执行 DB 删改(deleteRecord/updateRecord/deleteImage)，无 loading/用户反馈(常态 UX 问题)；异常部分仅磁盘触发 |
+| 15 | common/author_avatar.dart:48-78 | 快速切换 URL 时旧 _load 竞态：_load 仅 if(!mounted) return，无 URL 序号校验，旧请求先完成会闪现旧头像 |
+| 16 | supabase_sync_page.dart:194-221,224-252 | 页面直接 await start() 无兜底：start() 链路含网络，超时/断连抛错变未接住异常，"注册/登录成功"提示不弹(random) |
+| 17 | author_service.dart:231-270 | 压缩小图前置到上传前：_resizeBytes 异常/返回 null 时直接放弃上传；相册 HEIC/RAW/WebP 解码失败或内存不足即触发，旧版压缩失败仅影响展示缓存 |
+| 18 | ledger_list_page.dart:184-200 | ◐ await _loadLedgers()(186) 无 mounted 保护、switch 仍无 break、ledger! 强制解包(188)，依赖 joinByInvite 隐式约定(原缩进问题已随重构修复) |
+| 19 | ledger_list_page.dart:190-195,398-404 | 失败提示用 isSignedIn 区分不准：未配置云同步时 email 同样 null；isSignedIn 分支近死代码(_ready=false 时恒 false)，应结合 isReady 区分"未配置/未登录" |
+| 20 | ledger_service.dart:105 + sync_service.dart:153,270,703,787 + ledger_list_page.dart:65,219,260,522,565 + calendar_page.dart:117 + stats_detail_page.dart:52 | syncMode==1 魔法值散落 11 处(6 文件)，可提取命名常量 |
+| 21 | ledger_service.dart:63-83 | loadLedgers 被 Supabase 会话状态渗透(归属过滤依赖 existingAuthorId)，"纯本地列表"读取也依赖云登录态,登出后本地账本列表隐藏 |
+| 22 | ledger_list_page.dart:33-51 + main_page.dart:209 | 身份切换后账本列表不刷新：recordsVersion listener 只 _loadStats 不重载账本，IndexedStack 保 state，退出/登录后显隐/排序变化需手动刷新 |
+| 23 | supabase_sync_page.dart:68-89,194-221,224-252 | 注册/登录/退出三处重复"刷新身份+校验 mounted+toast"流程，可抽统一异步流程 |
+| 24 | author_service.dart:125-133 | ensureAuthorId 与 existingAuthorId 完全同义，保留其一即可 |
+| 25 | supabase_service.dart:48-54 + sync_service.dart:44-45 | ensureSignedIn 纯同步读却包成 async Future<bool>，与 isSignedIn 表达同一状态，可统一 getter |
+| 26 | supabase_sync_page.dart:152-175 | 账号弹窗注册/登录按钮"取值→校验→关弹窗→派发"完全重复，可合一 _submit(email, password, isRegister) |
+| 27 | supabase_sync_page.dart:212,243 | _authorId=email 用原始输入：author_service/Supabase 均将邮箱小写化，不同入口大小写不一致 |
+| 28 | sync_service.dart:727-772,701-709,51-68 | _restoreMyRooms 逐房间串行+立即订阅，随后全量重订，Realtime 通道建/拆两次 |
+| 29 | sync_service.dart:432-446 | _restoreRemoteProfiles 逐条串行 await 写 Settings(每次写盘)，成员多时启动慢；avatar_url=null 清本地已有映射 |
+| 30 | sync_service.dart:74-81,196-210 | stop() 与在途 flush() 竞态：flush 卡网络时 _flushing=true，stop→重登→start 内 flush 因 _flushing 直接 return，本轮 outbox 漏推 |
+| 31 | author_service.dart:29,34 | 魔术值碰撞：_keyOwnNickname='nickname' 与 recordDisplayNickname='nickname' 同值不同义 |
+| 32 | author_service.dart:111-122 | ownNickname/ownAvatar 每调都异步读 Settings，高频调用可加内存缓存 |
+| 33 | author_service.dart:143-146 | ownName.trim() 双重 trim(ownNickname 已 trim) |
+| 34 | record_item.dart:53-55,88-94,99-103,150-153 | 多处硬编码尺寸/间距/圆角/字号(40/20/radius 4/fontSize 12/16)未走 constants |
+| 35 | supabase_sync_page.dart:458,463,497,512,554 | 用 Colors.black 而非 colorTextPrimary；间距 width:8 未走 spacingS |
+| 36 | supabase_sync:120-148 + ledger_list:134-147,152-165,243-256 + tag_manage:51-62 + transfer:162-173 | InputDecoration 下划线模式 4 文件 7 处重复，可抽工厂 |
+| 37 | ledger_list_page.dart:269-276,298-305,336-343 + 283-288,350-355 | 同一 TextStyle 重复 3 次、Switch 三色配置重复 2 次 |
+| 38 | calendar_page.dart:114-120 + bills_page.dart:71-73 | 页面直接查 service 判断共享账本，应由 service 封装 |
+| 39 | record.dart:68-97 | fromDbMap 重复实现 imagePathsFromDb(同文件:25-32) 逻辑 |
+| 40 | record_service.dart:37-65,68-96 | loadRecords 与 loadRecordsByDateRange SQL 模板重复 |
+| 41 | sync_service.dart:487-512 | enableSync 对存量记录/分类逐条 _enqueue，应 db.batch 批量 |
+| 42 | sync_service.dart:147-169 | enqueueProfileChange 向所有共享账本广播，房间多时写放大 |
+| 43 | supabase_service.dart:361-393 | getProfileNickname+getProfileAvatar 可合并为一次 getProfile 查询 |
+| 44 | sync_service.dart(807) + supabase_sync_page.dart(622) + ledger_list_page.dart(612) | 单文件超 500 行，多职责混一应拆 |
+| 45 | ledger_service.dart:105-108 | 共享账本改名 renameRoom 结果被 unawaited 丢弃：网络失败时新加入者拿到旧账本名，无重试无提示 |
+| 46 | auto_backup_service.dart:101-123 vs webdav_page.dart:260-295 | WebDAV 上传备份逻辑两处重复：createTemp+createSrbBackup+upload+finally 删临时目录，自动/手动各一份 |
+| 47 | webdav_page.dart:460-491 vs local_backup_page.dart:209-250 | 备份文件列表 UI 高度重复：ListView.separated+ListTile+恢复/删除 trailing 约 20 行一致，可抽 BackupFileList |
+| 48 | trend_line_chart.dart:49-56 | ◐ builder: 参数折行缩进断裂(builder 在 49 独立成行、参数括号另起)；已非顶到列 0，但该格式仍异常 |
+| 49 | add_asset_account_page.dart:224-226 | 魔法颜色 0xFFF44336/0xFF2196F3/0xFF9C27B0 硬编码，app_colors 已有同值 rainbowGradientColors，应抽语义常量 |
+| 50 | add_asset_account_page.dart:218,221-228 | 用中文名"现金/储蓄卡/信用卡/负债"做 switch 分支匹配分类，改名即静默回退 default，建议用枚举 ID |
+| 51 | add_asset_account_page.dart:163-164,171,244-245,253-254,263 | 8 处字面量 24 未用 iconSizeXLarge |
+| 52 | asset_category_select_page.dart:84-91 | 同组件内容器宽高用字面量 24、SvgPicture 用 iconSizeXLarge(同为24)，两种表达混用 |
+| 53 | tencent_asr_service.dart:16-17 | loadAsrConfig() 标注 async 但函数体无 await(纯同步常量返回)，多余 Future 包装 |
+| 54 | stats_page.dart:32,296 | _itemKeys 的 Map<int,GlobalKey> 经 putIfAbsent 只增不减，跨 range(周/月/年/自定义) 切换留垃圾 Key，微内存泄漏 |
+| 55 | stats_page.dart:276-277,61-65,305-306 | ◐ 切 range tab 时 _loadData() 未 await(fire-and-forget) 就 _scrollToSelected，滚动仍在异步完成前执行，快速切换可能闪烁/定位旧 tab |
+| 56 | category_manage_page.dart:48-55 | 分类重排 off-by-one：Flutter 3.44 onReorderItem 已自动调整 index，这里又手动 newIndex--，向下拖少一格且污染 sort_order(对比 tag_manage_page 未调整) |
+| 57 | add_record_page.dart:100-104 | 保存时 cats[_selectedCategory!] 无越界保护：分类变运行时可变后，删分类再保存会静默记错("其他")或 RangeError 崩溃 |
+| 58 | sync_service.dart:285-303 | pullForRoom 逐 op 无 try/catch(对比 piggy_service:191-197 有单条容错)：单条坏 op 中断整轮拉取、游标不推进→该房间同步永久卡死 |
+| 59 | category_service.dart:129-133 + sync_service.dart:376-389 | renameCategory payload 缺 icon_name/sort_order，远端回落图标''/排序0；且 update 按新名 INSERT..REPLACE 会残留旧名行(当前无重命名入口，潜在) |
+| 60 | sync_service.dart:582-586 | joinByInvite 本地 seed 分类不入 outbox（seedCategoriesForLedger 纯本地 batch），只本机可见，加入者后续删改会向全房间推"凭空变更" |
+| 61 | main_page.dart:95-99 + voice_record_helper.dart:48-55,60-62 | 语音 hover 竞态：start() 未完成就松手→提前 return，录音随后启动无人能停；cancel() 全仓无调用点，误录无法丢弃(死代码+功能缺口) |
+| 62 | stats_ranking_card.dart:57-64 | 自称通用排行榜卡却在 build 硬编码读全局 expenseCategories 缓存找图标，复用给收入排行即全错；RankingItem.icon 成死字段 |
+| 63 | record_item.dart:36-42 | 每个记录条目 build 时线性扫分类缓存找图标 O(记录数×分类数)，缓存未加载时全部回落 help_outline |
+| 64 | assets_page.dart:58-69 + piggy_service.dart:477-484 | totalPiggyBalance 死代码(无调用方)且与页面各写一套合计逻辑，语义还不一致(抵消 vs 只计正) |
+| 65 | category_service.dart:174-195 | deleteCategory 逐条 deleteRecord 独立事务+独立 enqueue，N+1 可单事务批量 |
+| 66 | piggy_page.dart:44-58 + piggy_detail_page.dart:60-65 | 对每个 piggy/event 串行 await(balanceOf/peerLabel/displayNameFor)，可 Future.wait 并发 |
+| 67 | ai_text_record_panel.dart:61-139 vs ai_image_record_panel.dart:90-168 | 两个面板 config校验→analyze→save 全流程逐字重复，可抽公共 mixin/base |
+| 68 | piggy_service.dart:453 | 记账联动硬编码 categoryName:'小金库'，该分类不在默认种子，列表显示 help 图标、分类管理不可删、统计/AI 不识别 |
 
 P3 — 可选/洁癖
 | # | 位置 | 问题 |
 |---|------|------|
-| 51 | supabase_service.dart:38 | .timeout(15s) 包 Supabase.initialize：release 内置配置下正常远 <15s；超时(极差网络)后 _ready=false 干净回退，启动最长阻塞 15s |
-| 52 | supabase_sync_page.dart:320,331 | 昵称 Settings.setString 两处(写入+回滚)未 await：Settings 内存缓存+同步写盘，风险仅"写盘完成前被杀"窗口 |
-| 53 | ledger_list_page.dart:190-194 | "请先配置云同步"与"请先注册或登录"两文案分支：isSignedIn 分支近死代码，可简化单文案 |
-| 54 | supabase_sync_page.dart:68-86 | "开启同步"入口缺配置护栏：未注入配置时点按钮仍弹注册/登录，随后通用"注册/登录失败"(无崩溃) |
-| 55 | supabase_sync_page.dart:198-199,227-228 | !mounted 早退时 busy 弹窗未 pop(需 async 期间程序化 pop 页面才触发)；_pickAvatar 已用 try/finally 正确处理 |
-| 56 | .opencode/skills/buildwinapk/SKILL.md:8,18 | 工作目录硬编码：行 18 已改为 D:\My_Note\simple-record\app，行 8 仍写旧路径 E:\KeepBook\app(遗漏) |
-| 57 | ledger_service.dart:64,80 | SQL ORDER BY created_at 后 Dart 侧 .sort() 同键重排(过滤保序)，双重排序冗余(8eee949 后已同向，纯防御) |
-| 58 | ledger_service.dart:162 | ensureCurrentLedgerId 无有效当前账本时取 ledgers.first：随排序翻转默认"最旧"(原最新)，行为变更提交未注明 |
-| 59 | ledger_list_page.dart:201-204 | 新建账本由即时 setState 改为 await insert + _loadLedgers 全量重查，弹窗期间无 busy 指示，账本少时无感知 |
-| 60 | sync_service.dart:406 | 建房间重试 5 次为魔法值、无退避间隔 |
-| 61 | ledger_list_page.dart:382 + ledger_service.dart:155 | "日常"硬编码字符串比较，建议模型/常量定义 |
-| 62 | record.dart:91 | created_at as int 缺 null 保护，应 (as int?) ?? 0(云端旧客户端/迁移遗留可触发) |
-| 63 | 10 个公开 Widget 类 | 缺 /// 文档注释：AiRecordResultCard/BillDetailSheet/CommonAppBar/DonutPieChart/FilterTabBar/HomeTopBar/RecordItem/SpeedDialFAB/SummaryBlock/TabSwitcherAppBar |
-| 64 | ledger_list_page.dart:1-18 | import 排序未分组：package/relative 无空行分隔、relative 组内未字母序(部分文件已正确) |
-| 65 | auto_backup_service.dart:96-98 | runAll 串行：webdav 最坏网络超时约 75s 会阻塞 local；可 Future.wait(需 DB vacuum 互斥) |
-| 66 | webdav_service.dart:118-130 + webdav_page.dart:332 | download 临时目录：调用方 finally 仅 localPath!=null 才删，中途失败残留 tmpDir |
-| 67 | auto_backup_service.dart:12 | monthly=720h 固定 30 天，与自然月(28-31天)偏差最多 2 天 |
-| 68 | 多文件 | showToast 与 safeShowToast 使用混杂：webdav(9)/supabase(13)/ledger_list(15+1)/local_backup/budget/search/ai_config_detail(7) 用裸 showToast，ai_*/transfer/manual_entry 用 safeShowToast，ledger_list 内部两种都有 |
-| 69 | supabase_sync_page.dart:96-97 | _showAccountDialog 创建的邮箱/密码 TextEditingController 未 dispose |
-| 70 | supabase_service.dart:201 + setup.sql:31-41 | oplogs.uid 列在 setup.sql 已改为 text(按邮箱语义)，appendOplog 仍写 auth uid，列语义不一致(不参与 RLS，纯命名一致性) |
-| 71 | database.dart:49-51 | vacuum() 空 catch 吞异常，应 appLog(唯一失败源磁盘故障，仅 DB 不压缩；由 P2 降级留痕) |
-
-P3 新增（本次 6 笔提交审查）
-| # | 位置 | 问题 |
-|---|------|------|
-| 72 | tencent_asr_config.dart:8 | isValid getter 成为死代码：fccbd01 移除唯一调用方(ai_voice_record_page)后无任何调用者，未清理 |
-| 73 | account_picker_sheet.dart:79-80,91 | "不关联账户"文案改为"无账户"，语义退步(动作描述→状态描述)易误解；防止参考 |
-| 74 | account_avatar.dart:23-29 | 移除 category.iconPath 回退：老账户 iconPath 为空时图标退化，历史数据展示与新账户不一致(39de5c2 波及) |
+| 69 | supabase_service.dart:35-38 | .timeout(15s) 包 Supabase.initialize：release 内置配置下正常远 <15s；超时(极差网络)后 _ready=false 干净回退，启动最长阻塞 15s |
+| 70 | supabase_sync_page.dart:325,336 | 昵称 Settings.setString 两处(写入+回滚)未 await：风险仅"写盘完成前被杀"窗口 |
+| 71 | ledger_list_page.dart:190-195 | "请先配置云同步"与"请先注册或登录"两文案分支：isSignedIn 分支近死代码，可简化单文案 |
+| 72 | supabase_sync_page.dart:69-73 | "开启同步"入口缺配置护栏：未注入配置时点按钮仍弹注册/登录，随后通用"注册/登录失败"(无崩溃) |
+| 73 | supabase_sync_page.dart:197-203,227-233,326-333 | !mounted 早退时 busy 弹窗未 pop(需 async 期间程序化 pop 页面才触发)；_saveNicknameAndClose 同模式 |
+| 74 | .opencode/skills/buildwinapk/SKILL.md:8,16 | ◐ 工作目录硬编码：行 18 已改 D:\My_Note\simple-record\app，但行 8 仍写旧路径 E:\KeepBook\app，行 16(analyze 说明)也是旧路径(遗漏) |
+| 75 | ledger_service.dart:65,81 | SQL ORDER BY created_at 后 Dart 侧 .sort() 同键重排(过滤保序)，双重排序冗余 |
+| 76 | ledger_service.dart:163-166 | ensureCurrentLedgerId 无有效当前账本时取 ledgers.first：loadLedgers 已改 created_at 升序，first 恒为最旧(原最新语义变更) |
+| 77 | ledger_list_page.dart:201-205 | 新建账本由 await insert + _loadLedgers 全量重查，弹窗期间无 busy 指示 |
+| 78 | sync_service.dart:463 | 建房间重试 5 次为魔法值、无退避间隔 |
+| 79 | ledger_list_page.dart:383 + ledger_service.dart:158 | "日常"硬编码字符串比较/创建，建议模型/常量定义 |
+| 80 | record.dart:91 | created_at as int 缺 null 保护，应 (as int?) ?? 0(云端旧客户端/迁移遗留可触发) |
+| 81 | 10 个公开 Widget 类(散落 widgets/ 各子目录) | 缺 /// 类文档注释：AiRecordResultCard/BillDetailSheet/CommonAppBar/DonutPieChart/FilterTabBar/HomeTopBar/RecordItem/SpeedDialFAB/SummaryBlock/TabSwitcherAppBar |
+| 82 | ledger_list_page.dart:1-19 | import 排序未分组：package/relative 无空行分隔、relative 组内未字母序 |
+| 83 | auto_backup_service.dart:96-99 | runAll 串行：webdav 最坏网络超时约 75s 会阻塞 local；可 Future.wait(需 DB vacuum 互斥) |
+| 84 | webdav_service.dart:118-130 + webdav_page.dart:332,343-350 | download 临时目录：调用方 finally 仅 localPath!=null 才删，中途失败残留 tmpDir |
+| 85 | auto_backup_service.dart:12 | monthly=720h 固定 30 天，与自然月(28-31天)偏差最多 2 天 |
+| 86 | 多文件 | showToast 与 safeShowToast 使用混杂：裸用 supabase_sync(13)/ledger_list(15)/webdav(9)/ai_config_detail(7)/piggy(7+5新增)/search(3)/local_backup/budget/date_filter_sheet；safe 用 ai_*/transfer/add_record/category_* 等 |
+| 87 | supabase_sync_page.dart:99-100 | _showAccountDialog 创建的邮箱/密码 TextEditingController 未 dispose |
+| 88 | supabase_service.dart:190,201 + setup.sql:47-57 | ◐ oplogs.uid 列在 setup.sql 已改 text(按邮箱语义)，appendOplog 仍写 auth uid，语义不一致(不参与 RLS，纯命名一致性) |
+| 89 | database.dart:49-51 | vacuum() 空 catch 吞异常，应 appLog(唯一失败源磁盘故障，仅 DB 不压缩) |
+| 90 | tencent_asr_config.dart:8 | isValid getter 成死代码：唯一调用方(ai_voice_record_page)已删，全仓无任何调用者 |
+| 91 | account_picker_sheet.dart:79-80 | "不关联账户"文案改为"无账户"，语义退步(动作描述→状态描述)易误解 |
+| 92 | account_avatar.dart:23-30 | 移除 category.iconPath 回退：老账户 iconPath 为空时图标退化，历史数据展示与新账户不一致 |
+| 93 | sync_service.dart:795-799,718-725 + piggy_service.dart:523-527,530-537 | _generateInviteCode/_parseEpochOrNull 两服务各一份逐字重复，可抽公共工具 |
+| 94 | database.dart:199-212 | piggy_events 表只有 op_id 唯一索引，无 piggy_id 索引，数据量大后 balanceOf/loadEvents 全表扫描 |
+| 95 | pubspec.lock | 被 0f7eb47 移出跟踪(.gitignore app/pubspec.lock)，新克隆不可复现构建，建议重新纳入 |
+| 96 | ai_service.dart:246,371-373,308-309,9-14 | 魔术字符串/重复：url 去尾斜杠两处、throw '日期解析失败' 字符串(应 Exception)、import 顺序错乱(core 夹在 data 两段间)、'/models' 等路径硬编码 |
+| 97 | sync_service.dart:132,372-374,507 + category.dart:122 + record.dart:85 + balance_history_service.dart:243 | is_expense 解析 6 处各写一套(==1 / =='1' / ??0 / as int 强转)，可抽 parseIsExpense(dynamic) |
 
 ====================================================================
