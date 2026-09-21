@@ -18,6 +18,8 @@ import 'record_service.dart';
 /// 加入小金库失败细分原因。
 enum JoinPiggyResult { notReady, inviteInvalid, joinFailed, success }
 
+enum PiggyCreateResult { notSignedIn, serverFailed, success }
+
 /// 小金库引擎：全局共享资产的云端 append-only 事件同步。
 ///
 /// 架构与 [SyncService] 对齐：操作恒为"在线操作"（失败直接报错重试，不用 outbox），
@@ -247,34 +249,33 @@ class PiggyService {
   // ==================== 创建/加入 ====================
 
   /// 新建小金库：云端建行成功（拿到邀请码）后才落本地 + 订阅 + 拉取。
-  /// 返回邀请码（供分享）；失败返回 null。
-  Future<String?> createPiggy(String name) async {
-    if (!_started && !await start()) return null;
+  /// 返回（结果, 邀请码）：仅 [PiggyCreateResult.success] 时邀请码非空（供分享）。
+  Future<(PiggyCreateResult, String?)> createPiggy(String name) async {
+    if (!_started && !await start()) return (PiggyCreateResult.notSignedIn, null);
     final supabase = SupabaseManager.instance;
     final myEmail = supabase.email;
-    if (myEmail == null) return null;
+    if (myEmail == null) return (PiggyCreateResult.notSignedIn, null);
     final piggyId = genId();
-    var invite = _generateInviteCode();
+    final invite = _generateInviteCode();
     final code = await supabase.createPiggy(
       piggyId: piggyId,
       name: name,
       inviteCode: invite,
     );
-    if (code == null) return null;
-    invite = code;
+    if (code == null) return (PiggyCreateResult.serverFailed, null);
     final db = await DatabaseHelper.instance.database;
     await _upsertPiggy(db, Piggy(
       id: piggyId,
       name: name,
       ownerAuthorId: myEmail,
       peerAuthorId: null,
-      inviteCode: invite,
+      inviteCode: code,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     ));
     await _subscribe(piggyId);
     await pullForPiggy(piggyId);
     piggyVersion.value++;
-    return invite;
+    return (PiggyCreateResult.success, code);
   }
 
   /// 用邀请码加入小金库：云端加入成功 → 本地 upsert + 订阅 + 拉取。

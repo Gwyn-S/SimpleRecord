@@ -169,15 +169,24 @@ class _PiggyPageState extends State<PiggyPage> {
                   barrierDismissible: false,
                   builder: (_) => busyDialog('创建中'),
                 );
-                final newCode = await PiggyService.instance.createPiggy(name);
+                final (result, newCode) = await PiggyService.instance.createPiggy(
+                  name,
+                );
                 if (!mounted) return;
                 navigator.pop();
-                if (newCode == null) {
-                  showToast(context, '网络失败，请重试');
+                if (result != PiggyCreateResult.success) {
+                  switch (result) {
+                    case PiggyCreateResult.notSignedIn:
+                      showToast(context, '请先登录');
+                    case PiggyCreateResult.serverFailed:
+                      showToast(context, '网络失败，请重试');
+                    case PiggyCreateResult.success:
+                      break;
+                  }
                   return;
                 }
                 _load();
-                await _showInviteDialog(context, newCode);
+                await _showInviteDialog(context, newCode!);
               } else {
                 showToast(context, '请输入小金库名称或邀请码');
               }
@@ -253,7 +262,6 @@ class _PiggyPageState extends State<PiggyPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: '新建小金库',
             onPressed: _showCreateDialog,
           ),
         ],
@@ -308,7 +316,7 @@ class _PiggyPageState extends State<PiggyPage> {
                   borderRadius: BorderRadius.circular(radiusMedium),
                 ),
                 child: const Icon(
-                  Icons.savings,
+                  Icons.account_balance,
                   size: iconSizeXLarge,
                   color: colorTextOnPrimary,
                 ),

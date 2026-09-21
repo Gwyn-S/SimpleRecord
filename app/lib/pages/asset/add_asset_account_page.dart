@@ -167,7 +167,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.savings,
+                Icons.account_balance,
                 size: 24,
                 color: colorTextOnPrimary,
               ),
