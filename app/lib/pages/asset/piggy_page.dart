@@ -309,8 +309,8 @@ class _PiggyPageState extends State<PiggyPage> {
           child: Row(
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 80,
+                height: 100,
                 decoration: BoxDecoration(
                   color: themeColor,
                   borderRadius: BorderRadius.circular(radiusMedium),
