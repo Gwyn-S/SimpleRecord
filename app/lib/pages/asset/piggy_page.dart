@@ -309,16 +309,20 @@ class _PiggyPageState extends State<PiggyPage> {
           child: Row(
             children: [
               Container(
-                width: sizeIconContainer,
-                height: sizeIconContainer,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
                   color: themeColor,
                   borderRadius: BorderRadius.circular(radiusMedium),
                 ),
-                child: const Icon(
-                  Icons.account_balance,
-                  size: iconSizeXLarge,
-                  color: colorTextOnPrimary,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: spacingXXS),
+                child: Text(
+                  piggy.name,
+                  style: textCardTitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: spacingM),
@@ -326,9 +330,17 @@ class _PiggyPageState extends State<PiggyPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(piggy.name, style: textListItem),
+                    Text(
+                      _peerLabels[piggy.id]?.isNotEmpty == true
+                          ? '对方：${_peerLabels[piggy.id]}'
+                          : '等待对方加入',
+                      style: textListItem,
+                    ),
                     const SizedBox(height: spacingXXS),
-                    Text(_peerLabels[piggy.id] ?? '', style: textItemSub),
+                    Text(
+                      '邀请码 ${piggy.inviteCode}',
+                      style: textItemSub,
+                    ),
                   ],
                 ),
               ),
