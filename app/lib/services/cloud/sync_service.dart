@@ -14,14 +14,15 @@ import '../core/database.dart';
 import '../data/category_service.dart';
 import '../data/record_service.dart';
 import 'supabase_service.dart';
+import 'vault_op_service.dart';
 
 /// 加入失败细分原因。
-enum JoinSyncResult { notReady, roomNotFound, joinFailed, success }
+enum JoinSyncResult { notReady, ledgerNotFound, joinFailed, success }
 
 /// 同步引擎：本地 SQLite <-> Supabase 的双向增量同步。
 ///
-/// 模型：oplog 事务日志 + id 位点增量拉取 + Realtime 推送即时生效。
-/// 上行写 [DatabaseHelper] 的 sync_outbox，flush 时推进云端 oplogs 并标记已推；
+/// 模型：ledgerOp 事务日志 + id 位点增量拉取 + Realtime 推送即时生效。
+/// 上行写 [DatabaseHelper] 的 sync_outbox，flush 时推进云端 ledger_ops 并标记已推；
 /// 下行按 sync_state 位点拉取，device_id 为本机则跳过（防回声）。
 /// 冲突策略：最后写赢（同一实体按 created_at 整行替换）。
 class SyncService {
@@ -56,12 +57,11 @@ class SyncService {
     _deviceId = await getOrCreateDeviceId();
     _online = true;
     _started = true;
-    // 清理旧版遗留的"已推送(state=1)"死记录，避免历史堆积。
-    await _purgePushed();
-    await _restoreMyRooms();
-    await _subscribeRooms();
-    await _resubscribeRoomsFromLocal();
+    await _restoreMyLedgers();
+    await _subscribeLedgers();
+    await _resubscribeLedgersFromLocal();
     await flush();
+    await VaultOpService.instance.flush();
     await pullAll();
     await _restoreRemoteProfiles();
     return true;
@@ -152,12 +152,12 @@ class SyncService {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query('books', where: 'sync_mode = 1');
     for (final row in rows) {
-      final roomId = row['id'] as String;
+      final ledgerId = row['id'] as String;
       await _enqueue(
         entityType: 'profile',
         entityId: authorId,
         op: 'update',
-        bookId: roomId,
+        bookId: ledgerId,
         payload: {
           'author_id': authorId,
           'nickname': ?nickname,
@@ -231,8 +231,8 @@ class SyncService {
     for (final row in rows) {
       // 途中被 stop()/登出打断则立即停止本轮推送，避免用失效会话写云端。
       if (!_online) break;
-      final ok = await supabase.appendOplog(
-        roomId: row['book_id'] as String,
+      final ok = await supabase.appendLedgerOp(
+        ledgerId: row['book_id'] as String,
         entityType: row['entity_type'] as String,
         entityId: row['entity_id'] as String,
         op: row['op'] as String,
@@ -255,12 +255,6 @@ class SyncService {
     return true; // 本批有进展且可能还有更多，继续搬
   }
 
-  /// 清理旧版本遗留的"已推送(state=1)"死记录（一次性迁移式清理）。
-  Future<void> _purgePushed() async {
-    final db = await DatabaseHelper.instance.database;
-    await db.delete('sync_outbox', where: 'state = 1');
-  }
-
   // ==================== 下行：增量拉取与应用 ====================
 
   /// 拉取并应用所有共享账本的增量。
@@ -269,22 +263,22 @@ class SyncService {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query('books', where: 'sync_mode = 1');
     for (final row in rows) {
-      await pullForRoom(row['id'] as String);
+      await pullForLedger(row['id'] as String);
     }
   }
 
   /// 拉取单个房间增量：循环翻页直到追平，末尾整体推进位点。
   /// 幂等设计：本地应用全部用整行替换/按 id 删除，重复拉取无副作用。
-  Future<void> pullForRoom(String roomId) async {
+  Future<void> pullForLedger(String ledgerId) async {
     if (!_online) return;
     final supabase = SupabaseManager.instance;
     final db = await DatabaseHelper.instance.database;
-    var cursor = await _getCursor(roomId);
+    var cursor = await _getCursor(ledgerId);
     // 仅当本轮实际应用到远端变更时才广播版本号，避免空拉取引发全量重建。
     var appliedAny = false;
     while (true) {
-      final ops = await supabase.fetchOplogs(
-        roomId,
+      final ops = await supabase.fetchLedgerOps(
+        ledgerId,
         afterId: cursor,
         limit: 200,
       );
@@ -297,21 +291,21 @@ class SyncService {
         await _applyRemoteOp(db, op);
         appliedAny = true;
       }
-      await _setCursor(roomId, maxId);
+      await _setCursor(ledgerId, maxId);
       cursor = maxId;
       if (ops.length < 200) break;
     }
     if (appliedAny) recordsVersion.value++;
   }
 
-  /// 收到 oplog INSERT 回调：按房间拉取增量（三处订阅统一入口）。
-  /// Realtime 虽已按 room_id 服务端过滤，这里保留 room_id 再判作兜底。
-  Future<void> _onOplogInsert(PostgresChangePayload payload) async {
-    final roomId = payload.newRecord['room_id']?.toString();
-    if (roomId != null) await pullForRoom(roomId);
+  /// 收到 ledgerOp INSERT 回调：按房间拉取增量（三处订阅统一入口）。
+  /// Realtime 虽已按 ledger_id 服务端过滤，这里保留 ledger_id 再判作兜底。
+  Future<void> _onLedgerOpInsert(PostgresChangePayload payload) async {
+    final ledgerId = payload.newRecord['ledger_id']?.toString();
+    if (ledgerId != null) await pullForLedger(ledgerId);
   }
 
-  /// 把一条远端 oplog 应用到本地（整行替换，幂等）。
+  /// 把一条远端 ledgerOp 应用到本地（整行替换，幂等）。
   Future<void> _applyRemoteOp(Database db, Map<String, dynamic> op) async {
     final entityType = op['entity_type'] as String? ?? '';
     final entityId = op['entity_id'] as String? ?? '';
@@ -426,7 +420,7 @@ class SyncService {
   }
 
   /// 以云端 profiles 表为权威源，全量恢复所有成员昵称/头像到本地缓存。
-  /// 解决新设备/清数据登录后：oplogs 历史事件缺失或未广播过资料时，
+  /// 解决新设备/清数据登录后：ledger_ops 历史事件缺失或未广播过资料时，
   /// 本地昵称头像始终为空的问题。仅在引擎启动时拉一次，随后的变更
   /// 仍由 profile 事件实时增量。
   Future<void> _restoreRemoteProfiles() async {
@@ -462,8 +456,8 @@ class SyncService {
     var invite = '';
     for (var i = 0; i < 5 && !ok; i++) {
       invite = _generateInviteCode();
-      final code = await supabase.createRoom(
-        roomId: ledger.id,
+      final code = await supabase.createLedger(
+        ledgerId: ledger.id,
         name: ledger.name,
         inviteCode: invite,
       );
@@ -484,7 +478,7 @@ class SyncService {
         whereArgs: [ledger.id],
       );
     }
-    await supabase.subscribeOplogs(roomId: ledger.id, callback: _onOplogInsert);
+    await supabase.subscribeLedgerOps(ledgerId: ledger.id, callback: _onLedgerOpInsert);
     final records = await _loadRecords(ledger.id);
     for (final r in records) {
       final bookId = r.ledgerId;
@@ -511,7 +505,7 @@ class SyncService {
       );
     }
     await flush();
-    await pullForRoom(ledger.id);
+    await pullForLedger(ledger.id);
     return true;
   }
 
@@ -522,14 +516,14 @@ class SyncService {
     return true;
   }
 
-  /// 用邀请码加入共享账本：云端 room -> 本地建账本 -> 全量拉取。
+  /// 用邀请码加入共享账本：云端 ledger -> 本地建账本 -> 全量拉取。
   /// 返回 (结果, 本地账本)。
   Future<(JoinSyncResult, Ledger?)> joinByInvite(String code) async {
     if (!await ensureOnline()) return (JoinSyncResult.notReady, null);
     final supabase = SupabaseManager.instance;
-    final Map<String, dynamic>? room;
+    final Map<String, dynamic>? remote;
     try {
-      room = await supabase.joinRoomByInvite(code);
+      remote = await supabase.joinLedgerByInvite(code);
     } on SocketException {
       // 网络层失败：断网/对端不可达，与邀请码本身无关，提示检查网络。
       return (JoinSyncResult.joinFailed, null);
@@ -540,14 +534,14 @@ class SyncService {
       // RPC 服务端异常（如 RLS 拒绝、函数报错）：也不应归咎于邀请码。
       return (JoinSyncResult.joinFailed, null);
     }
-    if (room == null) return (JoinSyncResult.roomNotFound, null);
-    final roomId = room['id'].toString();
+    if (remote == null) return (JoinSyncResult.ledgerNotFound, null);
+    final ledgerId = remote['id'].toString();
 
     final db = await DatabaseHelper.instance.database;
     final existing = await db.query(
       'books',
       where: 'id = ?',
-      whereArgs: [roomId],
+      whereArgs: [ledgerId],
     );
     // 加入即归属当前登录账号，换号后该账本只对当前账号显示。
     final ownerId = await AuthorService.instance.existingAuthorId();
@@ -561,28 +555,28 @@ class SyncService {
           'owner_author_id': ownerId,
         },
         where: 'id = ?',
-        whereArgs: [roomId],
+        whereArgs: [ledgerId],
       );
     } else {
       ledger = Ledger(
-        id: roomId,
-        name: room['name'].toString(),
+        id: ledgerId,
+        name: remote['name'].toString(),
         createdAt: DateTime.now().millisecondsSinceEpoch,
         syncMode: 1,
         ownerAuthorId: ownerId,
       );
       await db.insert('books', ledger.toDbMap());
     }
-    await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
-    final inviteCode = room['invite_code']?.toString();
+    await supabase.subscribeLedgerOps(ledgerId: ledgerId, callback: _onLedgerOpInsert);
+    final inviteCode = remote['invite_code']?.toString();
     if (inviteCode != null && inviteCode.isNotEmpty) {
-      _inviteCodeCache[roomId] = inviteCode;
+      _inviteCodeCache[ledgerId] = inviteCode;
     }
-    await pullForRoom(roomId);
-    // 拉取后分类为空（房间尚无分类记录，如老账本/功能上线前创建）时，
+    await pullForLedger(ledgerId);
+    // 拉取后分类为空（账本尚无分类记录，如老账本/功能上线前创建）时，
     // 用默认分类兜底，保证新加入成员也有可用分类。
-    if (await _hasNoCategories(roomId)) {
-      await seedCategoriesForLedger(roomId);
+    if (await _hasNoCategories(ledgerId)) {
+      await seedCategoriesForLedger(ledgerId);
     }
     return (JoinSyncResult.success, ledger);
   }
@@ -592,8 +586,8 @@ class SyncService {
     final cached = _inviteCodeCache[bookId];
     if (cached != null && cached.isNotEmpty) return cached;
     if (!_online) return null;
-    final room = await SupabaseManager.instance.fetchRoom(bookId);
-    final code = room?['invite_code']?.toString();
+    final ledger = await SupabaseManager.instance.fetchLedger(bookId);
+    final code = ledger?['invite_code']?.toString();
     if (code != null && code.isNotEmpty) _inviteCodeCache[bookId] = code;
     return (code == null || code.isEmpty) ? null : code;
   }
@@ -603,8 +597,8 @@ class SyncService {
     if (!_online) return;
     for (final id in bookIds) {
       if (_inviteCodeCache.containsKey(id)) continue;
-      final room = await SupabaseManager.instance.fetchRoom(id);
-      final code = room?['invite_code']?.toString();
+      final ledger = await SupabaseManager.instance.fetchLedger(id);
+      final code = ledger?['invite_code']?.toString();
       if (code != null && code.isNotEmpty) _inviteCodeCache[id] = code;
     }
   }
@@ -667,48 +661,48 @@ class SyncService {
     return rows.isEmpty;
   }
 
-  Future<int> _getCursor(String roomId) async {
+  Future<int> _getCursor(String ledgerId) async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query(
       'sync_state',
       where: 'key = ?',
-      whereArgs: ['oplog_cursor:$roomId'],
+      whereArgs: ['ledger_ops_cursor:$ledgerId'],
     );
     if (rows.isEmpty) return 0;
     return int.tryParse(rows.first['value'] as String) ?? 0;
   }
 
-  Future<void> _setCursor(String roomId, int cursor) async {
+  Future<void> _setCursor(String ledgerId, int cursor) async {
     final db = await DatabaseHelper.instance.database;
     await db.insert('sync_state', {
-      'key': 'oplog_cursor:$roomId',
+      'key': 'ledger_ops_cursor:$ledgerId',
       'value': '$cursor',
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// 删除共享账本时清理本机同步位点与实时订阅（账本记录已被 deleteLedger
-  /// 删掉，云端删除 oplog 已由 enqueueLedger 入队，会随下次 flush 推送）。
+  /// 删掉，云端删除 ledgerOp 已由 enqueueLedger 入队，会随下次 flush 推送）。
   Future<void> removeSharedState(String bookId) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete(
       'sync_state',
       where: 'key = ?',
-      whereArgs: ['oplog_cursor:$bookId'],
+      whereArgs: ['ledger_ops_cursor:$bookId'],
     );
-    await SupabaseManager.instance.unsubscribeOplogs(bookId);
+    await SupabaseManager.instance.unsubscribeLedgerOps(bookId);
   }
 
-  Future<void> _resubscribeRoomsFromLocal() async {
+  Future<void> _resubscribeLedgersFromLocal() async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query('books', where: 'sync_mode = 1');
     final supabase = SupabaseManager.instance;
     for (final row in rows) {
-      final roomId = row['id'] as String;
-      await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
+      final ledgerId = row['id'] as String;
+      await supabase.subscribeLedgerOps(ledgerId: ledgerId, callback: _onLedgerOpInsert);
     }
   }
 
-  /// 以云端 rooms 表为准恢复"我加入过的共享账本"到本地。
+  /// 以云端 ledgers 表为准恢复"我加入过的共享账本"到本地。
   /// 换新设备/清数据后登录时，本地 books 为空，此前只能靠邀请码重新加入；
   /// 这里直接拉取当前账号（邮箱）所属的全部房间，落库 + 缓存邀请码，
   /// 使脱离本地的账本也能在登录后自动回来。拉取失败静默容忍。
@@ -724,23 +718,23 @@ class SyncService {
     return null;
   }
 
-  Future<void> _restoreMyRooms() async {
+  Future<void> _restoreMyLedgers() async {
     final supabase = SupabaseManager.instance;
     final myEmail = supabase.email;
     if (myEmail == null || myEmail.isEmpty) return;
-    final rooms = await supabase.fetchMyRooms();
-    if (rooms.isEmpty) return;
+    final ledgers = await supabase.fetchMyLedgers();
+    if (ledgers.isEmpty) return;
     final db = await DatabaseHelper.instance.database;
-    for (final room in rooms) {
-      final roomId = room['id']?.toString();
-      if (roomId == null || roomId.isEmpty) continue;
-      final name = room['name']?.toString();
-      final createdAt = _parseEpochOrNull(room['created_at']);
-      final inviteCode = room['invite_code']?.toString();
+    for (final ledger in ledgers) {
+      final ledgerId = ledger['id']?.toString();
+      if (ledgerId == null || ledgerId.isEmpty) continue;
+      final name = ledger['name']?.toString();
+      final createdAt = _parseEpochOrNull(ledger['created_at']);
+      final inviteCode = ledger['invite_code']?.toString();
       final existing = await db.query(
         'books',
         where: 'id = ?',
-        whereArgs: [roomId],
+        whereArgs: [ledgerId],
       );
       if (existing.isNotEmpty) {
         // 本地已存在该账本（含用户主动关闭共享/仅本地保留的），
@@ -750,12 +744,12 @@ class SyncService {
             'books',
             {'name': name},
             where: 'id = ?',
-            whereArgs: [roomId],
+            whereArgs: [ledgerId],
           );
         }
       } else {
         final ledger = Ledger(
-          id: roomId,
+          id: ledgerId,
           name: name ?? '共享账本',
           createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch,
           syncMode: 1,
@@ -764,19 +758,19 @@ class SyncService {
         await db.insert('books', ledger.toDbMap());
       }
       if (inviteCode != null && inviteCode.isNotEmpty) {
-        _inviteCodeCache[roomId] = inviteCode;
+        _inviteCodeCache[ledgerId] = inviteCode;
       }
-      await supabase.subscribeOplogs(roomId: roomId, callback: _onOplogInsert);
+      await supabase.subscribeLedgerOps(ledgerId: ledgerId, callback: _onLedgerOpInsert);
     }
     recordsVersion.value++;
   }
 
-  Future<void> _subscribeRooms() async {
+  Future<void> _subscribeLedgers() async {
     final supabase = SupabaseManager.instance;
-    await supabase.subscribeRooms(
+    await supabase.subscribeLedgers(
       callback: (payload) async {
-        final roomId = payload.newRecord['id']?.toString();
-        if (roomId == null) return;
+        final ledgerId = payload.newRecord['id']?.toString();
+        if (ledgerId == null) return;
         // 房间元数据变化（改名/成员）落地本地 books.name
         final name = payload.newRecord['name']?.toString();
         final db = await DatabaseHelper.instance.database;
@@ -785,7 +779,7 @@ class SyncService {
             'books',
             {'name': name},
             where: 'id = ? AND sync_mode = 1',
-            whereArgs: [roomId],
+            whereArgs: [ledgerId],
           );
         }
       },

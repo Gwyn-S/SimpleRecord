@@ -103,8 +103,8 @@ Future<void> updateLedger(Ledger ledger) async {
   );
   SyncService.instance.enqueueLedger(ledger, op: 'update');
   if (ledger.syncMode == 1) {
-    // 共享账本改名：云端房间名同步更新（oplog 改名由 enqueueLedger 走 flush）。
-    unawaited(SupabaseManager.instance.renameRoom(ledger.id, ledger.name));
+    // 共享账本改名：云端账本名同步更新（账本改名事件由 enqueueLedger 走 flush）。
+    unawaited(SupabaseManager.instance.renameLedger(ledger.id, ledger.name));
   }
 }
 

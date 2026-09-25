@@ -11,6 +11,9 @@ class Transfer {
   final DateTime createdAt;
   final String? fromAccountName;
   final String? toAccountName;
+  final String operatorEmail;
+  final String operatorNickname;
+  final String? operatorAvatarUrl;
 
   Transfer({
     required this.id,
@@ -23,6 +26,9 @@ class Transfer {
     required this.createdAt,
     this.fromAccountName,
     this.toAccountName,
+    this.operatorEmail = '',
+    this.operatorNickname = '',
+    this.operatorAvatarUrl,
   });
 
   Map<String, dynamic> toDbMap() => {
@@ -34,6 +40,9 @@ class Transfer {
     'remark': remark,
     'date': toEpochDay(date),
     'created_at': createdAt.millisecondsSinceEpoch,
+    'operator_email': operatorEmail,
+    'operator_nickname': operatorNickname,
+    'operator_avatar_url': operatorAvatarUrl,
   };
 
   factory Transfer.fromDbMap(Map<String, dynamic> map) => Transfer(
@@ -47,5 +56,8 @@ class Transfer {
     createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
     fromAccountName: map['from_account_name'] as String?,
     toAccountName: map['to_account_name'] as String?,
+    operatorEmail: (map['operator_email'] as String?) ?? '',
+    operatorNickname: (map['operator_nickname'] as String?) ?? '',
+    operatorAvatarUrl: map['operator_avatar_url'] as String?,
   );
 }

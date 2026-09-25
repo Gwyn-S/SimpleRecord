@@ -72,6 +72,11 @@ final assetAccountCategories = [
     name: '自定义资产',
     color: Color(0xFF546E7A),
   ),
+  const AssetAccountCategory(
+    iconPath: 'assets/icons/vault_manage.svg',
+    name: '小金库',
+    color: Color(0xFFF9A825),
+  ),
 ];
 
 Color categoryColorByName(String categoryName) {
@@ -88,6 +93,7 @@ class AssetAccount {
   String remark;
   String cardLast4;
   String iconPath;
+  String inviteCode;
 
   AssetAccount({
     required this.id,
@@ -98,6 +104,7 @@ class AssetAccount {
     this.remark = '',
     this.cardLast4 = '',
     this.iconPath = '',
+    this.inviteCode = '',
   });
 
   AssetAccountCategory? get category {
@@ -120,6 +127,7 @@ class AssetAccount {
     'remark': remark,
     'card_last4': cardLast4,
     'icon_path': iconPath,
+    'invite_code': inviteCode,
   };
 
   factory AssetAccount.fromDbMap(Map<String, dynamic> map) => AssetAccount(
@@ -131,5 +139,6 @@ class AssetAccount {
     remark: (map['remark'] as String?) ?? '',
     cardLast4: (map['card_last4'] as String?) ?? '',
     iconPath: (map['icon_path'] as String?) ?? '',
+    inviteCode: (map['invite_code'] as String?) ?? '',
   );
 }

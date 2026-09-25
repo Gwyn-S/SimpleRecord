@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -59,37 +59,14 @@ class DatabaseHelper {
     final dir = await appBaseDirectory();
     final dbPath = join(dir.path, 'simplerecord.db');
     _dbPath = dbPath;
-    await _resetLegacyDb(dbPath);
     final db = await openDatabase(
       dbPath,
       // 未发布阶段：schema 恒为 V1，改动直接改 _onCreate 全量重建，
-      // 不做版本迁移（旧库需删除后重建，见 _open 顶部的 _resetLegacyDb）。
+      // 不做版本迁移（旧库需删除后重建）。
       version: 1,
       onCreate: _onCreate,
     );
     return db;
-  }
-
-  /// 未发布阶段的历史遗留库（旧 schema <=v5 且无迁移路径）直接删除重建。
-  /// schema 版本恒为 1；探测到旧版 user_version > 1 即整库重置，
-  /// 保证以最新 _onCreate 全量重建，不依赖任何增量迁移。
-  Future<void> _resetLegacyDb(String dbPath) async {
-    final f = File(dbPath);
-    if (!f.existsSync()) return;
-    try {
-      final probe = await databaseFactory.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(version: 0),
-      );
-      final rows = await probe.rawQuery('PRAGMA user_version');
-      final version = (rows.isNotEmpty ? rows.first['user_version'] : null) as int? ?? 0;
-      await probe.close();
-      if (version > 1) {
-        f.deleteSync();
-      }
-    } catch (_) {
-      // 库文件损坏或无法探测：交给正常打开流程按新 schema 重建/报错。
-    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -128,7 +105,8 @@ class DatabaseHelper {
         opening_balance_cents INTEGER NOT NULL DEFAULT 0,
         remark TEXT NOT NULL DEFAULT '',
         card_last4 TEXT NOT NULL DEFAULT '',
-        icon_path TEXT NOT NULL DEFAULT ''
+        icon_path TEXT NOT NULL DEFAULT '',
+        invite_code TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute('''
@@ -140,7 +118,10 @@ class DatabaseHelper {
         fee_cents INTEGER NOT NULL DEFAULT 0,
         remark TEXT NOT NULL DEFAULT '',
         date INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        operator_email TEXT NOT NULL DEFAULT '',
+        operator_nickname TEXT NOT NULL DEFAULT '',
+        operator_avatar_url TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute('''
@@ -183,33 +164,7 @@ class DatabaseHelper {
         created_at INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    // 小金库：owner + peer 两人共享的全局资产，跨账本。
-    await db.execute('''
-      CREATE TABLE piggies (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL DEFAULT '小金库',
-        owner_author_id TEXT,
-        peer_author_id TEXT,
-        invite_code TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL DEFAULT 0
-      )
-    ''');
-    // 小金库动作事件：本地镜像云端 piggy_ops，op_id 为幂等键。
-    await db.execute('''
-      CREATE TABLE piggy_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        op_id INTEGER NOT NULL,
-        piggy_id TEXT NOT NULL,
-        op TEXT NOT NULL,
-        delta INTEGER NOT NULL,
-        remark TEXT NOT NULL DEFAULT '',
-        operator_email TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL DEFAULT 0
-      )
-    ''');
-    await db.execute(
-      'CREATE UNIQUE INDEX idx_piggy_events_op_id ON piggy_events(op_id)',
-    );
+    // 金库操作待推队列等同步相关表，统一在 _createSyncTables 中创建。
     await _createSyncTables(db);
   }
 
@@ -236,5 +191,27 @@ class DatabaseHelper {
         value TEXT NOT NULL
       )
     ''');
+    await _createVaultOutbox(db);
+  }
+
+  /// 金库操作待推队列：本地落账后写入，云端推送成功即删。
+  /// 幂等：同一实体只留一条，重试/重复入队均安全。
+  Future<void> _createVaultOutbox(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS vault_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vault_id TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        op TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        device_id TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (vault_id, entity_id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_vault_outbox_vault_id '
+      'ON vault_outbox(vault_id)',
+    );
   }
 }

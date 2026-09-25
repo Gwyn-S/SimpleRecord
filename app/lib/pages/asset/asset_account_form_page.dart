@@ -7,6 +7,7 @@ import '../../services/data/asset_account_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/id.dart';
+import '../../widgets/common/busy_dialog.dart';
 
 /// 通用账户表单页，覆盖现金/负债/债券/自定义资产（直接表单）与
 /// 储蓄卡/信用卡/网络支付/投资（二级页跳转后的三级表单）。
@@ -21,6 +22,12 @@ class AddAssetAccountFormPage extends StatefulWidget {
   final bool showCardField;
   final String emptyNameFallback;
 
+  /// 新建类表单云端预创建钩子（可选）：本地落库前调用，返回云端邀请码；
+  /// 返回 null 表示云端失败，此时不落本地也不关页。典型场景：小金库新建时
+  /// 先建云端金库房间、成功后本地才插入资产账户。
+  final Future<String?> Function(BuildContext context, AssetAccount account)?
+      onCloudCreate;
+
   const AddAssetAccountFormPage({
     super.key,
     required this.title,
@@ -32,6 +39,7 @@ class AddAssetAccountFormPage extends StatefulWidget {
     this.existingAccount,
     this.showCardField = false,
     this.emptyNameFallback = '',
+    this.onCloudCreate,
   });
 
   @override
@@ -88,6 +96,27 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       cardLast4: _cardController.text.trim(),
       iconPath: widget.presetIconPath,
     );
+    final onCloud = widget.onCloudCreate;
+    if (onCloud != null) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => busyDialog('创建中'),
+      );
+      String? invite;
+      try {
+        invite = await onCloud(context, account);
+      } finally {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+      if (invite == null) {
+        return;
+      }
+      account.inviteCode = invite;
+    }
     if (widget.existingAccount != null) {
       await updateAssetAccount(account);
     } else {

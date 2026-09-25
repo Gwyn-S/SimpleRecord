@@ -58,7 +58,6 @@ class _AddRecordPageState extends State<AddRecordPage> {
       _remarkController.text = r.remark;
       _selectedTag = r.tag;
       _imagePaths = r.imagePaths ?? [];
-      _migrateOldImages();
       if (r.accountId != null) _loadSelectedAccount(r.accountId!);
     }
   }
@@ -72,23 +71,6 @@ class _AddRecordPageState extends State<AddRecordPage> {
         return;
       }
     }
-  }
-
-  Future<void> _migrateOldImages() async {
-    final migrated = <String>[];
-    var changed = false;
-    for (final path in _imagePaths) {
-      final newPath = await migrateIfNeeded(path);
-      if (newPath != null && newPath != path) {
-        migrated.add(newPath);
-        changed = true;
-      } else if (newPath != null) {
-        migrated.add(path);
-      } else {
-        changed = true;
-      }
-    }
-    if (changed && mounted) setState(() => _imagePaths = migrated);
   }
 
   @override

@@ -6,9 +6,22 @@ import '../../utils/formatters.dart';
 import 'asset_account_service.dart';
 import 'balance_history_service.dart';
 import '../core/database.dart';
+import '../core/author_service.dart';
 import '../../utils/id.dart';
 
 final ValueNotifier<int> transfersVersion = ValueNotifier(0);
+
+/// 当前操作者信息：登录邮箱 + 昵称 + 头像 URL（未设置项为空值）。
+/// 转账落库时记录操作者，供多人金库转账条目展示头像/昵称。
+Future<({String email, String nickname, String? avatar})>
+    _currentOperator() async {
+  final author = AuthorService.instance;
+  return (
+    email: await author.existingAuthorId() ?? '',
+    nickname: await author.ownNickname() ?? '',
+    avatar: await author.ownAvatar(),
+  );
+}
 
 Future<List<Transfer>> loadTransfersForAccount(String accountId) async {
   final db = await DatabaseHelper.instance.database;
@@ -26,6 +39,7 @@ Future<List<Transfer>> loadTransfersForAccount(String accountId) async {
 
 /// 转账：事务内更新两个账户余额并写入流水。
 /// 转出账户扣除 转账金额 + 手续费，转入账户增加转账金额。
+/// [operator] 缺省记当前登录用户；跨端重建（B 端拉取云端事件）时传入事件里的操作者。
 Future<void> insertTransfer({
   required String fromAccountId,
   required String toAccountId,
@@ -33,12 +47,15 @@ Future<void> insertTransfer({
   int feeCents = 0,
   String remark = '',
   DateTime? date,
+  String? id,
+  ({String email, String nickname, String? avatar})? operator,
 }) async {
   final db = await DatabaseHelper.instance.database;
   final now = DateTime.now();
+  final op = operator ?? await _currentOperator();
   await db.transaction((txn) async {
     await txn.insert('transfers', {
-      'id': genId(),
+      'id': id ?? genId(),
       'from_account_id': fromAccountId,
       'to_account_id': toAccountId,
       'amount_cents': amountCents,
@@ -46,6 +63,9 @@ Future<void> insertTransfer({
       'remark': remark,
       'date': toEpochDay(date ?? now),
       'created_at': now.millisecondsSinceEpoch,
+      'operator_email': op.email,
+      'operator_nickname': op.nickname,
+      'operator_avatar_url': op.avatar,
     });
     await _applyTransfer(
       txn,

@@ -193,8 +193,8 @@ class _LedgerListPageState extends State<LedgerListPage> {
                     } else {
                       showToast(context, '请先注册或登录账号');
                     }
-                  case JoinSyncResult.roomNotFound:
-                    showToast(context, '房间不存在');
+                  case JoinSyncResult.ledgerNotFound:
+                    showToast(context, '账本不存在');
                   case JoinSyncResult.joinFailed:
                     showToast(context, '加入失败，请检查网络');
                 }

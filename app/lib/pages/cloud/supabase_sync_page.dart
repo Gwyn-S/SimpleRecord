@@ -8,7 +8,6 @@ import '../../constants/app_text_styles.dart';
 import '../../services/core/author_service.dart';
 import '../../services/data/record_service.dart';
 import '../../services/data/ledger_service.dart';
-import '../../services/data/piggy_service.dart';
 import '../../services/core/settings.dart';
 import '../../services/cloud/sync_service.dart';
 import '../../services/core/theme_service.dart';
@@ -73,8 +72,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     }
     // 先停引擎再登出：避免残留 outbox 用即将失效的会话继续推送。
     await SyncService.instance.stop();
-    // 小金库同样退订全部实时通道，避免用失效会话继续接收/推送。
-    await PiggyService.instance.stop();
     await AuthorService.instance.logout();
     if (!mounted) return;
     setState(() {
@@ -215,7 +212,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     });
     await _refreshAfterIdentityChange();
     await SyncService.instance.start();
-    await PiggyService.instance.start();
     if (!mounted) return;
     showToast(context, '注册成功');
   }
@@ -246,7 +242,6 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     });
     await _refreshAfterIdentityChange();
     await SyncService.instance.start();
-    await PiggyService.instance.start();
     if (!mounted) return;
     showToast(context, '登录成功');
   }

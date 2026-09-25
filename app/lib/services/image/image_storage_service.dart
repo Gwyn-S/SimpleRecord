@@ -43,13 +43,3 @@ Future<void> deleteImage(String path) async {
   final f = File(path);
   if (await f.exists()) await f.delete();
 }
-
-/// 将旧路径（非统一目录）的图片迁移到统一目录，返回新路径。
-/// 如果已经是统一目录内的路径则直接返回原路径。
-/// 如果源文件不存在则返回 null。
-Future<String?> migrateIfNeeded(String path) async {
-  final dir = await imagesDirectory();
-  if (path.startsWith(dir.path)) return path;
-  if (!File(path).existsSync()) return null;
-  return saveImage(path);
-}

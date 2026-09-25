@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../utils/log.dart';
 
-/// Supabase 基础设施：初始化、邮箱认证、rooms/oplogs 存取、Realtime 订阅。
+/// Supabase 基础设施：初始化、邮箱认证、ledgers/ledgerOps 存取、Realtime 订阅。
 ///
 /// 发布版由构建注入配置（--dart-define-from-file），初始化失败时保持
 /// 「未就绪」但不抛错。所有云端方法失败返回空结果/ false，
@@ -94,13 +94,13 @@ class SupabaseManager {
     }
   }
 
-  // ==================== rooms（房间 = 共享账本）====================
+  // ==================== ledgers（房间 = 共享账本）====================
 
   /// 新建房间。房间 id 由本地账本 id 直接充当，保证双端一致。
   /// 云端已有同 id 房间（重复开启/历史残留）则复用并返回其邀请码；
   /// 创建失败返回 null。
-  Future<String?> createRoom({
-    required String roomId,
+  Future<String?> createLedger({
+    required String ledgerId,
     required String name,
     required String inviteCode,
   }) async {
@@ -108,12 +108,12 @@ class SupabaseManager {
     final myEmail = email;
     if (client == null || myEmail == null) return null;
     try {
-      final existing = await fetchRoom(roomId);
+      final existing = await fetchLedger(ledgerId);
       if (existing != null) {
         return existing['invite_code']?.toString();
       }
-      await client.from('rooms').insert({
-        'id': roomId,
+      await client.from('ledger').insert({
+        'id': ledgerId,
         'name': name,
         'owner_id': myEmail,
         'members': [myEmail],
@@ -122,20 +122,20 @@ class SupabaseManager {
       });
       return inviteCode;
     } catch (e) {
-      appLog('[sync] createRoom failed: $e');
-      final existing = await fetchRoom(roomId);
+      appLog('[sync] createLedger failed: $e');
+      final existing = await fetchLedger(ledgerId);
       return existing?['invite_code']?.toString();
     }
   }
 
   /// 按房间 id（= 账本 id）取房间
-  Future<Map<String, dynamic>?> fetchRoom(String roomId) async {
+  Future<Map<String, dynamic>?> fetchLedger(String ledgerId) async {
     final client = this.client;
     if (client == null) return null;
     try {
-      return await client.from('rooms').select().eq('id', roomId).maybeSingle();
+      return await client.from('ledger').select().eq('id', ledgerId).maybeSingle();
     } catch (e) {
-      appLog('[sync] fetchRoom failed: $e');
+      appLog('[sync] fetchLedger failed: $e');
       return null;
     }
   }
@@ -144,7 +144,7 @@ class SupabaseManager {
   ///
   /// 返回房间数据；邀请码无效返回 null；网络/超时/服务端 RPC 异常原样上抛，
   /// 由上层 [SyncService.joinByInvite] 按类型区分提示。
-  Future<Map<String, dynamic>?> joinRoomByInvite(String inviteCode) async {
+  Future<Map<String, dynamic>?> joinLedgerByInvite(String inviteCode) async {
     final client = this.client;
     if (client == null) throw StateError('Supabase 未就绪');
     final res = await client.rpc(
@@ -157,29 +157,29 @@ class SupabaseManager {
   }
 
   /// 改房间名（共享账本改名同步给对方）
-  Future<bool> renameRoom(String roomId, String name) async {
+  Future<bool> renameLedger(String ledgerId, String name) async {
     final client = this.client;
     if (client == null) return false;
     try {
       await client
-          .from('rooms')
+          .from('ledger')
           .update({
             'name': name,
             'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
-          .eq('id', roomId);
+          .eq('id', ledgerId);
       return true;
     } catch (e) {
-      appLog('[sync] renameRoom failed: $e');
+      appLog('[sync] renameLedger failed: $e');
       return false;
     }
   }
 
-  // ==================== oplogs（操作日志，增量同步载体）====================
+  // ==================== ledgerOps（操作日志，增量同步载体）====================
 
   /// 追加一条操作日志。成功返回云端自增 id，失败返回 null。
-  Future<int?> appendOplog({
-    required String roomId,
+  Future<int?> appendLedgerOp({
+    required String ledgerId,
     required String entityType,
     required String entityId,
     required String op,
@@ -191,9 +191,9 @@ class SupabaseManager {
     if (client == null || myUid == null) return null;
     try {
       final row = await client
-          .from('oplogs')
+          .from('ledger_ops')
           .insert({
-            'room_id': roomId,
+            'ledger_id': ledgerId,
             'entity_type': entityType,
             'entity_id': entityId,
             'op': op,
@@ -207,14 +207,14 @@ class SupabaseManager {
       final id = row['id'];
       return id is int ? id : int.tryParse(id.toString());
     } catch (e) {
-      appLog('[sync] appendOplog failed: $e');
+      appLog('[sync] appendLedgerOp failed: $e');
       return null;
     }
   }
 
   /// 拉取房间内 id 大于 [afterId] 的增量日志（按 id 升序）。
-  Future<List<Map<String, dynamic>>> fetchOplogs(
-    String roomId, {
+  Future<List<Map<String, dynamic>>> fetchLedgerOps(
+    String ledgerId, {
     required int afterId,
     int limit = 200,
   }) async {
@@ -222,87 +222,201 @@ class SupabaseManager {
     if (client == null) return const [];
     try {
       return await client
-          .from('oplogs')
+          .from('ledger_ops')
           .select()
-          .eq('room_id', roomId)
+          .eq('ledger_id', ledgerId)
           .gt('id', afterId)
           .order('id', ascending: true)
           .limit(limit);
     } catch (e) {
-      appLog('[sync] fetchOplogs failed: $e');
+      appLog('[sync] fetchLedgerOps failed: $e');
       return const [];
+    }
+  }
+
+  // ==================== vaults（多人金库房间）====================
+
+  /// 新建多人金库房间。id 用本地小金库账户 id 直接充当，保证双端一致。
+  /// 成功返回邀请码；网络/服务端 RPC 异常原样上抛，由上层区分提示。
+  Future<String?> createVault({
+    required String vaultId,
+    required String name,
+    required String inviteCode,
+    String remark = '',
+  }) async {
+    final client = this.client;
+    if (client == null) return null;
+    final res = await client.rpc(
+      'create_vault',
+      params: {
+        'p_id': vaultId,
+        'p_name': name,
+        'p_invite_code': inviteCode.trim().toUpperCase(),
+        'p_remark': remark,
+      },
+    );
+    if (res is Map) {
+      return res['invite_code']?.toString();
+    }
+    return null;
+  }
+
+  /// 用邀请码加入多人金库。返回金库数据；邀请码无效/已被占用返回 null。
+  Future<Map<String, dynamic>?> joinVaultByInvite(String inviteCode) async {
+    final client = this.client;
+    if (client == null) throw StateError('Supabase 未就绪');
+    final res = await client.rpc(
+      'join_vault_by_invite',
+      params: {'p_invite_code': inviteCode.trim().toUpperCase()},
+    );
+    if (res is Map<String, dynamic>) return res;
+    return null;
+  }
+
+  /// 删除多人金库房间（仅 owner / peer 本人可删），级联清理其事件。
+  Future<bool> deleteVault(String vaultId) async {
+    final client = this.client;
+    if (client == null) return false;
+    try {
+      final res = await client.rpc('delete_vault', params: {'p_id': vaultId});
+      return res == true;
+    } catch (e) {
+      appLog('[sync] deleteVault failed: $e');
+      return false;
+    }
+  }
+
+  /// 拉取我参与（owner 或 peer）的全部多人金库。
+  Future<List<Map<String, dynamic>>> fetchMyVaults() async {
+    final client = this.client;
+    if (client == null) return const [];
+    try {
+      final res = await client
+          .from('vaults')
+          .select('id,name,created_at,invite_code,owner_email,peer_email');
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      appLog('[sync] fetchMyVaults failed: $e');
+      return const [];
+    }
+  }
+
+  /// 追加一条金库存取事件日志。幂等：云端 vault_ops.entity_id 唯一，
+  /// 若该 entity_id 已存在则直接复用其 id（重试/重复提交安全）。
+  Future<int?> appendVaultOp({
+    required String vaultId,
+    required String entityId,
+    required String op,
+    required Map<String, dynamic> payload,
+    required String deviceId,
+  }) async {
+    final client = this.client;
+    final myUid = uid;
+    if (client == null || myUid == null) return null;
+    try {
+      final existing = await client
+          .from('vault_ops')
+          .select('id')
+          .eq('vault_id', vaultId)
+          .eq('entity_id', entityId)
+          .maybeSingle();
+      if (existing != null) {
+        final id = existing['id'];
+        return id is int ? id : int.tryParse(id.toString());
+      }
+      final row = await client
+          .from('vault_ops')
+          .insert({
+            'vault_id': vaultId,
+            'entity_id': entityId,
+            'op': op,
+            'payload': payload,
+            'uid': myUid,
+            'device_id': deviceId,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .select('id')
+          .single();
+      final id = row['id'];
+      return id is int ? id : int.tryParse(id.toString());
+    } catch (e) {
+      appLog('[sync] appendVaultOp failed: $e');
+      return null;
     }
   }
 
   // ==================== Realtime 订阅 ====================
 
-  RealtimeChannel? _roomChannel;
-  final Map<String, RealtimeChannel> _oplogChannels = {};
+  RealtimeChannel? _ledgerChannel;
+  final Map<String, RealtimeChannel> _ledgerOpChannels = {};
 
-  /// 订阅指定房间的 oplogs INSERT：对方写一笔立即收到，触发增量拉取。
+  /// 订阅指定房间的 ledgerOps INSERT：对方写一笔立即收到，触发增量拉取。
   /// 每个房间单独持有一条通道，重复订阅同房间会先关闭旧通道。
-  Future<void> subscribeOplogs({
-    required String roomId,
+  Future<void> subscribeLedgerOps({
+    required String ledgerId,
     required void Function(PostgresChangePayload payload) callback,
   }) async {
     final client = this.client;
     if (client == null) return;
-    final existing = _oplogChannels.remove(roomId);
+    final existing = _ledgerOpChannels.remove(ledgerId);
     if (existing != null) {
       await existing.unsubscribe();
     }
     final channel = client
-        .channel('oplogs:$roomId')
+        .channel('ledger_ops:$ledgerId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'oplogs',
+          table: 'ledger_ops',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'room_id',
-            value: roomId,
+            column: 'ledger_id',
+            value: ledgerId,
           ),
           callback: callback,
         )
         // 连接失败由 SDK 内置 timeout(默认 10s)+回调状态兜底，不阻塞调用方。
         .subscribe();
-    _oplogChannels[roomId] = channel;
+    _ledgerOpChannels[ledgerId] = channel;
   }
 
   /// 退订指定房间的实时通道（删除共享账本时清理）。
-  Future<void> unsubscribeOplogs(String roomId) async {
-    final channel = _oplogChannels.remove(roomId);
+  Future<void> unsubscribeLedgerOps(String ledgerId) async {
+    final channel = _ledgerOpChannels.remove(ledgerId);
     if (channel != null) {
       await channel.unsubscribe();
     }
   }
 
-  /// 订阅 rooms 的 UPDATE/INSERT，用于账本改名、成员加入等变化实时感知。
+  /// 订阅 ledgers 的 UPDATE/INSERT，用于账本改名、成员加入等变化实时感知。
   /// 广播全表，回调内由上层按房间 id 过滤。
-  Future<void> subscribeRooms({
+  Future<void> subscribeLedgers({
     required void Function(PostgresChangePayload payload) callback,
   }) async {
     final client = this.client;
     if (client == null) return;
-    await _roomChannel?.unsubscribe();
-    _roomChannel = client
-        .channel('rooms:all')
+    await _ledgerChannel?.unsubscribe();
+    _ledgerChannel = client
+        .channel('ledger:all')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'rooms',
+          table: 'ledger',
           callback: callback,
         )
         .subscribe();
   }
 
   Future<void> disposeChannels() async {
-    for (final channel in _oplogChannels.values) {
+    for (final channel in _ledgerOpChannels.values) {
       await channel.unsubscribe();
     }
-    _oplogChannels.clear();
-    await _roomChannel?.unsubscribe();
-    _roomChannel = null;
+    _ledgerOpChannels.clear();
+    await _ledgerChannel?.unsubscribe();
+    _ledgerChannel = null;
   }
 
   // ==================== profiles（昵称/头像，author_id 维度）====================
@@ -394,24 +508,24 @@ class SupabaseManager {
 
   /// 拉取当前账号所属的全部房间（RLS 已限定为成员）。
   /// 换新设备/清数据后登录时，据此恢复本地共享账本列表。
-  Future<List<Map<String, dynamic>>> fetchMyRooms() async {
+  Future<List<Map<String, dynamic>>> fetchMyLedgers() async {
     final client = this.client;
     if (client == null) return const [];
     try {
-      final res = await client.from('rooms').select('id,name,created_at,invite_code');
+      final res = await client.from('ledger').select('id,name,created_at,invite_code');
       return res
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
     } catch (e) {
-      appLog('[sync] fetchMyRooms failed: $e');
+      appLog('[sync] fetchMyLedgers failed: $e');
       return const [];
     }
   }
 
   /// 拉取全部成员资料（author_id/nickname/avatar_url）。
   /// 用于新设备/清数据登录后以 profiles 表为权威源恢复昵称头像，
-  /// 不依赖 oplogs 历史事件。失败返回空表，由上层自行容忍。
+  /// 不依赖 ledgerOps 历史事件。失败返回空表，由上层自行容忍。
   Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
     final client = this.client;
     if (client == null) return const [];
@@ -426,179 +540,6 @@ class SupabaseManager {
     } catch (e) {
       appLog('[sync] fetchAllProfiles failed: $e');
       return const [];
-    }
-  }
-
-  // ==================== piggies / piggy_ops（全局小金库）====================
-
-  /// 新建小金库房间（id 本地生成）。成功返回邀请码；失败返回 null。
-  Future<String?> createPiggy({
-    required String piggyId,
-    required String name,
-    required String inviteCode,
-  }) async {
-    final client = this.client;
-    if (client == null) return null;
-    try {
-      final res = await client.rpc(
-        'create_piggy',
-        params: {
-          'p_id': piggyId,
-          'p_name': name,
-          'p_invite_code': inviteCode.trim().toUpperCase(),
-        },
-      );
-      if (res is Map) {
-        return res['invite_code']?.toString();
-      }
-      return null;
-    } catch (e) {
-      appLog('[sync] createPiggy failed: $e');
-      return null;
-    }
-  }
-
-  /// 用邀请码加入小金库。返回 piggy 数据；邀请码无效/已被占用返回 null；
-  /// 网络/超时/服务端 RPC 异常原样上抛（由上层区分提示）。
-  Future<Map<String, dynamic>?> joinPiggyByInvite(String inviteCode) async {
-    final client = this.client;
-    if (client == null) throw StateError('Supabase 未就绪');
-    final res = await client.rpc(
-      'join_piggy_by_invite',
-      params: {'p_invite_code': inviteCode.trim().toUpperCase()},
-    );
-    if (res is Map<String, dynamic>) return res;
-    return null;
-  }
-
-  /// 拉取我参与（owner 或 peer）的全部小金库。
-  Future<List<Map<String, dynamic>>> fetchMyPiggies() async {
-    final client = this.client;
-    if (client == null) return const [];
-    try {
-      final res = await client
-          .from('piggies')
-          .select('id,name,created_at,invite_code,owner_email,peer_email');
-      return res
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-    } catch (e) {
-      appLog('[sync] fetchMyPiggies failed: $e');
-      return const [];
-    }
-  }
-
-  /// 改小金库名。成功返回 true。
-  Future<bool> renamePiggy(String piggyId, String name) async {
-    final client = this.client;
-    if (client == null) return false;
-    try {
-      await client
-          .from('piggies')
-          .update({
-            'name': name,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', piggyId);
-      return true;
-    } catch (e) {
-      appLog('[sync] renamePiggy failed: $e');
-      return false;
-    }
-  }
-
-  /// 追加一条小金库事件日志。成功返回云端自增 id，失败返回 null。
-  Future<int?> appendPiggyOp({
-    required String piggyId,
-    required String entityId,
-    required String op,
-    required Map<String, dynamic> payload,
-    required String deviceId,
-  }) async {
-    final client = this.client;
-    final myUid = uid;
-    if (client == null || myUid == null) return null;
-    try {
-      final row = await client
-          .from('piggy_ops')
-          .insert({
-            'piggy_id': piggyId,
-            'entity_id': entityId,
-            'op': op,
-            'payload': payload,
-            'uid': myUid,
-            'device_id': deviceId,
-            'created_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .select('id')
-          .single();
-      final id = row['id'];
-      return id is int ? id : int.tryParse(id.toString());
-    } catch (e) {
-      appLog('[sync] appendPiggyOp failed: $e');
-      return null;
-    }
-  }
-
-  /// 拉取小金库内 id 大于 [afterId] 的增量事件（按 id 升序）。
-  Future<List<Map<String, dynamic>>> fetchPiggyOps(
-    String piggyId, {
-    required int afterId,
-    int limit = 200,
-  }) async {
-    final client = this.client;
-    if (client == null) return const [];
-    try {
-      return await client
-          .from('piggy_ops')
-          .select()
-          .eq('piggy_id', piggyId)
-          .gt('id', afterId)
-          .order('id', ascending: true)
-          .limit(limit);
-    } catch (e) {
-      appLog('[sync] fetchPiggyOps failed: $e');
-      return const [];
-    }
-  }
-
-  final Map<String, RealtimeChannel> _piggyOpChannels = {};
-
-  /// 订阅指定小金库的 piggy_ops INSERT（收到即立即拉增量）。
-  Future<void> subscribePiggyOps({
-    required String piggyId,
-    required void Function(PostgresChangePayload payload) callback,
-  }) async {
-    final client = this.client;
-    if (client == null) return;
-    final existing = _piggyOpChannels.remove(piggyId);
-    if (existing != null) {
-      await existing.unsubscribe();
-    }
-    final channel = client
-        .channel('piggy_ops:$piggyId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'piggy_ops',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'piggy_id',
-            value: piggyId,
-          ),
-          callback: callback,
-        )
-        // 连接失败由 SDK 内置 timeout(默认 10s)+回调状态兜底，不阻塞调用方。
-        .subscribe();
-    _piggyOpChannels[piggyId] = channel;
-  }
-
-  /// 退订（删除小金库/登出时清理）。
-  Future<void> unsubscribePiggyOps(String piggyId) async {
-    final channel = _piggyOpChannels.remove(piggyId);
-    if (channel != null) {
-      await channel.unsubscribe();
     }
   }
 }

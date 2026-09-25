@@ -19,8 +19,10 @@ Future<Object?> showAccountPicker(
   return showModalBottomSheet<Object?>(
     context: context,
     backgroundColor: colorBackgroundCard,
-    builder: (ctx) =>
-        _AccountPickerSheet(accounts: accounts, selectedId: selectedId),
+    builder: (ctx) => _AccountPickerSheet(
+      accounts: accounts,
+      selectedId: selectedId,
+    ),
   );
 }
 
@@ -28,7 +30,10 @@ class _AccountPickerSheet extends StatelessWidget {
   final List<AssetAccount> accounts;
   final String? selectedId;
 
-  const _AccountPickerSheet({required this.accounts, required this.selectedId});
+  const _AccountPickerSheet({
+    required this.accounts,
+    required this.selectedId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -82,9 +87,7 @@ class _AccountPickerSheet extends StatelessWidget {
                     selected: selectedId == null,
                     onTap: () => Navigator.pop(context, noAccountSelection),
                   ),
-                  if (accounts.isEmpty)
-                    const SizedBox.shrink()
-                  else
+                  if (accounts.isNotEmpty)
                     ...accounts.map(
                       (a) => _buildItem(
                         context,
@@ -122,27 +125,28 @@ class _AccountPickerSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
         child: Row(
           children: [
-            account != null
-                ? AccountAvatar(
-                    account: account,
-                    size: iconSizeXLarge,
-                    color: themeColor,
-                  )
-                : iconPath != null
-                ? SvgPicture.asset(
-                    iconPath,
-                    width: iconSizeXLarge,
-                    height: iconSizeXLarge,
-                    fit: BoxFit.contain,
-                    colorFilter: ColorFilter.mode(
-                      themeColor,
-                      BlendMode.srcIn,
-                    ),
-                  )
-                : Icon(icon ?? Icons.account_balance_wallet,
-                    size: iconSizeXLarge,
-                    color: themeColor,
-                  ),
+            if (account != null)
+              AccountAvatar(
+                account: account,
+                size: iconSizeXLarge,
+                color: themeColor,
+              )
+            else if (iconPath != null)
+              SvgPicture.asset(
+                iconPath,
+                width: iconSizeXLarge,
+                height: iconSizeXLarge,
+                fit: BoxFit.contain,
+                colorFilter: ColorFilter.mode(
+                  themeColor,
+                  BlendMode.srcIn,
+                ),
+              )
+            else
+              Icon(icon ?? Icons.account_balance_wallet,
+                size: iconSizeXLarge,
+                color: themeColor,
+              ),
             const SizedBox(width: spacingM),
             Expanded(
               child: Column(

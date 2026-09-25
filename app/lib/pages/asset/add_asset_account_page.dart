@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../constants/app_colors.dart';
@@ -5,9 +7,13 @@ import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../services/core/theme_service.dart';
 import '../../models/data/asset_account.dart';
+import '../../services/cloud/supabase_service.dart';
+import '../../utils/log.dart';
+import '../../utils/toast.dart';
+import '../../widgets/data/show_vault_action_sheet.dart';
 import 'asset_account_form_page.dart';
 import 'asset_category_select_page.dart';
-import 'piggy_page.dart';
+import 'vault_join_page.dart';
 
 class AddAssetAccountPage extends StatefulWidget {
   const AddAssetAccountPage({super.key});
@@ -17,6 +23,84 @@ class AddAssetAccountPage extends StatefulWidget {
 }
 
 class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
+  /// 小金库入口：先弹「新建 / 加入」选择，再进入对应页面。
+  Future<void> _openVaultEntry() async {
+    final ctx = context;
+    final action = await showVaultActionSheet(ctx);
+    if (!ctx.mounted) return;
+    switch (action) {
+      case VaultAction.create:
+        await Navigator.push(
+          ctx,
+          MaterialPageRoute(
+            builder: (_) => AddAssetAccountFormPage(
+              title: '添加小金库',
+              categoryName: '小金库',
+              nameLabel: '名称',
+              nameEditable: true,
+              emptyNameFallback: '小金库',
+              presetIconPath: 'assets/icons/vault_manage.svg',
+              onCloudCreate: _createVaultOnCloud,
+            ),
+          ),
+        );
+      case VaultAction.join:
+        await Navigator.push(
+          ctx,
+          MaterialPageRoute(builder: (_) => const VaultJoinPage()),
+        );
+      case null:
+        break;
+    }
+  }
+
+  /// 新建小金库：先建云端金库房间，成功返回邀请码（本地落库由表单页接管）；
+  /// 失败返回 null，本地不插入。
+  Future<String?> _createVaultOnCloud(
+    BuildContext context,
+    AssetAccount account,
+  ) async {
+    final supabase = SupabaseManager.instance;
+    if (!await supabase.ensureSignedIn()) {
+      if (context.mounted) showToast(context, '云端创建失败：请先登录账号');
+      return null;
+    }
+    for (var i = 0; i < 5; i++) {
+      final invite = _generateInviteCode();
+      try {
+        final code = await supabase.createVault(
+          vaultId: account.id,
+          name: account.name,
+          inviteCode: invite,
+          remark: account.remark,
+        );
+        if (code == null) {
+          if (context.mounted) showToast(context, '创建${account.name}失败');
+          return null;
+        }
+        if (context.mounted) showToast(context, '创建${account.name}成功');
+        return code;
+      } catch (e) {
+        if (e.toString().contains('invite_code_taken')) continue;
+        if (e.toString().contains('vault_id_taken')) {
+          if (context.mounted) showToast(context, '创建${account.name}失败');
+          return null;
+        }
+        if (context.mounted) showToast(context, '创建${account.name}失败');
+        appLog('[vault] createVault failed: $e');
+        return null;
+      }
+    }
+    if (context.mounted) showToast(context, '创建${account.name}失败');
+    return null;
+  }
+
+  String _generateInviteCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final rnd = Random.secure();
+    return List.generate(6, (_) => chars[rnd.nextInt(chars.length)]).join();
+  }
+
   Widget _buildEntry(int index) {
     switch (index) {
       case 0:
@@ -143,49 +227,6 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
     }
   }
 
-  /// 列表尾部「小金库」入口：点击进入小金库总览（不新建资产账户）。
-  Widget _buildPiggyEntry(BuildContext context) {
-    final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const PiggyPage()),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: spacingL,
-          vertical: spacingXS,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: themeColor,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.account_balance,
-                size: 24,
-                color: colorTextOnPrimary,
-              ),
-            ),
-            const SizedBox(width: spacingL),
-            const Text('小金库', style: textPickerItem),
-            const Spacer(),
-            const Icon(
-              Icons.chevron_right,
-              size: iconSizeDefault,
-              color: colorTextSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,12 +248,9 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
       ),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: spacingS),
-        itemCount: assetAccountCategories.length + 1,
+        itemCount: assetAccountCategories.length,
         separatorBuilder: (_, _) => Container(height: 1, color: colorDivider),
         itemBuilder: (context, index) {
-          if (index == assetAccountCategories.length) {
-            return _buildPiggyEntry(context);
-          }
           final cat = assetAccountCategories[index];
           final color = cat.color;
           final isCash = cat.name == '现金';
@@ -224,15 +262,22 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             '负债' => const Color(0xFFF44336),
             '债券' => const Color(0xFF2196F3),
             '自定义资产' => const Color(0xFF9C27B0),
+            '小金库' => const Color(0xFFF9A825),
             _ => color.withValues(alpha: 0.12),
           };
           final iconColor = isCash ? colorIncome : colorTextOnPrimary;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => _buildEntry(index)),
-            ),
+            onTap: () {
+              if (cat.name == '小金库') {
+                _openVaultEntry();
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => _buildEntry(index)),
+                );
+              }
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: spacingL,
