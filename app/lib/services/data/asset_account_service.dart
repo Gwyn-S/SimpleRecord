@@ -63,7 +63,7 @@ Future<void> insertAssetAccount(AssetAccount account) async {
   BalanceHistoryService.instance.notifyChanged(account.id);
 }
 
-Future<void> updateAssetAccount(AssetAccount account) async {
+Future<void> updateAssetAccount(AssetAccount account, {String adjustSourceId = ''}) async {
   final db = await DatabaseHelper.instance.database;
   await db.update(
     'asset_accounts',
@@ -73,7 +73,12 @@ Future<void> updateAssetAccount(AssetAccount account) async {
   );
   // 手动改余额：使"今天"起的余额平移到新值，改动之前的历史不动。
   // 先落调整记录再通知监听，避免流水页面读到尚未写入的调整。
-  await BalanceHistoryService.instance.applyManualAdjustment(account.id);
+  // [adjustSourceId]：金库手动调整时与 pushAdjust 事件的 entityId 一致，
+  // 靠 source_id 幂等，避免本机重放自己事件造成双写。
+  await BalanceHistoryService.instance.applyManualAdjustment(
+    account.id,
+    sourceId: adjustSourceId,
+  );
   assetAccountsVersion.value++;
 }
 

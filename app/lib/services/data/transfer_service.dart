@@ -26,8 +26,10 @@ Future<({String email, String nickname, String? avatar})>
 Future<List<Transfer>> loadTransfersForAccount(String accountId) async {
   final db = await DatabaseHelper.instance.database;
   final rows = await db.rawQuery(
-    'SELECT t.*, a.name AS from_account_name, b.name AS to_account_name '
-    'FROM transfers t '
+    "SELECT t.*, "
+    "a.name AS from_account_name, "
+    "b.name AS to_account_name "
+    "FROM transfers t "
     'LEFT JOIN asset_accounts a ON t.from_account_id = a.id '
     'LEFT JOIN asset_accounts b ON t.to_account_id = b.id '
     'WHERE t.from_account_id = ? OR t.to_account_id = ? '
@@ -48,6 +50,7 @@ Future<void> insertTransfer({
   String remark = '',
   DateTime? date,
   String? id,
+  DateTime? createdAt,
   ({String email, String nickname, String? avatar})? operator,
 }) async {
   final db = await DatabaseHelper.instance.database;
@@ -62,10 +65,10 @@ Future<void> insertTransfer({
       'fee_cents': feeCents,
       'remark': remark,
       'date': toEpochDay(date ?? now),
-      'created_at': now.millisecondsSinceEpoch,
+      'created_at': (createdAt ?? now).millisecondsSinceEpoch,
       'operator_email': op.email,
       'operator_nickname': op.nickname,
-      'operator_avatar_url': op.avatar,
+      'operator_avatar_url': op.avatar ?? '',
     });
     await _applyTransfer(
       txn,

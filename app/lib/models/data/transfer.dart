@@ -31,6 +31,25 @@ class Transfer {
     this.operatorAvatarUrl,
   });
 
+  Transfer copyWith({
+    String? operatorNickname,
+    String? operatorAvatarUrl,
+  }) => Transfer(
+    id: id,
+    fromAccountId: fromAccountId,
+    toAccountId: toAccountId,
+    amountCents: amountCents,
+    feeCents: feeCents,
+    remark: remark,
+    date: date,
+    createdAt: createdAt,
+    fromAccountName: fromAccountName,
+    toAccountName: toAccountName,
+    operatorEmail: operatorEmail,
+    operatorNickname: operatorNickname ?? this.operatorNickname,
+    operatorAvatarUrl: operatorAvatarUrl ?? this.operatorAvatarUrl,
+  );
+
   Map<String, dynamic> toDbMap() => {
     'id': id,
     'from_account_id': fromAccountId,
@@ -42,7 +61,7 @@ class Transfer {
     'created_at': createdAt.millisecondsSinceEpoch,
     'operator_email': operatorEmail,
     'operator_nickname': operatorNickname,
-    'operator_avatar_url': operatorAvatarUrl,
+    'operator_avatar_url': operatorAvatarUrl ?? '',
   };
 
   factory Transfer.fromDbMap(Map<String, dynamic> map) => Transfer(

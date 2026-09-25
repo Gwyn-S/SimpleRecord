@@ -64,6 +64,12 @@ class SyncService {
     await VaultOpService.instance.flush();
     await pullAll();
     await _restoreRemoteProfiles();
+    // 换设备/清数据后登录：把云端"我参与的"金库恢复回本地列表，
+    // 再据此订阅并重放历史事件（余额/改名/备注一并重建）。
+    await VaultOpService.instance.restoreMyVaults();
+    // 金库下行：为本地全部小金库恢复订阅并追平，保证 B 端加入后能实时
+    // 接收对方的存取事件、两台机最终一致。
+    await VaultOpService.instance.resubscribeLocalVaults();
     return true;
   }
 

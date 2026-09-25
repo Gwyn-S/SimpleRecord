@@ -3,6 +3,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/data/asset_account.dart';
+import '../../services/cloud/vault_op_service.dart';
 import '../../services/data/asset_account_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/formatters.dart';
@@ -95,6 +96,8 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       remark: _remarkController.text.trim(),
       cardLast4: _cardController.text.trim(),
       iconPath: widget.presetIconPath,
+      // 编辑时保留既有邀请码，避免把金库 invite_code 覆盖成空。
+      inviteCode: widget.existingAccount?.inviteCode ?? '',
     );
     final onCloud = widget.onCloudCreate;
     if (onCloud != null) {
@@ -118,9 +121,41 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       account.inviteCode = invite;
     }
     if (widget.existingAccount != null) {
-      await updateAssetAccount(account);
+      final before = widget.existingAccount!.balanceCents;
+      final balanceChanged =
+          account.balanceCents != before && account.categoryName == '小金库';
+      // 金库改余额时本地调整记录与推送事件共用 entityId/sourceId，幂等防双写。
+      final entityId = balanceChanged
+          ? '${account.id}-adj-${DateTime.now().microsecondsSinceEpoch}'
+          : null;
+      await updateAssetAccount(account, adjustSourceId: entityId ?? '');
+      // 编辑小金库：名字/备注变化通告对端（图标不可编辑，不在此列）。
+      if (account.categoryName == '小金库') {
+        final e = widget.existingAccount!;
+        if (e.name != account.name || e.remark != account.remark) {
+          await VaultOpService.instance.pushVaultProfile(
+            accountId: account.id,
+            name: e.name != account.name ? account.name : null,
+            remark: e.remark != account.remark ? account.remark : null,
+          );
+        }
+        // 改余额通告云端（新建走 onCloudCreate 后的初始通告）。
+        if (balanceChanged) {
+          await VaultOpService.instance.pushAdjust(
+            accountId: account.id,
+            deltaCents: account.balanceCents - before,
+            beforeCents: before,
+            afterCents: account.balanceCents,
+            entityId: entityId,
+          );
+        }
+      }
     } else {
       await insertAssetAccount(account);
+      // 新建小金库：把初始余额通告云端，B 端加入后据 events 重建金库余额。
+      if (account.categoryName == '小金库') {
+        await VaultOpService.instance.pushInitialBalance(account);
+      }
     }
     if (mounted) Navigator.pop(context);
   }

@@ -161,7 +161,8 @@ class DatabaseHelper {
         delta INTEGER NOT NULL,
         before_cents INTEGER NOT NULL DEFAULT 0,
         after_cents INTEGER NOT NULL DEFAULT 0,
-        created_at INTEGER NOT NULL DEFAULT 0
+        created_at INTEGER NOT NULL DEFAULT 0,
+        source_id TEXT NOT NULL DEFAULT ''
       )
     ''');
     // 金库操作待推队列等同步相关表，统一在 _createSyncTables 中创建。

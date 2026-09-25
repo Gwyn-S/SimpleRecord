@@ -98,7 +98,7 @@ class BalanceHistoryService {
   /// 手动改余额：以"今天"为准使快照今日余额对齐 balance_cents。
   /// Δ 从今天生效（等价于今天插入一条对账调整，但不暴露给用户），
   /// 后续任何重算都会通过 [balance_adjustments] 复原该 Δ。
-  Future<void> applyManualAdjustment(String accountId) async {
+  Future<void> applyManualAdjustment(String accountId, {String sourceId = ''}) async {
     final db = await _db;
     await _recompute(accountId);
     final today = toEpochDay(DateTime.now());
@@ -112,16 +112,52 @@ class BalanceHistoryService {
     final before = rows.isEmpty ? 0 : rows.first['balance'] as int;
     final delta = current - before;
     if (delta != 0) {
-      await db.insert('balance_adjustments', {
-        'account_id': accountId,
-        'date': today,
-        'delta': delta,
-        'before_cents': before,
-        'after_cents': current,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-      });
-      await _recompute(accountId);
+      await recordAdjustment(
+        accountId: accountId,
+        date: today,
+        deltaCents: delta,
+        beforeCents: before,
+        afterCents: current,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        sourceId: sourceId,
+      );
     }
+  }
+
+  /// 金库记账/对端同步共用：把一条余额调整落库（仿手动调余额的历史记录），
+  /// 让详情页流水可见。Δ 以 [date] 为准生效（记账日），供快照重算复原。
+  /// [before]/[after] 仅作流水展示；快照用 delta。
+  /// [sourceId] 为事件幂等键：非空时按 (account_id, source_id) 去重，
+  /// 同一个 adjust 事件在本机只落一条（自己 push 的事件拉回也不会重复）。
+  Future<void> recordAdjustment({
+    required String accountId,
+    required int date,
+    required int deltaCents,
+    required int beforeCents,
+    required int afterCents,
+    required int createdAt,
+    String sourceId = '',
+  }) async {
+    final db = await _db;
+    if (sourceId.isNotEmpty) {
+      final exists = await db.query(
+        'balance_adjustments',
+        columns: ['id'],
+        where: 'account_id = ? AND source_id = ?',
+        whereArgs: [accountId, sourceId],
+      );
+      if (exists.isNotEmpty) return;
+    }
+    await db.insert('balance_adjustments', {
+      'account_id': accountId,
+      'date': date,
+      'delta': deltaCents,
+      'before_cents': beforeCents,
+      'after_cents': afterCents,
+      'created_at': createdAt,
+      'source_id': sourceId,
+    });
+    await _recompute(accountId);
   }
 
   /// 某账户的全部手动改余额记录（按日期升序），用于资产详情流水展示。
@@ -233,16 +269,28 @@ class BalanceHistoryService {
     void add(int day, int delta) =>
         daily.update(day, (v) => v + delta, ifAbsent: () => delta);
 
-    final records = await db.query(
-      'records',
-      columns: ['date', 'is_expense', 'amount_cents'],
-      where: 'account_id = ?',
+    // 小金库账户的余额变化统一由 balance_adjustments 承载（记账/调余
+    // 额都归一化为调整记录），快照重算这里跳过 records，避免计入两次。
+    final accRows = await db.query(
+      'asset_accounts',
+      columns: ['category_name'],
+      where: 'id = ?',
       whereArgs: [accountId],
     );
-    for (final r in records) {
-      final isExpense = r['is_expense'] == 1;
-      final amount = r['amount_cents'] as int;
-      add(r['date'] as int, isExpense ? -amount : amount);
+    final isVault =
+        accRows.isNotEmpty && accRows.first['category_name'] == '小金库';
+    if (!isVault) {
+      final records = await db.query(
+        'records',
+        columns: ['date', 'is_expense', 'amount_cents'],
+        where: 'account_id = ?',
+        whereArgs: [accountId],
+      );
+      for (final r in records) {
+        final isExpense = r['is_expense'] == 1;
+        final amount = r['amount_cents'] as int;
+        add(r['date'] as int, isExpense ? -amount : amount);
+      }
     }
 
     final fromRows = await db.query(

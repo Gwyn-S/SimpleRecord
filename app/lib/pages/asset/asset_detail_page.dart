@@ -71,17 +71,39 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
       return;
     }
     final transfers = await loadTransfersForAccount(account.id);
+    // 金库条目：操作者昵称/头像以 author_id(email) 映射为最新值，
+    // 快照（operatorNickname/operatorAvatarUrl）仅在无映射时兜底展示。
+    final resolvedTransfers = <Transfer>[];
+    for (final t in transfers) {
+      if (VaultOpService.instance.isSharedVault(byId[t.fromAccountId]) ||
+          VaultOpService.instance.isSharedVault(byId[t.toAccountId])) {
+        final auth = AuthorService.instance;
+        final nick = await auth.displayNameFor(t.operatorEmail);
+        final avatar = await auth.displayAvatarFor(t.operatorEmail);
+        resolvedTransfers.add(
+          t.copyWith(
+            operatorNickname: nick ?? t.operatorNickname,
+            operatorAvatarUrl: avatar ?? t.operatorAvatarUrl,
+          ),
+        );
+      } else {
+        resolvedTransfers.add(t);
+      }
+    }
     final adjustments =
         await BalanceHistoryService.instance.adjustmentsForAccount(account.id);
     if (!mounted) return;
     final entries = <_FlowEntry>[];
-    for (final t in transfers) {
+    for (final t in resolvedTransfers) {
       String label(AssetAccount? a, String? fallback) {
         if (a == null) return fallback ?? '';
         return a.displayName;
       }
 
       final isIn = t.toAccountId == account.id;
+      final isShared =
+          VaultOpService.instance.isSharedVault(byId[t.fromAccountId]) ||
+              VaultOpService.instance.isSharedVault(byId[t.toAccountId]);
       entries.add(
         _FlowEntry(
           date: t.date,
@@ -93,13 +115,12 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           fromLabel: label(byId[t.fromAccountId], t.fromAccountName),
           toLabel: label(byId[t.toAccountId], t.toAccountName),
           transfer: t,
-          isShared:
-              VaultOpService.instance.isSharedVault(byId[t.fromAccountId]) ||
-              VaultOpService.instance.isSharedVault(byId[t.toAccountId]),
+          isShared: isShared,
         ),
       );
     }
     for (final a in adjustments) {
+      final isShared = VaultOpService.instance.isSharedVault(account);
       entries.add(
         _FlowEntry(
           date: fromEpochDay(a['date'] as int),
@@ -111,6 +132,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           deltaCents: a['delta'] as int,
           beforeCents: a['before_cents'] as int,
           afterCents: a['after_cents'] as int,
+          isShared: isShared,
         ),
       );
     }
@@ -573,7 +595,12 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 ),
               ),
               const SizedBox(height: spacingXS),
-              Text('${f.fromLabel}->${f.toLabel}', style: textItemSub),
+              Text(
+                f.isShared
+                    ? formatDateYmd(f.createdAt)
+                    : '${f.fromLabel}->${f.toLabel}',
+                style: textItemSub,
+              ),
             ],
           ),
         ],
@@ -637,12 +664,17 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   : yuanToCents(text);
               final before = account.balanceCents;
               account.balanceCents = cents;
-              await updateAssetAccount(account);
+              // 手动调整本地记录与推送事件共用同一 entityId/sourceId，
+              // 本机重放自己事件时幂等去重，避免双写。
+              final entityId =
+                  '${account.id}-adj-${DateTime.now().microsecondsSinceEpoch}';
+              await updateAssetAccount(account, adjustSourceId: entityId);
               await VaultOpService.instance.pushAdjust(
                 accountId: account.id,
                 deltaCents: cents - before,
                 beforeCents: before,
                 afterCents: cents,
+                entityId: entityId,
               );
               if (dialogContext.mounted) Navigator.pop(dialogContext);
               await _loadFlows();
@@ -733,6 +765,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   }
                   return;
                 }
+                await VaultOpService.instance.removeVaultSyncState(account.id);
               }
               await deleteAssetAccount(account.id);
               if (dialogContext.mounted) Navigator.pop(dialogContext);

@@ -10,6 +10,7 @@ import '../../services/data/record_service.dart';
 import '../../services/data/ledger_service.dart';
 import '../../services/core/settings.dart';
 import '../../services/cloud/sync_service.dart';
+import '../../services/cloud/vault_op_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/log.dart';
 import '../../utils/toast.dart';
@@ -308,6 +309,25 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
     );
   }
 
+  /// 昵称/头像变更后，向共享账本与全部金库广播对方成员资料。
+  Future<void> _broadcastProfile({
+    String? nickname,
+    String? avatarUrl,
+  }) async {
+    final authorId = await AuthorService.instance.existingAuthorId();
+    if (authorId == null) return;
+    await SyncService.instance.enqueueProfileChange(
+      authorId: authorId,
+      nickname: nickname,
+      avatarUrl: avatarUrl,
+    );
+    await VaultOpService.instance.enqueueProfileChange(
+      authorId: authorId,
+      nickname: nickname,
+      avatarUrl: avatarUrl,
+    );
+  }
+
   /// 强一致保存昵称：先阻塞上传云端，成功才写本地并关弹窗。
   /// 失败提示且本地保持原值，避免"本地看似成功云端没有"的不一致。
   Future<void> _saveNicknameAndClose(
@@ -332,13 +352,9 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       if (mounted) showToast(context, '昵称同步失败，请检查云端连接');
       return;
     }
-    // 上传成功：广播给共享账本成员，然后更新展示态并关弹窗。
-    final authorId = await AuthorService.instance.existingAuthorId();
-    if (authorId != null && nickname.isNotEmpty) {
-      await SyncService.instance.enqueueProfileChange(
-        authorId: authorId,
-        nickname: nickname,
-      );
+    // 上传成功：广播给共享账本与全部金库成员，然后更新展示态并关弹窗。
+    if (nickname.isNotEmpty) {
+      await _broadcastProfile(nickname: nickname);
     }
     if (!mounted) return;
     // 弹窗可能在等待期间被用户关闭（barrier 不可关但保险起见），
@@ -379,12 +395,7 @@ class _SupabaseSyncPageState extends State<SupabaseSyncPage> {
       // changeAvatar 内部已把压缩小图写入展示缓存，此处直接切换展示态即可，
       // 首帧同步命中缓存立即显示新头像（不再等下载原图压缩）。
       setState(() => _avatarUrl = url);
-      final authorId = await AuthorService.instance.existingAuthorId();
-      if (authorId == null) return;
-      await SyncService.instance.enqueueProfileChange(
-        authorId: authorId,
-        avatarUrl: url,
-      );
+      await _broadcastProfile(avatarUrl: url);
       // 触发各页面重新加载并反查最新头像，保证条目头像即时刷新。
       recordsVersion.value++;
       if (!mounted) return;

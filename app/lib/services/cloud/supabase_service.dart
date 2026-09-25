@@ -348,6 +348,71 @@ class SupabaseManager {
     }
   }
 
+  /// 拉取金库房间内 id 大于 [afterId] 的操作日志（按 id 升序）。
+  /// B 端加入金库后据此增量重建本地流水；失败返回空表，由上层容忍。
+  Future<List<Map<String, dynamic>>> fetchVaultOps(
+    String vaultId, {
+    required int afterId,
+    int limit = 200,
+  }) async {
+    final client = this.client;
+    if (client == null) return const [];
+    try {
+      return await client
+          .from('vault_ops')
+          .select()
+          .eq('vault_id', vaultId)
+          .gt('id', afterId)
+          .order('id', ascending: true)
+          .limit(limit);
+    } catch (e) {
+      appLog('[sync] fetchVaultOps failed: $e');
+      return const [];
+    }
+  }
+
+  // ==================== vaults Realtime 订阅 ====================
+
+  final Map<String, RealtimeChannel> _vaultOpChannels = {};
+
+  /// 订阅金库的 vault_ops INSERT：对方存取立即收到，触发增量拉取重建。
+  /// 每金库单独一条通道；重复订阅同金库先关闭旧通道。
+  Future<void> subscribeVaultOps({
+    required String vaultId,
+    required void Function(PostgresChangePayload payload) callback,
+  }) async {
+    final client = this.client;
+    if (client == null) return;
+    final existing = _vaultOpChannels.remove(vaultId);
+    if (existing != null) {
+      await existing.unsubscribe();
+    }
+    final channel = client
+        .channel('vault_ops:$vaultId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'vault_ops',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'vault_id',
+            value: vaultId,
+          ),
+          callback: callback,
+        )
+        // 连接失败由 SDK 内置 timeout(默认 10s)+回调状态兜底，不阻塞调用方。
+        .subscribe();
+    _vaultOpChannels[vaultId] = channel;
+  }
+
+  /// 退订金库的实时通道（删除金库/登出时清理）。
+  Future<void> unsubscribeVaultOps(String vaultId) async {
+    final channel = _vaultOpChannels.remove(vaultId);
+    if (channel != null) {
+      await channel.unsubscribe();
+    }
+  }
+
   // ==================== Realtime 订阅 ====================
 
   RealtimeChannel? _ledgerChannel;
@@ -417,6 +482,10 @@ class SupabaseManager {
     _ledgerOpChannels.clear();
     await _ledgerChannel?.unsubscribe();
     _ledgerChannel = null;
+    for (final channel in _vaultOpChannels.values) {
+      await channel.unsubscribe();
+    }
+    _vaultOpChannels.clear();
   }
 
   // ==================== profiles（昵称/头像，author_id 维度）====================
