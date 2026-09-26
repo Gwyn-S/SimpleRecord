@@ -10,6 +10,7 @@ import '../core/database.dart';
 import '../image/image_storage_service.dart';
 import '../core/settings.dart';
 import '../cloud/sync_service.dart';
+import '../cloud/supabase_service.dart';
 import '../cloud/vault_op_service.dart';
 
 const _currentLedgerKey = 'currentBookId';
@@ -188,60 +189,83 @@ Future<void> insertRecord(Record record) async {
 }
 
 /// 记账影响了金库账户余额时，把数值变化（Δ）通告对端，
-/// 并本地记一条「调整」历史，让详情页流水两端可见。
+/// 并本地落一条「调整」历史，让详情页流水两端可见。
 /// 普通账户不推；金库侧仅传 adjust 数值事件，保持"账户=数值"语义。
+/// 一条记录的 insert/update/delete 共用稳定 recordKey（record.id 派生），
+/// 因此本地调整行"一笔记账一行"：insert 新建、update 覆盖同值、delete 删除，
+/// 不会像旧实现那样每次操作都追加一条反向记录。
 Future<void> _pushVaultDelta(
   String? accountId,
   Record record, {
   required String op,
-  bool? oldIsExpense,
-  int? oldAmountCents,
 }) async {
   if (accountId == null || accountId.isEmpty) return;
-  final newDelta = record.isExpense ? -record.amountCents : record.amountCents;
-  int delta;
-  if (op == 'insert') {
-    delta = newDelta;
-  } else if (op == 'delete') {
-    delta = -(oldIsExpense! ? -oldAmountCents! : oldAmountCents!);
-  } else {
-    // update：新值影响 - 旧值影响（undo 旧 + apply 新）
-    final oldDelta =
-        oldIsExpense! ? -oldAmountCents! : oldAmountCents!;
-    delta = newDelta - oldDelta;
-  }
-  // 记账事务已把余额改到终值，这里读回作为 after；before 反推。
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query(
+  // 仅金库账户需要：普通账户记账走本地完整流水，不生成「调整」数值事件。
+  final accRows = await db.query(
+    'asset_accounts',
+    columns: ['category_name'],
+    where: 'id = ?',
+    whereArgs: [accountId],
+  );
+  final isVault =
+      accRows.isNotEmpty && accRows.first['category_name'] == '小金库';
+  if (!isVault) return;
+  // 后段读回终值余额作 after（insert/update 时记账事务已改好，
+  // delete 时记账事务已回退）。
+  final balRows = await db.query(
     'asset_accounts',
     columns: ['balance_cents'],
     where: 'id = ?',
     whereArgs: [accountId],
   );
-  final after = rows.isEmpty ? delta : rows.first['balance_cents'] as int;
+  final after = balRows.isEmpty ? 0 : balRows.first['balance_cents'] as int;
+
+  if (op == 'delete') {
+    // 直接删除本记录对应的调整行（不做反向追加），事件只带 after 让对端删行。
+    final recordKey = '$accountId-rec-${record.id}';
+    await BalanceHistoryService.instance
+        .removeAdjustmentByRecordKey(accountId, recordKey);
+    await VaultOpService.instance.pushRecordDeltaDelete(
+      accountId: accountId,
+      recordKey: recordKey,
+      afterCents: after,
+      date: toEpochDay(record.date),
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    return;
+  }
+
+  final newDelta = record.isExpense ? -record.amountCents : record.amountCents;
+  // insert/update 均按"该记录当前对余额的影响"覆盖落行：
+  // update = 整条替换（delta 记新影响），而非追加差值。
+  final delta = newDelta;
   final before = after - delta;
-  // 本地落一条调整历史（仿手动调余额），详情页流水可见；
-  // sourceId 与云端事件 entityId 同源，自己 push 的事件拉回也不会重复记录。
-  final sourceId =
-      '$accountId-rec-${record.createdAt.microsecondsSinceEpoch}-${record.id}';
+  final recordKey = '$accountId-rec-${record.id}';
+  final nowMs = DateTime.now().millisecondsSinceEpoch;
   await BalanceHistoryService.instance.recordAdjustment(
     accountId: accountId,
     date: toEpochDay(record.date),
     deltaCents: delta,
     beforeCents: before,
     afterCents: after,
-    createdAt: record.createdAt.millisecondsSinceEpoch,
-    sourceId: sourceId,
+    createdAt: op == 'insert'
+        ? record.createdAt.millisecondsSinceEpoch
+        : nowMs,
+    sourceId: '',
+    operatorEmail: SupabaseManager.instance.email ?? '',
+    recordKey: recordKey,
   );
   await VaultOpService.instance.pushRecordDelta(
     accountId: accountId,
+    recordKey: recordKey,
     deltaCents: delta,
     beforeCents: before,
     afterCents: after,
     date: toEpochDay(record.date),
-    createdAt: record.createdAt.millisecondsSinceEpoch,
-    entityIdSuffix: record.id,
-    entityId: sourceId,
+    createdAt: op == 'insert'
+        ? record.createdAt.millisecondsSinceEpoch
+        : nowMs,
   );
 }
 
@@ -254,8 +278,6 @@ Future<void> updateRecord(Record record) async {
   );
   final db = await DatabaseHelper.instance.database;
   String? oldAccountId;
-  bool? oldIsExpense;
-  int? oldAmountCents;
   await db.transaction((txn) async {
     final rows = await txn.query(
       'records',
@@ -265,8 +287,6 @@ Future<void> updateRecord(Record record) async {
     if (rows.isNotEmpty) {
       final old = Record.fromDbMap(rows.first);
       oldAccountId = old.accountId;
-      oldIsExpense = old.isExpense;
-      oldAmountCents = old.amountCents;
       await _applyBalance(
         txn,
         accountId: old.accountId,
@@ -296,24 +316,14 @@ Future<void> updateRecord(Record record) async {
   SyncService.instance.enqueueRecord(record, op: 'update');
   // 更新可能改账户：新/旧账户有一个是金库就各推 Δ 变更。
   if (oldAccountId != null && oldAccountId != record.accountId) {
-    await _pushVaultDelta(
-      oldAccountId,
-      record,
-      op: 'delete',
-      oldIsExpense: oldIsExpense,
-      oldAmountCents: oldAmountCents,
-    );
+    await _pushVaultDelta(oldAccountId, record, op: 'delete');
   }
-  await _pushVaultDelta(
-    record.accountId,
-    record,
-    op: 'update',
-    oldIsExpense: oldIsExpense,
-    oldAmountCents: oldAmountCents,
-  );
+  await _pushVaultDelta(record.accountId, record, op: 'update');
 }
 
-Future<void> deleteRecord(String id) async {
+/// 删除一条记账。返回是否真的删到了 records 行（本地不存在则以 no-op
+/// 处理，调用方可据此决定回退到调整行删除流程）。
+Future<bool> deleteRecord(String id) async {
   final db = await DatabaseHelper.instance.database;
   Record? old;
   await db.transaction((txn) async {
@@ -340,12 +350,7 @@ Future<void> deleteRecord(String id) async {
   BalanceHistoryService.instance.notifyChanged(old?.accountId);
   if (old != null) {
     await SyncService.instance.enqueueRecord(old!, op: 'delete');
-    await _pushVaultDelta(
-      old!.accountId,
-      old!,
-      op: 'delete',
-      oldIsExpense: old!.isExpense,
-      oldAmountCents: old!.amountCents,
-    );
+    await _pushVaultDelta(old!.accountId, old!, op: 'delete');
   }
+  return old != null;
 }

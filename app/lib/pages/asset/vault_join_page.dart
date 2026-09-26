@@ -8,6 +8,7 @@ import '../../services/cloud/vault_op_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/log.dart';
 import '../../utils/toast.dart';
+import '../../widgets/common/busy_dialog.dart';
 
 /// 加入小金库：输入邀请码，云端校验接入后完成加入。
 /// 成功：本地落库金库账户 + 全量拉取历史重建 + 订阅实时。
@@ -20,7 +21,6 @@ class VaultJoinPage extends StatefulWidget {
 
 class _VaultJoinPageState extends State<VaultJoinPage> {
   final _codeController = TextEditingController();
-  bool _joining = false;
 
   @override
   void dispose() {
@@ -34,10 +34,15 @@ class _VaultJoinPageState extends State<VaultJoinPage> {
       showToast(context, '请输入邀请码');
       return;
     }
-    setState(() => _joining = true);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => busyDialog('加入中'),
+    );
     final supabase = SupabaseManager.instance;
     if (!await supabase.ensureSignedIn()) {
-      setState(() => _joining = false);
+      navigator.pop();
       if (mounted) {
         showToast(context, '加入失败：请先登录账号');
       }
@@ -45,6 +50,7 @@ class _VaultJoinPageState extends State<VaultJoinPage> {
     }
     try {
       final error = await VaultOpService.instance.joinVaultByInvite(code);
+      navigator.pop();
       if (!mounted) return;
       if (error == null) {
         showToast(context, '加入成功');
@@ -53,10 +59,9 @@ class _VaultJoinPageState extends State<VaultJoinPage> {
         showToast(context, error);
       }
     } catch (e) {
+      navigator.pop();
       appLog('[vault] join failed: $e');
       if (mounted) showToast(context, '加入失败，请检查网络后重试');
-    } finally {
-      if (mounted) setState(() => _joining = false);
     }
   }
 
@@ -112,12 +117,10 @@ class _VaultJoinPageState extends State<VaultJoinPage> {
             child: SizedBox(
               height: 44,
               child: FilledButton(
-                onPressed: _joining
-                    ? null
-                    : () {
-                        FocusManager.instance.primaryFocus?.unfocus();
-                        _join();
-                      },
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  _join();
+                },
                 style: FilledButton.styleFrom(
                   backgroundColor: themeColor,
                   foregroundColor: colorTextOnPrimary,

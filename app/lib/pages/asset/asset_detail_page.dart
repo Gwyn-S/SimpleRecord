@@ -12,6 +12,7 @@ import '../../services/core/author_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../services/data/asset_account_service.dart';
 import '../../services/data/balance_history_service.dart';
+import '../../services/data/record_service.dart';
 import '../../services/data/transfer_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/toast.dart';
@@ -90,8 +91,29 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
         resolvedTransfers.add(t);
       }
     }
-    final adjustments =
-        await BalanceHistoryService.instance.adjustmentsForAccount(account.id);
+    // 调整流水：金库上的手动调余/记账也带上操作者（author_id 维度）。
+    final adjustments = await BalanceHistoryService.instance
+        .adjustmentsForAccount(account.id);
+    final adjustedAdjustments = <Map<String, dynamic>>[];
+    if (VaultOpService.instance.isSharedVault(account)) {
+      final auth = AuthorService.instance;
+      for (final a in adjustments) {
+        final opEmail = a['operator_email']?.toString() ?? '';
+        if (opEmail.isNotEmpty) {
+          final nick = await auth.displayNameFor(opEmail);
+          final avatar = await auth.displayAvatarFor(opEmail);
+          adjustedAdjustments.add({
+            ...a,
+            'operator_nickname': nick ?? '',
+            'operator_avatar_url': avatar ?? '',
+          });
+        } else {
+          adjustedAdjustments.add(a);
+        }
+      }
+    } else {
+      adjustedAdjustments.addAll(adjustments);
+    }
     if (!mounted) return;
     final entries = <_FlowEntry>[];
     for (final t in resolvedTransfers) {
@@ -119,7 +141,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
         ),
       );
     }
-    for (final a in adjustments) {
+    for (final a in adjustedAdjustments) {
       final isShared = VaultOpService.instance.isSharedVault(account);
       entries.add(
         _FlowEntry(
@@ -129,10 +151,13 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           ),
           type: _FlowType.adjustment,
           adjustmentId: a['id'] as int,
+          adjustmentRecordKey: a['record_key']?.toString() ?? '',
           deltaCents: a['delta'] as int,
           beforeCents: a['before_cents'] as int,
           afterCents: a['after_cents'] as int,
           isShared: isShared,
+          operatorNickname: a['operator_nickname']?.toString() ?? '',
+          operatorAvatarUrl: a['operator_avatar_url']?.toString() ?? '',
         ),
       );
     }
@@ -450,11 +475,49 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          '调整余额',
-                          style: textListItem.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                '调整余额',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (f.isShared &&
+                                f.operatorNickname.isNotEmpty) ...[
+                              const SizedBox(width: spacingXS),
+                              if (AuthorService.instance.recordAuthorDisplay ==
+                                  AuthorService.recordDisplayAvatar)
+                                AuthorAvatar(
+                                  url: f.operatorAvatarUrl,
+                                  size: 20,
+                                  cornerRadius: 4,
+                                )
+                              else
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: colorTagBackground,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    f.operatorNickname,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: colorTagText,
+                                      fontSize: 12,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: spacingXS),
                         Text(
@@ -668,7 +731,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               // 本机重放自己事件时幂等去重，避免双写。
               final entityId =
                   '${account.id}-adj-${DateTime.now().microsecondsSinceEpoch}';
-              await updateAssetAccount(account, adjustSourceId: entityId);
+              await updateAssetAccount(
+                account,
+                adjustSourceId: entityId,
+                adjustOperatorEmail: SupabaseManager.instance.email ?? '',
+              );
               await VaultOpService.instance.pushAdjust(
                 accountId: account.id,
                 deltaCents: cents - before,
@@ -726,8 +793,36 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           ),
           TextButton(
             onPressed: () async {
-              await BalanceHistoryService.instance
+              // 金库记账来源的调整行（record_key 前缀 $account.id-rec-）：
+              // 记账者本机还连着 records，走 deleteRecord 一并删除 records、
+              // 回退余额、清理 adjustment 行并广播删除事件；
+              // 若本地无此记录（对端重建的调整行）则退回调整行删除流程。
+              final isVault = account.categoryName == '小金库';
+              final key = f.adjustmentRecordKey;
+              if (isVault &&
+                  key.isNotEmpty &&
+                  key.startsWith('${account.id}-rec-')) {
+                final recordId = key.substring('${account.id}-rec-'.length);
+                final removed = await deleteRecord(recordId);
+                if (removed) {
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  await _loadFlows();
+                  return;
+                }
+              }
+              final result = await BalanceHistoryService.instance
                   .deleteAdjustment(account.id, f.adjustmentId);
+              account.balanceCents = result?.newBalance ?? account.balanceCents;
+              // 金库调整行：删除事件推到云端，对端按 record_key 删行并对齐余额。
+              if (isVault && result != null && result.recordKey.isNotEmpty) {
+                await VaultOpService.instance.pushRecordDeltaDelete(
+                  accountId: account.id,
+                  recordKey: result.recordKey,
+                  afterCents: result.newBalance,
+                  date: toEpochDay(f.date),
+                  createdAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              }
               if (dialogContext.mounted) Navigator.pop(dialogContext);
               await _loadFlows();
             },
@@ -755,6 +850,9 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           TextButton(
             onPressed: () async {
               if (isShared) {
+                // 先广播"房间已删"信号（推送成功后再删云端），
+                // 让对端实时订阅收到并清理本地；离线对端由下次登录兜底。
+                await VaultOpService.instance.notifyVaultDeleted(account.id);
                 final deleted = await SupabaseManager.instance.deleteVault(
                   account.id,
                 );
@@ -799,9 +897,12 @@ class _FlowEntry {
 
   final _FlowType type;
   final int adjustmentId;
+  final String adjustmentRecordKey;
   final int deltaCents;
   final int beforeCents;
   final int afterCents;
+  final String operatorNickname;
+  final String operatorAvatarUrl;
 
   _FlowEntry({
     required this.date,
@@ -816,8 +917,11 @@ class _FlowEntry {
     this.isShared = false,
     this.type = _FlowType.transfer,
     this.adjustmentId = 0,
+    this.adjustmentRecordKey = '',
     this.deltaCents = 0,
     this.beforeCents = 0,
     this.afterCents = 0,
+    this.operatorNickname = '',
+    this.operatorAvatarUrl = '',
   });
 }

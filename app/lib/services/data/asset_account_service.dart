@@ -63,7 +63,11 @@ Future<void> insertAssetAccount(AssetAccount account) async {
   BalanceHistoryService.instance.notifyChanged(account.id);
 }
 
-Future<void> updateAssetAccount(AssetAccount account, {String adjustSourceId = ''}) async {
+Future<void> updateAssetAccount(
+  AssetAccount account, {
+  String adjustSourceId = '',
+  String adjustOperatorEmail = '',
+}) async {
   final db = await DatabaseHelper.instance.database;
   await db.update(
     'asset_accounts',
@@ -78,6 +82,7 @@ Future<void> updateAssetAccount(AssetAccount account, {String adjustSourceId = '
   await BalanceHistoryService.instance.applyManualAdjustment(
     account.id,
     sourceId: adjustSourceId,
+    operatorEmail: adjustOperatorEmail,
   );
   assetAccountsVersion.value++;
 }

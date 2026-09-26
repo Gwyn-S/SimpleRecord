@@ -12,6 +12,7 @@ import '../core/database.dart';
 import '../core/cloud_config.dart';
 import '../data/asset_account_service.dart';
 import '../data/balance_history_service.dart';
+import '../data/record_service.dart';
 import '../data/transfer_service.dart';
 import 'supabase_service.dart';
 
@@ -84,6 +85,20 @@ class VaultOpService {
     unawaited(flush());
   }
 
+  /// 删除金库前广播：先向云端写入一条"房间已删"信号并立刻推送，
+  /// 让对端的实时订阅在 delete_vault 级联清空事件前收到并清理本地；
+  /// 离线对端下次登录由 resubscribeLocalVaults 兜底比对清理。
+  /// 幂等：同一时刻只入队一条（entity_id 唯一），重复调用安全。
+  Future<void> notifyVaultDeleted(String vaultId) async {
+    await _enqueue(
+      vaultId: vaultId,
+      entityId: '$vaultId-deleted-${DateTime.now().millisecondsSinceEpoch}',
+      op: 'vault_deleted',
+      payload: {'at': DateTime.now().millisecondsSinceEpoch},
+    );
+    await flush();
+  }
+
   /// 手动调整余额后入队：金库余额按 delta 记 adjust。
   /// [entityId] 由调用方传入（= 本地 applyManualAdjustment 的 sourceId），
   /// 保证本机重放自己事件时幂等去重；缺省时内部生成。
@@ -117,11 +132,19 @@ class VaultOpService {
 
   /// 新建金库落库后入队：把初始余额通告给对端，B 端加入时据此重建。
   /// 复用 adjust 语义：before=0、after=初始余额。
-  Future<void> pushInitialBalance(AssetAccount account) async {
+  /// [entityId] 由调用方传入（= 本地记录的 init 调整 sourceId），保证
+  /// 本机拉回自己的 init 事件时幂等跳过；缺省内部生成。
+  /// 初始余额为 0 时无需通告（对端无期初可重建），跳过避免空 adjust 事件。
+  Future<void> pushInitialBalance(
+    AssetAccount account, {
+    String? entityId,
+  }) async {
     if (!isSharedVault(account)) return;
+    if (account.balanceCents == 0) return;
     await _enqueue(
       vaultId: account.id,
-      entityId: '$account.id-init-${DateTime.now().microsecondsSinceEpoch}',
+      entityId:
+          entityId ?? '$account.id-init-${DateTime.now().microsecondsSinceEpoch}',
       op: 'adjust',
       payload: {
         'delta_cents': account.balanceCents,
@@ -138,16 +161,17 @@ class VaultOpService {
   /// 普通记账落库后入队：记账把金库余额改变了 Δ（收入 +、支出 -），
   /// 等价于一次余额调整，以 adjust 语义通告对端（不传流水明细，只传数值+时间）。
   /// [before]/[after]/[date]/[createdAt] 由调用方从记账终态读出。
-  /// [entityId] 由调用方传入（= 本地已写的调整记录 sourceId），保证幂等一致。
+  /// [recordKey] 由调用方传入（= 本地该记录调整行的稳定键），对端据此
+  /// 覆盖更新同一行（一笔记账一行，update 不追加）；事件 entity_id 每 op
+  /// 独立（含随机后缀），避免改/重发同笔时被 vault_outbox/云端唯一键吞掉。
   Future<void> pushRecordDelta({
     required String accountId,
+    required String recordKey,
     required int deltaCents,
     required int beforeCents,
     required int afterCents,
     required int date,
     required int createdAt,
-    required String? entityIdSuffix,
-    String? entityId,
   }) async {
     final accounts = await _loadAccounts();
     final byId = {for (final a in accounts) a.id: a};
@@ -156,7 +180,7 @@ class VaultOpService {
     await _enqueue(
       vaultId: accountId,
       entityId:
-          entityId ?? '$accountId-rec-${DateTime.now().microsecondsSinceEpoch}-${entityIdSuffix ?? ''}',
+          '$recordKey-${_opSuffix(date, createdAt)}',
       op: 'adjust',
       payload: {
         'delta_cents': deltaCents,
@@ -165,6 +189,37 @@ class VaultOpService {
         'date': date,
         'created_at': createdAt,
         'operator_email': SupabaseManager.instance.email,
+        'record_key': recordKey,
+      },
+    );
+    unawaited(flush());
+  }
+
+  /// 删除记账后入队：对端据 [recordKey] 删掉对应调整行（不追加反向记录），
+  /// 并把余额对齐 [afterCents]。
+  Future<void> pushRecordDeltaDelete({
+    required String accountId,
+    required String recordKey,
+    required int afterCents,
+    required int date,
+    required int createdAt,
+  }) async {
+    final accounts = await _loadAccounts();
+    final byId = {for (final a in accounts) a.id: a};
+    if (!isSharedVault(byId[accountId])) return;
+
+    await _enqueue(
+      vaultId: accountId,
+      entityId:
+          '$recordKey-del-${_opSuffix(date, createdAt)}',
+      op: 'adjust',
+      payload: {
+        'after_cents': afterCents,
+        'date': date,
+        'created_at': createdAt,
+        'operator_email': SupabaseManager.instance.email,
+        'record_key': recordKey,
+        'record_deleted': true,
       },
     );
     unawaited(flush());
@@ -415,6 +470,12 @@ class VaultOpService {
     final p = Map<String, dynamic>.from(payload);
 
     switch (action) {
+      case 'vault_deleted':
+        // 对方删除了金库：清理本地账户、快照、调整、待推队列与订阅。
+        // 幂等：金库可能已删（deleteAssetAccount 内部容忍），重复无副作用。
+        await removeVaultSyncState(vaultId);
+        await deleteAssetAccount(vaultId);
+        break;
       case 'profile':
         // 成员资料变更：更新 author_id 映射（缺席字段不更新）。
         final authorId = p['author_id']?.toString() ?? '';
@@ -470,17 +531,67 @@ class VaultOpService {
         break;
       case 'adjust':
         final after = (p['after_cents'] as num?)?.toInt();
-        final delta = (p['delta_cents'] as num?)?.toInt();
-        final before = (p['before_cents'] as num?)?.toInt();
-        if (after == null || delta == null || before == null) return;
+        if (after == null) return;
+        final recordKey = p['record_key']?.toString() ?? '';
+        final recordDeleted = p['record_deleted'] == true;
+        // 手动调余额是绝对值语义（"把余额调成 X"），对端直接对齐 after。
+        // 前提是事件流不丢失（创建/加入都订阅后事件全量可达），两端收敛。
         await db.update(
           'asset_accounts',
           {'balance_cents': after},
           where: 'id = ?',
           whereArgs: [vaultId],
         );
-        // 对端/重放端统一靠 source_id 幂等：本机自己 push 的事件
-        // 与本地已写记录同源会被跳过；换设备重放因无同源记录正常写入。
+        if (recordKey.isNotEmpty && recordDeleted) {
+          // 记账删除：直接删掉该记录对应的调整行，不追加反向记录；
+          // 若本地还保留着这条 records（记账者本机/账本同步存在），
+          // 一并删除，保证"删调整=撤销记账"两端一致。金库余额由 after
+          // 对齐（快照重算对金库跳过 records），无需额外回退。
+          if (recordKey.startsWith('$vaultId-rec-')) {
+            final recordId =
+                recordKey.substring('$vaultId-rec-'.length);
+            final recRows = await db.query(
+              'records',
+              where: 'id = ?',
+              whereArgs: [recordId],
+            );
+            if (recRows.isNotEmpty) {
+              await db.delete(
+                'records',
+                where: 'id = ?',
+                whereArgs: [recordId],
+              );
+              recordsVersion.value++;
+            }
+          }
+          await BalanceHistoryService.instance
+              .removeAdjustmentByRecordKey(vaultId, recordKey);
+          break;
+        }
+        if (recordKey.isNotEmpty) {
+          // 记账 insert/update：按稳定 record_key 覆盖更新同一行，
+          // 换设备重放 / 本机拉回自己事件均幂等（覆盖同值）。
+          final delta = (p['delta_cents'] as num?)?.toInt();
+          final before = (p['before_cents'] as num?)?.toInt();
+          if (delta == null || before == null) return;
+          await BalanceHistoryService.instance.recordAdjustment(
+            accountId: vaultId,
+            date: (p['date'] as num?)?.toInt() ?? toEpochDay(DateTime.now()),
+            deltaCents: delta,
+            beforeCents: before,
+            afterCents: after,
+            createdAt: (p['created_at'] as num?)?.toInt() ??
+                DateTime.now().millisecondsSinceEpoch,
+            sourceId: op['entity_id']?.toString() ?? '',
+            operatorEmail: p['operator_email']?.toString() ?? '',
+            recordKey: recordKey,
+          );
+          break;
+        }
+        // 手调/init 等无 record_key 的 adjust：按 source_id 幂等插一条。
+        final delta = (p['delta_cents'] as num?)?.toInt();
+        final before = (p['before_cents'] as num?)?.toInt();
+        if (delta == null || before == null) return;
         await BalanceHistoryService.instance.recordAdjustment(
           accountId: vaultId,
           date: (p['date'] as num?)?.toInt() ?? toEpochDay(DateTime.now()),
@@ -490,6 +601,7 @@ class VaultOpService {
           createdAt: (p['created_at'] as num?)?.toInt() ??
               DateTime.now().millisecondsSinceEpoch,
           sourceId: op['entity_id']?.toString() ?? '',
+          operatorEmail: p['operator_email']?.toString() ?? '',
         );
         break;
     }
@@ -552,6 +664,13 @@ class VaultOpService {
     });
   }
 
+  /// 创建小金库落库后调用：把云端初始事件拉回并订阅实时，让创建方
+  /// 也能收到对方后续事件（否则新建后收不到 peer 的转账/调整）。
+  Future<void> activateVault(String vaultId) async {
+    await syncVaultOps(vaultId);
+    await _subscribeVaultOps(vaultId);
+  }
+
   /// 换设备/清数据后登录：把云端"我参与"的金库恢复回本地列表。
   /// 名字以云端为权威；随后 resubscribeLocalVaults 全量重放事件
   /// 重建余额与改名/备注。本地已存在同 id 金库仅更新名字。
@@ -593,28 +712,53 @@ class VaultOpService {
     assetAccountsVersion.value++;
   }
 
-  /// 登录后调用：为本地全部金库恢复订阅并追平到最新。
-  Future<void> resubscribeLocalVaults() async {
+  /// 登录后调用：为本地全部金库恢复订阅并追平到最新；
+  /// 顺手做"孤儿清理"：云端已不存在（对方删除）的金库，从本地一并删除，
+  /// 避免对端残留僵尸金库。返回是否清理了孤儿。
+  Future<bool> resubscribeLocalVaults() async {
+    final supabase = SupabaseManager.instance;
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query(
       'asset_accounts',
       where: 'category_name = ?',
       whereArgs: ['小金库'],
     );
+    var removedAny = false;
+    Set<String>? cloudIds;
+    if (supabase.isReady) {
+      final vaults = await supabase.fetchMyVaults();
+      cloudIds = {
+        for (final v in vaults)
+          if (v['id']?.toString() case final String id) id,
+      };
+    }
     for (final row in rows) {
       final vaultId = row['id'] as String;
+      // 云端已无此金库（对方删除）：清理本地与同步状态。
+      if (cloudIds != null && !cloudIds.contains(vaultId)) {
+        await removeVaultSyncState(vaultId);
+        await deleteAssetAccount(vaultId);
+        removedAny = true;
+        continue;
+      }
       await _subscribeVaultOps(vaultId);
       await syncVaultOps(vaultId);
     }
+    return removedAny;
   }
 
-  /// 删除金库时清理：退订 + 清除同步位点。
+  /// 删除金库时清理：退订 + 清除同步位点 + 清空待推队列。
   Future<void> removeVaultSyncState(String vaultId) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete(
       'sync_state',
       where: 'key = ?',
       whereArgs: ['vault_ops_cursor:$vaultId'],
+    );
+    await db.delete(
+      'vault_outbox',
+      where: 'vault_id = ?',
+      whereArgs: [vaultId],
     );
     await SupabaseManager.instance.unsubscribeVaultOps(vaultId);
   }
@@ -639,4 +783,10 @@ class VaultOpService {
       'value': '$cursor',
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+}
+
+/// 事件 entity_id 后段：保证同一记录每次操作的事件键都不同，避免
+/// vault_outbox 的 (vault_id, entity_id) 唯一约束与云端唯一索引吞掉后续操作。
+String _opSuffix(int date, int createdAt) {
+  return '$date-$createdAt-${DateTime.now().microsecondsSinceEpoch}';
 }

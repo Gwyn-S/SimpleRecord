@@ -3,8 +3,10 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/data/asset_account.dart';
+import '../../services/cloud/supabase_service.dart';
 import '../../services/cloud/vault_op_service.dart';
 import '../../services/data/asset_account_service.dart';
+import '../../services/data/balance_history_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/id.dart';
@@ -85,14 +87,17 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
         balanceText.isEmpty || double.tryParse(balanceText) == null
         ? 0
         : yuanToCents(balanceText);
+final isVault = widget.categoryName == '小金库';
     final account = AssetAccount(
       id: widget.existingAccount?.id ?? genId(),
       categoryName: widget.categoryName,
       name: name,
       balanceCents: balanceCents,
-      // 期初只在新建时定为“当前余额”，编辑保持既有期初不变。
-      openingBalanceCents:
-          widget.existingAccount?.openingBalanceCents ?? balanceCents,
+      // 期初只在新建时定为"当前余额"，编辑保持既有期初不变。
+      // 金库期初恒为 0：初始余额作为首条「调整」事件走云端重建，避免双算。
+      openingBalanceCents: isVault
+          ? 0
+          : widget.existingAccount?.openingBalanceCents ?? balanceCents,
       remark: _remarkController.text.trim(),
       cardLast4: _cardController.text.trim(),
       iconPath: widget.presetIconPath,
@@ -128,7 +133,11 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       final entityId = balanceChanged
           ? '${account.id}-adj-${DateTime.now().microsecondsSinceEpoch}'
           : null;
-      await updateAssetAccount(account, adjustSourceId: entityId ?? '');
+      await updateAssetAccount(
+        account,
+        adjustSourceId: entityId ?? '',
+        adjustOperatorEmail: SupabaseManager.instance.email ?? '',
+      );
       // 编辑小金库：名字/备注变化通告对端（图标不可编辑，不在此列）。
       if (account.categoryName == '小金库') {
         final e = widget.existingAccount!;
@@ -152,9 +161,27 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
       }
     } else {
       await insertAssetAccount(account);
-      // 新建小金库：把初始余额通告云端，B 端加入后据 events 重建金库余额。
+      // 新建小金库：期初 0，初始余额本身作为第一条「调整」事件通告云端，
+      // B 端加入时据 events 重建金库余额；随后订阅实时通道，否则创建方
+      // 收不到对方后续的转账/调整。本地与事件共用 entityId，幂等防双算。
       if (account.categoryName == '小金库') {
-        await VaultOpService.instance.pushInitialBalance(account);
+        final initId =
+            '${account.id}-init-${DateTime.now().microsecondsSinceEpoch}';
+        await BalanceHistoryService.instance.recordAdjustment(
+          accountId: account.id,
+          date: toEpochDay(DateTime.now()),
+          deltaCents: account.balanceCents,
+          beforeCents: 0,
+          afterCents: account.balanceCents,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          sourceId: initId,
+          operatorEmail: SupabaseManager.instance.email ?? '',
+        );
+        await VaultOpService.instance.pushInitialBalance(
+          account,
+          entityId: initId,
+        );
+        await VaultOpService.instance.activateVault(account.id);
       }
     }
     if (mounted) Navigator.pop(context);

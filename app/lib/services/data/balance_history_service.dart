@@ -98,7 +98,11 @@ class BalanceHistoryService {
   /// 手动改余额：以"今天"为准使快照今日余额对齐 balance_cents。
   /// Δ 从今天生效（等价于今天插入一条对账调整，但不暴露给用户），
   /// 后续任何重算都会通过 [balance_adjustments] 复原该 Δ。
-  Future<void> applyManualAdjustment(String accountId, {String sourceId = ''}) async {
+  Future<void> applyManualAdjustment(
+    String accountId, {
+    String sourceId = '',
+    String operatorEmail = '',
+  }) async {
     final db = await _db;
     await _recompute(accountId);
     final today = toEpochDay(DateTime.now());
@@ -120,6 +124,7 @@ class BalanceHistoryService {
         afterCents: current,
         createdAt: DateTime.now().millisecondsSinceEpoch,
         sourceId: sourceId,
+        operatorEmail: operatorEmail,
       );
     }
   }
@@ -129,6 +134,9 @@ class BalanceHistoryService {
   /// [before]/[after] 仅作流水展示；快照用 delta。
   /// [sourceId] 为事件幂等键：非空时按 (account_id, source_id) 去重，
   /// 同一个 adjust 事件在本机只落一条（自己 push 的事件拉回也不会重复）。
+  /// [recordKey] 为记账记录稳定键：非空时按 (account_id, record_key) 覆盖
+  /// 更新（同一笔记账的 insert/update 都落在同一行，保证"一笔记账一条流水"，
+  /// 删除时也能精确删掉对应的那一行）。[operatorEmail] 用于流水页展示"谁"调整/记账的。
   Future<void> recordAdjustment({
     required String accountId,
     required int date,
@@ -137,16 +145,48 @@ class BalanceHistoryService {
     required int afterCents,
     required int createdAt,
     String sourceId = '',
+    String operatorEmail = '',
+    String recordKey = '',
   }) async {
     final db = await _db;
-    if (sourceId.isNotEmpty) {
-      final exists = await db.query(
+    // Δ=0 的调整不落库：无实际余额变化，纯属噪音（如初始余额为 0 的 init 事件）。
+    if (deltaCents == 0) return;
+    // 手调/init 等无显式 record_key 的行，用 sourceId 作为稳定键回退，
+    // 保证"删手调/删 init"在两端都能按 record_key 精确定位删除。
+    final key = recordKey.isNotEmpty ? recordKey : sourceId;
+    // 记账记录：按稳定键覆盖更新，保证一笔记账只占一行。
+    if (key.isNotEmpty) {
+      final existing = await db.query(
         'balance_adjustments',
         columns: ['id'],
-        where: 'account_id = ? AND source_id = ?',
-        whereArgs: [accountId, sourceId],
+        where: 'account_id = ? AND record_key = ?',
+        whereArgs: [accountId, key],
       );
-      if (exists.isNotEmpty) return;
+      final values = {
+        'date': date,
+        'delta': deltaCents,
+        'before_cents': beforeCents,
+        'after_cents': afterCents,
+        'created_at': createdAt,
+        'operator_email': operatorEmail,
+      };
+      if (existing.isNotEmpty) {
+        await db.update(
+          'balance_adjustments',
+          values,
+          where: 'account_id = ? AND record_key = ?',
+          whereArgs: [accountId, key],
+        );
+      } else {
+        await db.insert('balance_adjustments', {
+          ...values,
+          'account_id': accountId,
+          'source_id': sourceId,
+          'record_key': key,
+        });
+      }
+      await _recompute(accountId);
+      return;
     }
     await db.insert('balance_adjustments', {
       'account_id': accountId,
@@ -156,7 +196,23 @@ class BalanceHistoryService {
       'after_cents': afterCents,
       'created_at': createdAt,
       'source_id': sourceId,
+      'operator_email': operatorEmail,
     });
+    await _recompute(accountId);
+  }
+
+  /// 删除一笔记账对应的调整记录（金库记账删除时调用）：
+  /// 直接把该 record 关联的一行删掉，不追加反向记录。并重算该账户快照。
+  Future<void> removeAdjustmentByRecordKey(
+    String accountId,
+    String recordKey,
+  ) async {
+    final db = await _db;
+    await db.delete(
+      'balance_adjustments',
+      where: 'account_id = ? AND record_key = ?',
+      whereArgs: [accountId, recordKey],
+    );
     await _recompute(accountId);
   }
 
@@ -173,30 +229,42 @@ class BalanceHistoryService {
     );
   }
 
-  /// 删除一条手动改余额记录，还原账户余额，并重算该账户快照。
-  Future<void> deleteAdjustment(String accountId, int id) async {
+  /// 删除一条手动改余额/金库调整记录，还原账户余额，并重算该账户快照。
+  /// 返回 (record_key, delta, newBalance)，供金库端联动云端删除事件；
+  /// 行不存在返回 null。
+  Future<({String recordKey, int delta, int newBalance})?> deleteAdjustment(
+    String accountId,
+    int id,
+  ) async {
     final db = await _db;
     final rows = await db.query(
       'balance_adjustments',
-      columns: ['delta'],
+      columns: ['delta', 'record_key', 'source_id'],
       where: 'id = ?',
       whereArgs: [id],
     );
-    if (rows.isEmpty) return;
-    final delta = rows.first['delta'] as int;
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final delta = row['delta'] as int;
     await db.delete(
       'balance_adjustments',
       where: 'id = ?',
       whereArgs: [id],
     );
     final balance = await _readBalanceCents(db, accountId);
+    final newBalance = balance - delta;
     await db.update(
       'asset_accounts',
-      {'balance_cents': balance - delta},
+      {'balance_cents': newBalance},
       where: 'id = ?',
       whereArgs: [accountId],
     );
     await _recompute(accountId);
+    return (
+      recordKey: (row['record_key']?.toString() ?? row['source_id']?.toString() ?? ''),
+      delta: delta,
+      newBalance: newBalance,
+    );
   }
 
   /// 查询某账户在 [fromDay, toDay]（含）各天的余额；该范围之前无快照的天补 0。
