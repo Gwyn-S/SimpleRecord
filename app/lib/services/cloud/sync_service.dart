@@ -362,6 +362,16 @@ class SyncService {
             where: 'book_id = ?',
             whereArgs: [entityId],
           );
+          await db.delete(
+            'categories',
+            where: 'ledger_id = ?',
+            whereArgs: [entityId],
+          );
+          await db.delete(
+            'budgets',
+            where: 'ledger_id = ?',
+            whereArgs: [entityId],
+          );
           await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
           break;
       }

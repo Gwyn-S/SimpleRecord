@@ -7,6 +7,7 @@ import '../../models/data/ledger_stats.dart';
 import '../../models/data/record.dart';
 import '../../utils/id.dart';
 import '../core/author_service.dart';
+import '../core/cloud_config.dart';
 import '../core/database.dart';
 import '../image/image_storage_service.dart';
 import 'record_service.dart';
@@ -120,6 +121,31 @@ Future<void> deleteLedger(String id) async {
   if (bookRow.isNotEmpty) {
     wasShared = (bookRow.first['sync_mode'] as int) == 1;
   }
+  if (wasShared) {
+    // 共享账本：先推"账本已删"事件给对端（实时在线即时收到并清理本地），
+    // 再删除云端房间行（ledger_ops 级联清理，成员资格一并失效）。
+    // 任一步失败都不动本地，避免"本地删了云端还在"的矛盾状态。
+    final supabase = SupabaseManager.instance;
+    final ok = await supabase.appendLedgerOp(
+      ledgerId: id,
+      entityType: 'ledger',
+      entityId: id,
+      op: 'delete',
+      payload: {
+        'id': id,
+        'name': '',
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      deviceId: await getOrCreateDeviceId(),
+    );
+    if (ok == null) {
+      throw Exception('账本删除事件推送失败');
+    }
+    final deleted = await supabase.deleteSharedLedger(id);
+    if (!deleted) {
+      throw Exception('云端账本删除失败');
+    }
+  }
   // 先查询该账本下所有记录的图片路径
   final rows = await db.query(
     'records',
@@ -139,13 +165,12 @@ Future<void> deleteLedger(String id) async {
   await db.transaction((txn) async {
     await txn.delete('records', where: 'book_id = ?', whereArgs: [id]);
     await txn.delete('categories', where: 'ledger_id = ?', whereArgs: [id]);
+    await txn.delete('budgets', where: 'ledger_id = ?', whereArgs: [id]);
     await txn.delete('books', where: 'id = ?', whereArgs: [id]);
   });
   recordsVersion.value++;
   await DatabaseHelper.instance.vacuum();
   if (wasShared) {
-    final ledger = Ledger(id: id, name: '');
-    SyncService.instance.enqueueLedger(ledger, op: 'delete');
     unawaited(SyncService.instance.removeSharedState(id));
   }
 }

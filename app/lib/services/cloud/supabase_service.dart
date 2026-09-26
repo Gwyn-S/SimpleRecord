@@ -175,6 +175,23 @@ class SupabaseManager {
     }
   }
 
+  /// 删除共享账本房间（仅成员本人可删）。成功后云端房间行连同
+  /// ledger_ops 级联一并清理，全体成员资格失效；对端重登不再拉到。
+  Future<bool> deleteSharedLedger(String ledgerId) async {
+    final client = this.client;
+    if (client == null) return false;
+    try {
+      final res = await client.rpc(
+        'delete_ledger',
+        params: {'p_id': ledgerId},
+      );
+      return res == true;
+    } catch (e) {
+      appLog('[sync] deleteSharedLedger failed: $e');
+      return false;
+    }
+  }
+
   // ==================== ledgerOps（操作日志，增量同步载体）====================
 
   /// 追加一条操作日志。成功返回云端自增 id，失败返回 null。

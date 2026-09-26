@@ -324,3 +324,28 @@ end;
 $$;
 
 grant execute on function public.delete_vault(uuid) to authenticated;
+
+-- delete_ledger：删除共享账本房间（仅成员本人可删——房间里任何一个参与者
+-- 都能删，删除后全体成员资格一并失效），ledger_ops 依赖 on delete cascade 一并清理。
+-- 删除前需先由客户端推送一条 ledger 的 delete 事件给对端（同 delete_vault 约定），
+-- 对端在线实时收到即清理；离线对端重登时 fetchMyLedgers 已查不到该房间，不再复活。
+create or replace function public.delete_ledger(p_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_email text := auth.jwt() ->> 'email';
+begin
+  if v_email is null then
+    raise exception 'not authenticated';
+  end if;
+  delete from public.ledger
+    where id = p_id
+      and v_email = any(members);
+  return found;
+end;
+$$;
+
+grant execute on function public.delete_ledger(uuid) to authenticated;
