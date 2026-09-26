@@ -167,6 +167,14 @@ class DatabaseHelper {
         record_key TEXT NOT NULL DEFAULT ''
       )
     ''');
+    await db.execute('''
+      CREATE TABLE budgets (
+        ledger_id TEXT NOT NULL,
+        category_id TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (ledger_id, category_id)
+      )
+    ''');
     // 金库操作待推队列等同步相关表，统一在 _createSyncTables 中创建。
     await _createSyncTables(db);
   }

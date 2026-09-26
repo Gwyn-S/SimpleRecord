@@ -7,7 +7,7 @@ import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/data/category.dart';
 import '../../services/data/record_service.dart';
-import '../../services/core/settings.dart';
+import '../../services/data/budget_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/toast.dart';
@@ -46,18 +46,6 @@ class _BudgetPageState extends State<BudgetPage> {
     super.dispose();
   }
 
-  String get _monthKey {
-    final m = currentMonth.value;
-    return '${m.year}-${m.month}';
-  }
-
-  String get _budgetPrefix => 'budget_${currentLedgerId.value ?? 'none'}';
-
-  String get _monthBudgetKey => '${_budgetPrefix}_month_$_monthKey';
-
-  String _catBudgetKey(String name) =>
-      '${_budgetPrefix}_cat_${_monthKey}_$name';
-
   int get _daysInMonth =>
       DateTime(currentMonth.value.year, currentMonth.value.month + 1, 0).day;
 
@@ -91,10 +79,13 @@ class _BudgetPageState extends State<BudgetPage> {
         catExp[r.categoryName] = (catExp[r.categoryName] ?? 0) + r.amountCents;
       }
     }
-    final monthBudget = await Settings.getInt(_monthBudgetKey) ?? 0;
+    final ledgerId = currentLedgerId.value ?? '';
+    final service = BudgetService.instance;
+    final monthBudget = await service.getTotalBudget(ledgerId);
+    final catBudgets = await service.getCategoryBudgets(ledgerId);
     final catBudget = <String, int>{};
     for (final c in expenseCategories) {
-      catBudget[c.name] = await Settings.getInt(_catBudgetKey(c.name)) ?? 0;
+      catBudget[c.name] = catBudgets[c.name] ?? 0;
     }
     if (seq != _loadSeq || !mounted) return;
     setState(() {
@@ -157,14 +148,22 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Future<void> _saveMonthBudget(int cents) async {
-    await Settings.setInt(_monthBudgetKey, cents);
+    await BudgetService.instance.setBudget(
+      ledgerId: currentLedgerId.value ?? '',
+      categoryId: BudgetService.emptyCategory,
+      amountCents: cents,
+    );
     if (!mounted) return;
     budgetVersion.value++;
     setState(() => _monthBudget = cents);
   }
 
   Future<void> _saveCatBudget(String name, int cents) async {
-    await Settings.setInt(_catBudgetKey(name), cents);
+    await BudgetService.instance.setBudget(
+      ledgerId: currentLedgerId.value ?? '',
+      categoryId: name,
+      amountCents: cents,
+    );
     if (!mounted) return;
     final newCatBudget = <String, int>{..._categoryBudget};
     newCatBudget[name] = cents;
@@ -172,7 +171,11 @@ class _BudgetPageState extends State<BudgetPage> {
     if (newMonthBudget == 0) {
       newMonthBudget = newCatBudget.values.fold(0, (s, v) => s + v);
       if (newMonthBudget > 0) {
-        await Settings.setInt(_monthBudgetKey, newMonthBudget);
+        await BudgetService.instance.setBudget(
+          ledgerId: currentLedgerId.value ?? '',
+          categoryId: BudgetService.emptyCategory,
+          amountCents: newMonthBudget,
+        );
         if (!mounted) return;
       }
     }

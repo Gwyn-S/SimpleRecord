@@ -3,7 +3,7 @@ import '../../constants/app_dimensions.dart';
 import '../../services/core/theme_service.dart';
 import '../../models/data/record.dart';
 import '../../services/data/record_service.dart';
-import '../../services/core/settings.dart';
+import '../../services/data/budget_service.dart';
 import '../../services/cloud/sync_service.dart';
 import '../../utils/calendar_utils.dart';
 import 'budget_page.dart';
@@ -63,11 +63,9 @@ class _BillsPageState extends State<BillsPage> {
       ledgerId: currentLedgerId.value,
       month: month,
     );
-    final monthBudget =
-        await Settings.getInt(
-          'budget_${currentLedgerId.value ?? 'none'}_month_${month.year}-${month.month}',
-        ) ??
-        0;
+    final monthBudget = await BudgetService.instance.getTotalBudget(
+      currentLedgerId.value ?? '',
+    );
     final ledgerId = currentLedgerId.value;
     var shared =
         ledgerId != null && await SyncService.instance.isSharedBook(ledgerId);
