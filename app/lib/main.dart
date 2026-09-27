@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,6 +11,7 @@ import '../services/data/record_service.dart';
 import '../services/data/category_service.dart';
 import '../services/data/asset_account_service.dart';
 import '../services/core/author_service.dart';
+import '../services/core/update_installer.dart';
 import '../services/cloud/auto_backup_service.dart';
 import '../services/cloud/supabase_service.dart';
 import '../services/cloud/sync_service.dart';
@@ -54,6 +57,9 @@ void main() async {
   AutoBackupService.runAll().catchError((Object e) {
     appLog('[auto backup] run failed: $e');
   });
+  // 启动清理：删除已装版本的更新包缓存（≤ 当前安装版本的永不再用），
+  // 下载好未安装的更高版本保留供下次复用。不阻塞首帧，失败静默。
+  unawaited(UpdateInstaller.cleanupInstalledApk());
   runApp(const MyApp());
 }
 

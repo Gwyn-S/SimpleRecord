@@ -6,6 +6,7 @@ import '../../services/core/theme_service.dart';
 import '../../utils/navigation.dart';
 import '../../widgets/common/settings_item.dart';
 import '../ai/ai_record_page.dart';
+import 'about_page.dart';
 
 class UserPage extends StatelessWidget {
   const UserPage({super.key});
@@ -33,16 +34,6 @@ class UserPage extends StatelessWidget {
       backgroundColor: colorBackgroundPage,
       body: ListView(
         children: [
-          SettingsItem(title: '预算中心', onTap: () => openBudget(context)),
-          SettingsItem(title: '分类管理', onTap: () => openCategoryManage(context)),
-          SettingsItem(title: '标签管理', onTap: () => openTagManage(context)),
-          SettingsItem(
-            title: 'AI 记账',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AiRecordPage()),
-            ),
-          ),
           SettingsItem(
             title: '主题颜色',
             trailing: Container(
@@ -54,6 +45,23 @@ class UserPage extends StatelessWidget {
               ),
             ),
             onTap: () => _showColorPicker(context),
+          ),
+          SettingsItem(title: '预算中心', onTap: () => openBudget(context)),
+          SettingsItem(title: '分类管理', onTap: () => openCategoryManage(context)),
+          SettingsItem(title: '标签管理', onTap: () => openTagManage(context)),
+          SettingsItem(
+            title: 'AI 记账',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AiRecordPage()),
+            ),
+          ),
+          SettingsItem(
+            title: '关于简记',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutPage()),
+            ),
           ),
         ],
       ),
