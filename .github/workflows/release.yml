@@ -1,0 +1,159 @@
+name: SimpleRecord Build Release
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version E.g. 1.0.0'
+        required: false
+        default: ''
+
+env:
+  FLUTTER_VERSION: '3.44.6'
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Write Cloud Secrets
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.release; fi
+          if [ -n "${{ secrets.SUPABASE_ANON_KEY }}" ]; then echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env.release; fi
+          if [ -n "${{ secrets.TENCENT_ASR_SECRET_ID }}" ]; then echo "TENCENT_ASR_SECRET_ID=${{ secrets.TENCENT_ASR_SECRET_ID }}" >> .env.release; fi
+          if [ -n "${{ secrets.TENCENT_ASR_SECRET_KEY }}" ]; then echo "TENCENT_ASR_SECRET_KEY=${{ secrets.TENCENT_ASR_SECRET_KEY }}" >> .env.release; fi
+
+      - run: flutter pub get
+
+      - name: Build APK
+        shell: bash
+        run: |
+          ARGS=""
+          if [ -f .env.release ]; then ARGS="--dart-define-from-file=.env.release"; fi
+          flutter build apk --release --target-platform android-arm64 --split-per-abi \
+            --split-debug-info=build/symbols/android --obfuscate \
+            --extra-gen-snapshot-options=--strip $ARGS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+
+  build-ipa:
+    name: Build iOS IPA(UnSigned)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Write Cloud Secrets
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.release; fi
+          if [ -n "${{ secrets.SUPABASE_ANON_KEY }}" ]; then echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env.release; fi
+          if [ -n "${{ secrets.TENCENT_ASR_SECRET_ID }}" ]; then echo "TENCENT_ASR_SECRET_ID=${{ secrets.TENCENT_ASR_SECRET_ID }}" >> .env.release; fi
+          if [ -n "${{ secrets.TENCENT_ASR_SECRET_KEY }}" ]; then echo "TENCENT_ASR_SECRET_KEY=${{ secrets.TENCENT_ASR_SECRET_KEY }}" >> .env.release; fi
+
+      - run: flutter pub get
+
+      - name: Build IPA
+        shell: bash
+        run: |
+          ARGS=""
+          if [ -f .env.release ]; then ARGS="--dart-define-from-file=.env.release"; fi
+          flutter build ipa --release --no-codesign \
+            --split-debug-info=build/symbols/ios --obfuscate $ARGS
+
+          APP=$(find build/ios -type d -name 'Runner.app' | head -1)
+          rm -rf build/ios/ipa_unsigned build/ios/ipa
+          mkdir -p build/ios/ipa_unsigned/Payload build/ios/ipa
+          cp -R "${APP}" build/ios/ipa_unsigned/Payload/
+          (cd build/ios/ipa_unsigned && zip -qry "../ipa/Runner-unsigned.ipa" Payload)
+          ls -lh build/ios/ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: app/build/ios/ipa/*.ipa
+          if-no-files-found: error
+
+  publish:
+    name: Publish to GitHub Release
+    needs: [build-apk, build-ipa]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Resolve Version
+        id: meta
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          else
+            VERSION="${{ inputs.version }}"
+            if [ -z "${VERSION}" ]; then
+              VERSION=$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' app/pubspec.yaml | head -1)
+            fi
+            TAG="${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Compose Release Notes
+        id: notes
+        shell: bash
+        run: |
+          awk '/^## /{if (n) exit; n=1; next} n' CHANGELOG.md > "$RUNNER_TEMP/release_body.md"
+          echo "body_file=${RUNNER_TEMP}/release_body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          BODY_FILE="${{ steps.notes.outputs.body_file }}"
+          APK=$(find artifacts -name '*.apk' | head -1)
+          IPA=$(find artifacts -name '*.ipa' | head -1)
+          test -n "${APK}" || { echo "APK artifact not found" >&2; exit 1; }
+          test -n "${IPA}" || { echo "IPA artifact not found" >&2; exit 1; }
+
+          gh release create "${TAG}" "${APK}" "${IPA}" \
+            --title "${VERSION}" \
+            --notes-file "${BODY_FILE}"
+
+          echo "Published: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/${TAG}"
