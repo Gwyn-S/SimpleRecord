@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/app_colors.dart';
@@ -20,16 +19,8 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  /// 真机实际安装版本（发布时用 --build-name 覆盖也以安装后的值为准）。
-  String _version = '';
-
-  @override
-  void initState() {
-    super.initState();
-    PackageInfo.fromPlatform().then((info) {
-      if (mounted) setState(() => _version = info.version);
-    });
-  }
+  /// 本机安装版本，统一由 [UpdateService.installedVersion] 提供。
+  String get _version => UpdateService.instance.installedVersion;
 
   Future<void> _checkUpdate(BuildContext context) async {
     final navigator = Navigator.of(context, rootNavigator: true);
@@ -45,7 +36,7 @@ class _AboutPageState extends State<AboutPage> {
       showToast(context, '检查更新失败，请稍后重试');
       return;
     }
-    if (UpdateService.hasNewVersion(latest)) {
+    if (UpdateService.instance.hasNewVersion(latest)) {
       await _showUpdateDialog(context, latest);
       return;
     }
@@ -211,22 +202,62 @@ class _AboutPageState extends State<AboutPage> {
     return confirmed == true;
   }
 
+  /// 渲染 Release 正文（Markdown 子集）：剥掉标题井号与列表符，其余原样显示。
   Widget _buildChangelog(UpdateInfo? latest) {
     final log = latest?.changelog ?? '';
-    if (log.isEmpty) return const SizedBox.shrink();
+    if (log.trim().isEmpty) return const SizedBox.shrink();
+    final lines = log.split('\n');
+    final widgets = <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(bottom: spacingS),
+        child: Text(
+          UpdateService.latestLabel(latest),
+          style: textBody.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    ];
+    for (final raw in lines) {
+      final w = _renderLine(raw);
+      if (w != null) widgets.add(w);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('v${UpdateService.latestLabel(latest)} 更新内容', style: textBody),
-        const SizedBox(height: spacingXS),
-        for (final line in log.split('\n'))
-          if (line.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text('· ${line.trim()}', style: textHint),
-            ),
-      ],
+      children: widgets,
+    );
+  }
+
+  Widget? _renderLine(String raw) {
+    final line = raw.trim();
+    if (line.isEmpty) return const SizedBox(height: spacingXS);
+
+    final heading = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(line);
+    if (heading != null) {
+      final text = heading.group(2)!.trim();
+      if (text.isEmpty) return const SizedBox(height: spacingXS);
+      final level = heading.group(1)!.length;
+      return Padding(
+        padding: EdgeInsets.only(bottom: spacingXS, top: level <= 2 ? spacingXS : 0),
+        child: Text(
+          text,
+          style: level <= 3
+              ? textBody.copyWith(fontWeight: FontWeight.w700)
+              : textCaption.copyWith(fontWeight: FontWeight.w600),
+        ),
+      );
+    }
+
+    final bullet = RegExp(r'^[-*+]\s+(.*)$').firstMatch(line);
+    final text = bullet != null ? bullet.group(1)! : line;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        bullet != null ? '· $text' : text,
+        style: textHint,
+      ),
     );
   }
 

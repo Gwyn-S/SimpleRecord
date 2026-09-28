@@ -12,6 +12,7 @@ import '../services/data/category_service.dart';
 import '../services/data/asset_account_service.dart';
 import '../services/core/author_service.dart';
 import '../services/core/update_installer.dart';
+import '../services/core/update_service.dart';
 import '../services/cloud/auto_backup_service.dart';
 import '../services/cloud/supabase_service.dart';
 import '../services/cloud/sync_service.dart';
@@ -33,6 +34,7 @@ void main() async {
   );
   await DatabaseHelper.instance.database;
   await loadThemeColor();
+  await UpdateService.instance.loadInstalledVersion();
   await backfillAccountIcons();
   await loadCurrentLedgerId();
   // 先让 Supabase 会话就绪（若已配置且曾登录，会同步恢复邮箱会话），

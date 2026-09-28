@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'github_mirror.dart';
 
@@ -34,9 +35,6 @@ class UpdateService {
 
   static final UpdateService instance = UpdateService._();
 
-  /// 本机当前版本号（发布时与 pubspec.yaml 的 version 保持一致）。
-  static const currentVersion = '1.0.0';
-
   /// GitHub Releases 最新版接口（公开仓库免 token）。
   static const _releasesApi =
       'https://api.github.com/repos/Gwyn-S/SimpleRecord/releases/latest';
@@ -49,6 +47,23 @@ class UpdateService {
       receiveTimeout: _timeout,
     ),
   );
+
+  String _installedVersion = '';
+
+  /// 本机实际安装的版本号，取自 PackageInfo（即 pubspec.yaml 的 version）。
+  /// 全 App 唯一版本来源：关于页展示与更新判断都读这里。
+  /// 未加载完成时为空串。
+  String get installedVersion => _installedVersion;
+
+  /// 启动时读取一次真实安装版本。
+  Future<void> loadInstalledVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _installedVersion = info.version;
+    } catch (_) {
+      _installedVersion = '';
+    }
+  }
 
   /// 检查是否有新版本。
   /// 返回 null 表示检查失败（网络/后端未就绪）；否则返回最新版本信息，
@@ -105,9 +120,10 @@ class UpdateService {
   }
 
   /// 判断远端版本是否比本机新。
-  static bool hasNewVersion(UpdateInfo? latest) {
+  bool hasNewVersion(UpdateInfo? latest) {
     if (latest == null || latest.isEmpty) return false;
-    return _compareVersion(latest.version, currentVersion) > 0;
+    if (_installedVersion.isEmpty) return false;
+    return _compareVersion(latest.version, _installedVersion) > 0;
   }
 
   /// 版本号比较：'1.2.10' > '1.2.9'。忽略 build 号（+ 之后的部分）。
