@@ -89,6 +89,16 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     if (saved == true) await _reload();
   }
 
+  Future<void> _openCategory(Category cat) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CategoryEditPage(isExpense: _isExpense, existing: cat),
+      ),
+    );
+    if (saved == true) await _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
@@ -138,48 +148,52 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
                         ),
                         child: ReorderableDelayedDragStartListener(
                           index: index,
-                          child: Container(
-                            height: 54,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: spacingL,
-                            ),
-                            child: Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _delete(cat.name),
-                                  child: Container(
-                                    width: 20,
-                                    height: 20,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openCategory(cat),
+                            child: Container(
+                              height: 54,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: spacingL,
+                              ),
+                              child: Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _delete(cat.name),
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: const BoxDecoration(
+                                        color: colorDelete,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.remove,
+                                        size: 16,
+                                        color: colorTextOnPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: spacingS),
+                                  Container(
+                                    width: sizeCategoryCircle,
+                                    height: sizeCategoryCircle,
                                     decoration: const BoxDecoration(
-                                      color: colorDelete,
+                                      color: colorIconLightBackground,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.remove,
-                                      size: 16,
-                                      color: colorTextOnPrimary,
+                                    child: Icon(
+                                      cat.icon,
+                                      size: iconSizeXLarge,
+                                      color: colorIconGray,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: spacingS),
-                                Container(
-                                  width: sizeCategoryCircle,
-                                  height: sizeCategoryCircle,
-                                  decoration: const BoxDecoration(
-                                    color: colorIconLightBackground,
-                                    shape: BoxShape.circle,
+                                  const SizedBox(width: spacingS),
+                                  Expanded(
+                                    child: Text(cat.name, style: textBody),
                                   ),
-                                  child: Icon(
-                                    cat.icon,
-                                    size: iconSizeXLarge,
-                                    color: colorIconGray,
-                                  ),
-                                ),
-                                const SizedBox(width: spacingS),
-                                Expanded(
-                                  child: Text(cat.name, style: textBody),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),

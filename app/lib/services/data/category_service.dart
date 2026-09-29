@@ -135,6 +135,41 @@ Future<bool> renameCategory(
   return true;
 }
 
+/// 更新分类图标（当前账本）；分类不存在时返回 false。
+/// 与重命名配合使用，供分类编辑页保存。
+Future<bool> updateCategoryIcon({
+  required String name,
+  required bool isExpense,
+  required String iconName,
+}) async {
+  final ledgerId = currentLedgerId.value;
+  if (ledgerId == null) return false;
+  final db = await DatabaseHelper.instance.database;
+  final updated = await db.update(
+    'categories',
+    {'icon_name': iconName},
+    where: 'ledger_id = ? AND name = ? AND is_expense = ?',
+    whereArgs: [ledgerId, name, isExpense ? 1 : 0],
+  );
+  if (updated == 0) return false;
+  final rows = await db.query(
+    'categories',
+    columns: ['sort_order'],
+    where: 'ledger_id = ? AND name = ? AND is_expense = ?',
+    whereArgs: [ledgerId, name, isExpense ? 1 : 0],
+    limit: 1,
+  );
+  await SyncService.instance.enqueueCategory({
+    'ledger_id': ledgerId,
+    'name': name,
+    'is_expense': isExpense ? 1 : 0,
+    'icon_name': iconName,
+    'sort_order': (rows.isEmpty ? 0 : rows.first['sort_order'] as int? ?? 0),
+  }, op: 'update');
+  await loadCategoryCache();
+  return true;
+}
+
 /// 按给定顺序持久化【当前账本】分类排序（sort_order 0..n）。
 Future<void> reorderCategories(List<Category> ordered) async {
   final ledgerId = currentLedgerId.value;

@@ -10,9 +10,12 @@ import '../../utils/toast.dart';
 
 /// 新增分类页：输入名称 + 选择图标。
 class CategoryEditPage extends StatefulWidget {
-  const CategoryEditPage({super.key, required this.isExpense});
+  const CategoryEditPage({super.key, required this.isExpense, this.existing});
 
   final bool isExpense;
+
+  /// 非空为编辑模式：预填原名称与图标，保存时改名 + 换图标。
+  final Category? existing;
 
   @override
   State<CategoryEditPage> createState() => _CategoryEditPageState();
@@ -24,9 +27,22 @@ final List<String> _selectableIcons = categoryIconMap.keys
     .toList();
 
 class _CategoryEditPageState extends State<CategoryEditPage> {
-  final TextEditingController _nameController = TextEditingController();
-  String _iconName = _selectableIcons.first;
+  late final TextEditingController _nameController;
+  late String _iconName;
   bool _saving = false;
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    _nameController = TextEditingController(text: existing?.name ?? '');
+    final current = existing?.iconName ?? '';
+    _iconName = _selectableIcons.contains(current)
+        ? current
+        : _selectableIcons.first;
+  }
 
   @override
   void dispose() {
@@ -35,6 +51,10 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
   }
 
   Future<void> _save() async {
+    if (_isEditing) {
+      await _saveEdit();
+      return;
+    }
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     setState(() => _saving = true);
@@ -48,13 +68,40 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     Navigator.pop(context, true);
   }
 
+  Future<void> _saveEdit() async {
+    final old = widget.existing!;
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+
+    if (name != old.name) {
+      final renamed = await renameCategory(old.name, name, old.isExpense);
+      if (!mounted) return;
+      if (!renamed) {
+        safeShowToast(context, '该分类已存在');
+        setState(() => _saving = false);
+        return;
+      }
+    }
+    if (_iconName != old.iconName) {
+      await updateCategoryIcon(
+        name: name,
+        isExpense: old.isExpense,
+        iconName: _iconName,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Scaffold(
       backgroundColor: colorBackgroundPage,
       appBar: AppBar(
-        title: const Text('新增分类'),
+        title: Text(_isEditing ? '编辑分类' : '新增分类'),
         backgroundColor: Theme.of(context).extension<AppThemeColors>()!.primary,
         foregroundColor: colorTextOnPrimary,
         elevation: 0,
