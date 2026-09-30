@@ -36,6 +36,9 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
+  /// 选项栏按屏宽五等分：日期、手续费各占一格，其余留空。
+  static const int _optionCellCount = 5;
+
   AssetAccount? _from;
   AssetAccount? _to;
   String _amount = '0';
@@ -404,73 +407,102 @@ class _TransferPageState extends State<TransferPage> {
       color: colorBackgroundLight,
       padding: const EdgeInsets.symmetric(
         horizontal: spacingL,
-        vertical: spacingS,
+        vertical: spacingXS,
       ),
       child: Text(label, style: textItemSub),
     );
   }
 
-  Widget _buildAccountValue(AssetAccount? account, {required VoidCallback onTap}) {
+  Widget _buildAccountValue(
+    AssetAccount? account, {
+    required VoidCallback onTap,
+  }) {
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
     return Container(
       color: colorBackgroundCard,
-      padding: const EdgeInsets.symmetric(
-        horizontal: spacingL,
-        vertical: spacingS,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: spacingL),
       child: InkWell(
         onTap: onTap,
-        child: Row(
-          children: [
-            if (account == null)
-              const SizedBox(width: iconSizeLarge, height: iconSizeLarge)
-            else
-              AccountAvatar(
-                account: account,
-                size: iconSizeLarge,
-                color: themeColor,
+        child: SizedBox(
+          height: heightOptionBar,
+          child: Row(
+            children: [
+              if (account == null)
+                const SizedBox(width: iconSizeLarge, height: iconSizeLarge)
+              else
+                AccountAvatar(
+                  account: account,
+                  size: iconSizeLarge,
+                  color: themeColor,
+                ),
+              const SizedBox(width: spacingM),
+              Expanded(
+                child: Text(account?.displayName ?? '请选择', style: textListItem),
               ),
-            const SizedBox(width: spacingM),
-            Expanded(
-              child: Text(
-                account?.displayName ?? '请选择',
-                style: textListItem,
+              Icon(
+                Icons.chevron_right,
+                size: iconSizeMedium,
+                color: colorGrey300,
               ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: iconSizeMedium,
-              color: colorGrey300,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildOptionBar() {
-    return Container(
-      height: heightOptionBar,
-      color: colorBackgroundCard,
-      padding: const EdgeInsets.symmetric(horizontal: spacingL),
-      child: Row(
-        children: [
-          OptionBarItem(
-            icon: Icons.calendar_today_outlined,
-            label: formatSelectedDate(_selectedDate),
-            onTap: () async {
-              final picked = await showDatePickerSheet(context, _selectedDate);
-              if (picked == null || !mounted) return;
-              setState(() => _selectedDate = picked);
-            },
-          ),
-          const SizedBox(width: spacingXXL),
-          OptionBarItem(
-            icon: Icons.edit_outlined,
-            label: _feeLabel,
-            onTap: _editFee,
-          ),
-        ],
+    return Ink(
+      decoration: const BoxDecoration(color: colorBackgroundCard),
+      child: SizedBox(
+        height: heightOptionBar,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cellWidth = constraints.maxWidth / _optionCellCount;
+            return Row(
+              children: [
+                _buildOptionCell(
+                  cellWidth,
+                  icon: Icons.calendar_today_outlined,
+                  label: formatSelectedDate(_selectedDate),
+                  onTap: () async {
+                    final picked = await showDatePickerSheet(
+                      context,
+                      _selectedDate,
+                    );
+                    if (picked == null || !mounted) return;
+                    setState(() => _selectedDate = picked);
+                  },
+                ),
+                _buildOptionCell(
+                  cellWidth,
+                  icon: Icons.edit_outlined,
+                  label: _feeLabel,
+                  onTap: _editFee,
+                ),
+                for (var i = 2; i < _optionCellCount; i++)
+                  SizedBox(width: cellWidth),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionCell(
+    double cellWidth, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: cellWidth,
+      child: OptionBarItem(
+        icon: icon,
+        label: label,
+        width: cellWidth,
+        onTap: onTap,
       ),
     );
   }

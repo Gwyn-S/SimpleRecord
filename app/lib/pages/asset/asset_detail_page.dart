@@ -125,7 +125,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
       final isIn = t.toAccountId == account.id;
       final isShared =
           VaultOpService.instance.isSharedVault(byId[t.fromAccountId]) ||
-              VaultOpService.instance.isSharedVault(byId[t.toAccountId]);
+          VaultOpService.instance.isSharedVault(byId[t.toAccountId]);
       entries.add(
         _FlowEntry(
           date: t.date,
@@ -241,7 +241,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               ],
             ),
           ),
-          Container(
+          Ink(
             decoration: const BoxDecoration(
               color: colorBackgroundCard,
               border: Border(top: BorderSide(color: colorDivider)),
@@ -259,12 +259,10 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => TransferPage(
-                            fromAccount:
-                                account.categoryName == '小金库'
+                            fromAccount: account.categoryName == '小金库'
                                 ? null
                                 : account,
-                            toAccount:
-                                account.categoryName == '小金库'
+                            toAccount: account.categoryName == '小金库'
                                 ? account
                                 : null,
                           ),
@@ -390,9 +388,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   ),
                 ),
                 child: Text(
-                  account.categoryName == '小金库'
-                      ? account.inviteCode
-                      : '调整余额',
+                  account.categoryName == '小金库' ? account.inviteCode : '调整余额',
                 ),
               ),
             ],
@@ -453,8 +449,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   Widget _buildTransferRow(_FlowEntry f) {
     if (f.type == _FlowType.adjustment) {
       final delta = f.deltaCents;
-      final deltaText =
-          '${delta > 0 ? '+' : '-'}${formatAmount(delta.abs())}';
+      final deltaText = '${delta > 0 ? '+' : '-'}${formatAmount(delta.abs())}';
       return InkWell(
         onTap: () => _showDeleteAdjustDialog(f),
         child: Row(
@@ -763,8 +758,8 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: spacingM),
+        child: SizedBox(
+          height: heightOptionBar,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
