@@ -281,13 +281,13 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: spacingL,
-                vertical: spacingXS,
+                vertical: spacingM,
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: bgColor,
                       shape: BoxShape.circle,
@@ -295,8 +295,8 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                     child: cat.iconPath != null
                         ? SvgPicture.asset(
                             cat.iconPath!,
-                            width: 24,
-                            height: 24,
+                            width: 32,
+                            height: 32,
                             fit: BoxFit.contain,
                             colorFilter: ColorFilter.mode(
                               iconColor,
@@ -305,7 +305,7 @@ class _AddAssetAccountPageState extends State<AddAssetAccountPage> {
                           )
                         : Icon(
                             cat.icon ?? Icons.account_balance_wallet,
-                            size: 24,
+                            size: 32,
                             color: iconColor,
                           ),
                   ),

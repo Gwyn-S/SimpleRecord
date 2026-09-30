@@ -47,7 +47,7 @@ class BillDetailSheet extends StatelessWidget {
                   onTap: onEdit,
                   child: const Text('修改', style: textButtonDefault),
                 ),
-              if (onEdit != null) const SizedBox(width: spacingS),
+              if (onEdit != null) const SizedBox(width: spacingL),
               GestureDetector(
                 onTap: onDelete,
                 child: const Text('删除', style: textButtonDanger),

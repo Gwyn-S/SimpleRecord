@@ -72,7 +72,7 @@ class CalcKeyboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
       color: colorBackgroundCard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -110,7 +110,7 @@ class CalcKeyboard extends StatelessWidget {
   }
 
   Widget _buildKey(String key) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         if (key == extraLabel) {
           onExtra();
@@ -142,7 +142,7 @@ class CalcKeyboard extends StatelessWidget {
   }
 
   Widget _buildBackspace() {
-    return GestureDetector(
+    return InkWell(
       onTap: () => _handleKey('⌫'),
       child: Container(
         height: heightKeyboardRow,

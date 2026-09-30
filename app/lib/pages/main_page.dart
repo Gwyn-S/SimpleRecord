@@ -18,6 +18,12 @@ import 'asset/assets_page.dart';
 import 'record/add_record_page.dart';
 import 'asset/add_asset_account_page.dart';
 
+/// FAB 直径（须与 SpeedDialFab 内部一致）。
+const double _kFabSize = 60;
+
+/// FAB 左右各留的呼吸位，避免贴住相邻 tab。
+const double _kFabGap = 8;
+
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -251,14 +257,16 @@ class _MainPageState extends State<MainPage> with RouteAware {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: colorBackgroundCard,
-          border: Border(
-            top: BorderSide(color: colorDivider, width: borderWidthDefault),
+      bottomNavigationBar: Material(
+        color: colorBackgroundCard,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: colorDivider, width: borderWidthDefault),
+            ),
           ),
+          child: _buildBottomBar(),
         ),
-        child: _buildBottomBar(),
       ),
     );
   }
@@ -266,25 +274,43 @@ class _MainPageState extends State<MainPage> with RouteAware {
   Widget _buildBottomBar() {
     return SizedBox(
       height: heightBottomNav,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _tabItem(0, Icons.home_outlined, Icons.home, '账单'),
-          _tabItem(
-            1,
-            Icons.calendar_today_outlined,
-            Icons.calendar_today,
-            '日历',
-          ),
-          const SizedBox(width: 56),
-          _tabItem(3, Icons.bar_chart_outlined, Icons.bar_chart, '统计'),
-          _tabItem(
-            4,
-            Icons.account_balance_wallet_outlined,
-            Icons.account_balance_wallet,
-            '资产',
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final avail = constraints.maxWidth;
+
+          // 中间给 FAB 留出 直径+两端呼吸位，剩余宽度由 4 个 tab 平分，铺满整行。
+          final fabSlot = _kFabSize + _kFabGap * 2;
+          final tabSize = (avail - fabSlot) / 4;
+
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _tabItem(0, Icons.home_outlined, Icons.home, '账单', tabSize),
+              _tabItem(
+                1,
+                Icons.calendar_today_outlined,
+                Icons.calendar_today,
+                '日历',
+                tabSize,
+              ),
+              SizedBox(width: fabSlot),
+              _tabItem(
+                3,
+                Icons.bar_chart_outlined,
+                Icons.bar_chart,
+                '统计',
+                tabSize,
+              ),
+              _tabItem(
+                4,
+                Icons.account_balance_wallet_outlined,
+                Icons.account_balance_wallet,
+                '资产',
+                tabSize,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -294,14 +320,15 @@ class _MainPageState extends State<MainPage> with RouteAware {
     IconData outlineIcon,
     IconData fillIcon,
     String label,
+    double size,
   ) {
     final selected = _tab == index;
     final themeColor = Theme.of(context).extension<AppThemeColors>()!.primary;
-    return GestureDetector(
-      onTap: () => setState(() => _tab = index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
+    return SizedBox(
+      width: size,
+      height: heightBottomNav,
+      child: InkWell(
+        onTap: () => setState(() => _tab = index),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

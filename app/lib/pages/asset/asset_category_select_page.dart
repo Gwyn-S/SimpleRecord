@@ -77,18 +77,18 @@ class AssetCategorySelectPage extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: spacingL,
-                vertical: spacingXS,
+                vertical: spacingM,
               ),
               child: Row(
                 children: [
                   SizedBox(
-                    width: 24,
-                    height: 24,
+                    width: 32,
+                    height: 32,
                     child: option.iconPath != null
                         ? SvgPicture.asset(
                             option.iconPath!,
-                            width: iconSizeXLarge,
-                            height: iconSizeXLarge,
+                            width: 32,
+                            height: 32,
                             fit: BoxFit.contain,
                             colorFilter: option.iconColor != null
                                 ? ColorFilter.mode(

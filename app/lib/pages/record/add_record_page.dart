@@ -25,6 +25,9 @@ import '../../widgets/common/full_image_viewer.dart';
 import '../../widgets/common/tab_switcher_app_bar.dart';
 import '../../widgets/record/tag_picker_sheet.dart';
 
+/// 选项栏固定按五等分切：4 个固定项 + 1 个图片位。
+const int _kOptionSlots = 5;
+
 class AddRecordPage extends StatefulWidget {
   final Record? initialRecord;
   const AddRecordPage({super.key, this.initialRecord});
@@ -332,66 +335,81 @@ class _AddRecordPageState extends State<AddRecordPage> {
   }
 
   Widget _buildOptionBar() {
-    return Container(
+    return SizedBox(
       height: heightOptionBar,
-      padding: const EdgeInsets.symmetric(horizontal: spacingL),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            OptionBarItem(
-              icon: Icons.calendar_today_outlined,
-              label: formatSelectedDate(_selectedDate),
-              onTap: () async {
-                final picked = await showDatePickerSheet(
-                  context,
-                  _selectedDate,
-                );
-                if (picked == null || !mounted) return;
-                setState(() => _selectedDate = picked);
-              },
-            ),
-            const SizedBox(width: spacingXXL),
-            OptionBarItem(
-              icon: Icons.account_balance_wallet_outlined,
-              label: _selectedAccount?.name ?? '账户',
-              onTap: _pickAccount,
-            ),
-            const SizedBox(width: spacingXXL),
-            OptionBarItem(
-              icon: Icons.label_outline,
-              label: _selectedTag ?? '标签',
-              onTap: _pickTag,
-            ),
-            const SizedBox(width: spacingXXL),
-            OptionBarItem(
-              icon: Icons.camera_alt_outlined,
-              label: '图片',
-              onTap: _showImagePicker,
-            ),
-            if (_imagePaths.isNotEmpty) ...[
-              const SizedBox(width: spacingM),
-              ...List.generate(
-                _imagePaths.length,
-                (index) => Padding(
-                  padding: const EdgeInsets.only(left: spacingXS),
-                  child: GestureDetector(
-                    onTap: () => _showImageViewer(index),
-                    child: Image.file(
-                      File(_imagePaths[index]),
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.cover,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 固定五等分：4 个固定项各占可视宽度的 1/5；图片宽度另算，排在后面。
+          final cell = constraints.maxWidth / _kOptionSlots;
+          // 文字偏长时允许超出 1/5 自适应扩宽，避免被压缩变小。
+          final dateLabel = formatSelectedDate(_selectedDate);
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                OptionBarItem(
+                  width: _fitCell(dateLabel, cell),
+                  icon: Icons.calendar_today_outlined,
+                  label: dateLabel,
+                  onTap: () async {
+                    final picked = await showDatePickerSheet(
+                      context,
+                      _selectedDate,
+                    );
+                    if (picked == null || !mounted) return;
+                    setState(() => _selectedDate = picked);
+                  },
+                ),
+                OptionBarItem(
+                  width: _fitCell(_selectedAccount?.name ?? '无账户', cell),
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: _selectedAccount?.name ?? '无账户',
+                  onTap: _pickAccount,
+                ),
+                OptionBarItem(
+                  width: _fitCell(_selectedTag ?? '标签', cell),
+                  icon: Icons.label_outline,
+                  label: _selectedTag ?? '标签',
+                  onTap: _pickTag,
+                ),
+                OptionBarItem(
+                  width: _fitCell('图片', cell),
+                  icon: Icons.camera_alt_outlined,
+                  label: '图片',
+                  onTap: _showImagePicker,
+                ),
+                if (_imagePaths.isNotEmpty)
+                  ...List.generate(
+                    _imagePaths.length,
+                    (index) => GestureDetector(
+                      onTap: () => _showImageViewer(index),
+                      child: SizedBox(
+                        width: 32,
+                        height: heightOptionBar,
+                        child: Center(
+                          child: Image.file(
+                            File(_imagePaths[index]),
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
+  }
+
+  /// 选项格宽度：默认取 1/5 固定份，文字放不下时按实际所需自适应扩大。
+  double _fitCell(String label, double cell) {
+    final needed = OptionBarItem.measureWidth(label);
+    return needed > cell ? needed : cell;
   }
 
   void _showImageViewer(int index) {
