@@ -79,7 +79,7 @@ class _MyAppState extends State<MyApp> {
       valueListenable: themeColorNotifier,
       builder: (context, color, _) {
         return MaterialApp(
-          title: 'SimpleRecord',
+          title: '简记',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(color),
           home: const MainPage(),
