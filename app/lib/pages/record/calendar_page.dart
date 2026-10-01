@@ -144,7 +144,9 @@ class _CalendarPageState extends State<CalendarPage>
     final m = currentMonth.value;
     if (m != _currentMonth) {
       _currentMonth = m;
-      _pageController.jumpToPage(pageFromMonth(m));
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(pageFromMonth(m));
+      }
     }
     _load();
     setState(() {});
@@ -152,10 +154,28 @@ class _CalendarPageState extends State<CalendarPage>
 
   String get _monthLabel => formatMonthLabel(_currentMonth);
 
+  bool get _isWeekView => _foldController.value >= 0.999;
+
   void _changeMonth(int delta) {
+    if (_isWeekView) {
+      _stepWeek(delta);
+      return;
+    }
     final next = DateTime(_currentMonth.year, _currentMonth.month + delta);
+    if (!_pageController.hasClients) return;
     _pageController.animateToPage(
       pageFromMonth(next),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// 折叠态下顶栏翻页：拨周视图 PageView，跨月联动由 _onWeekPageChanged 接管
+  void _stepWeek(int delta) {
+    if (!_weekPageController.hasClients) return;
+    final current = (_weekPageController.page ?? _foldWeekPage).round();
+    _weekPageController.animateToPage(
+      current + delta,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -168,14 +188,25 @@ class _CalendarPageState extends State<CalendarPage>
         target.month == _currentMonth.month) {
       return;
     }
+    if (_isWeekView) {
+      // 留在周视图，定位到目标月 1 号所在的那一周（如选 11 月 → 10/26~11/1）
+      if (!_weekPageController.hasClients) return;
+      setState(() {
+        _currentMonth = target;
+      });
+      currentMonth.value = target;
+      _weekPageController.jumpToPage(
+        weekPageFromDay(DateTime(target.year, target.month, 1)),
+      );
+      return;
+    }
     setState(() {
       _currentMonth = target;
     });
-    _pageController.jumpToPage(pageFromMonth(target));
-    currentMonth.value = target;
-    if (_foldController.value > 0.99) {
-      _foldController.reverse();
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(pageFromMonth(target));
     }
+    currentMonth.value = target;
   }
 
   int get _monthBalance => _monthIncome - _monthExpense;

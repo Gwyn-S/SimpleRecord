@@ -316,8 +316,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
                 setState(() {
                   _amount = '0';
                   _remarkController.clear();
-                  _selectedCategory = 0;
-                  _selectedAccount = null;
+                  _selectedTag = null;
                   _imagePaths = [];
                 });
               });

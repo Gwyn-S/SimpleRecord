@@ -32,6 +32,9 @@ class _DatePickerSheet extends StatefulWidget {
 class _DatePickerSheetState extends State<_DatePickerSheet> {
   static const _rowHeight = 44.0;
 
+  /// PageView 需要显式页数才能双向翻：以当前月为中心，前后各 1200 个月（±100 年）。
+  static const int _monthPageOffset = 1200;
+
   late DateTime _baseMonth;
   late DateTime _month;
   late DateTime _selected;
@@ -43,7 +46,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     _selected = widget.initial;
     _baseMonth = DateTime(_selected.year, _selected.month);
     _month = _baseMonth;
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _monthPageOffset);
   }
 
   @override
@@ -52,12 +55,18 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     super.dispose();
   }
 
-  int get _pageIndex =>
-      (_month.year * 12 + _month.month) -
-      (_baseMonth.year * 12 + _baseMonth.month);
+  /// 页码 → 实际月份（页码带偏移，换算回真实月份）。
+  DateTime _monthOfPage(int page) =>
+      DateTime(_baseMonth.year, _baseMonth.month + page - _monthPageOffset);
+
+  /// 实际月份 → 页码。
+  int _pageOfMonth(DateTime m) =>
+      (m.year * 12 + m.month) -
+      (_baseMonth.year * 12 + _baseMonth.month) +
+      _monthPageOffset;
 
   void _changeMonth(int delta) {
-    final current = _pageController.page ?? _pageIndex.toDouble();
+    final current = _pageController.page ?? _monthPageOffset.toDouble();
     _pageController.animateToPage(
       current.round() + delta,
       duration: const Duration(milliseconds: 250),
@@ -69,10 +78,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     final target = await showMonthYearPicker(context, _month);
     if (target == null || !mounted) return;
     setState(() => _month = target);
-    _pageController.jumpToPage(
-      (target.year * 12 + target.month) -
-          (_baseMonth.year * 12 + _baseMonth.month),
-    );
+    _pageController.jumpToPage(_pageOfMonth(target));
   }
 
   @override
@@ -162,16 +168,21 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
   }
 
   Widget _navButton(String text, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 18, color: colorTextSecondary),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(radiusSmall),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radiusSmall),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 18, color: colorTextSecondary),
+            ),
+          ),
         ),
       ),
     );
@@ -201,14 +212,13 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
         ),
         child: PageView.builder(
           controller: _pageController,
+          itemCount: _monthPageOffset * 2 + 1,
           onPageChanged: (page) {
             setState(() {
-              _month = DateTime(_baseMonth.year, _baseMonth.month + page);
+              _month = _monthOfPage(page);
             });
           },
-          itemBuilder: (context, page) => _buildMonthGrid(
-            DateTime(_baseMonth.year, _baseMonth.month + page),
-          ),
+          itemBuilder: (context, page) => _buildMonthGrid(_monthOfPage(page)),
         ),
       ),
     );
@@ -310,9 +320,11 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
   }
 
   Widget _actionButton(String text, Color color, VoidCallback onTap) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      borderRadius: BorderRadius.circular(radiusLarge),
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: colorBackgroundLight,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: spacingL,

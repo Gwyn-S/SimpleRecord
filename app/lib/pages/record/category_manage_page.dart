@@ -29,9 +29,7 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
   void _switchTab(bool isExpense) {
     setState(() {
       _isExpense = isExpense;
-      _categories = List.of(
-        isExpense ? expenseCategories : incomeCategories,
-      );
+      _categories = List.of(isExpense ? expenseCategories : incomeCategories);
     });
   }
 
@@ -39,9 +37,7 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     await loadCategoryCache();
     if (!mounted) return;
     setState(() {
-      _categories = List.of(
-        _isExpense ? expenseCategories : incomeCategories,
-      );
+      _categories = List.of(_isExpense ? expenseCategories : incomeCategories);
     });
   }
 
@@ -121,89 +117,81 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: Container(
+        color: colorBackgroundCard,
         child: Column(
           children: [
-            Container(
-              color: colorBackgroundCard,
-              child: Column(
-                children: [
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _categories.length,
-                    onReorderItem: _onReorder,
-                    buildDefaultDragHandles: false,
-                    itemBuilder: (context, index) {
-                      final cat = _categories[index];
-                      final isLast = index == _categories.length - 1;
-                      return Container(
-                        key: ValueKey(cat.name),
-                        decoration: BoxDecoration(
-                          border: isLast
-                              ? null
-                              : const Border(
-                                  bottom: BorderSide(color: colorDivider),
-                                ),
-                        ),
-                        child: ReorderableDelayedDragStartListener(
-                          index: index,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _openCategory(cat),
-                            child: Container(
-                              height: 54,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: spacingL,
-                              ),
-                              child: Row(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => _delete(cat.name),
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: const BoxDecoration(
-                                        color: colorDelete,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.remove,
-                                        size: 16,
-                                        color: colorTextOnPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: spacingS),
-                                  Container(
-                                    width: sizeCategoryCircle,
-                                    height: sizeCategoryCircle,
-                                    decoration: const BoxDecoration(
-                                      color: colorIconLightBackground,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      cat.icon,
-                                      size: iconSizeXLarge,
-                                      color: colorIconGray,
-                                    ),
-                                  ),
-                                  const SizedBox(width: spacingS),
-                                  Expanded(
-                                    child: Text(cat.name, style: textBody),
-                                  ),
-                                ],
-                              ),
+            Expanded(
+              child: ReorderableListView.builder(
+                itemCount: _categories.length,
+                onReorderItem: _onReorder,
+                buildDefaultDragHandles: false,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isLast = index == _categories.length - 1;
+                  return Container(
+                    key: ValueKey(cat.name),
+                    decoration: BoxDecoration(
+                      border: isLast
+                          ? null
+                          : const Border(
+                              bottom: BorderSide(color: colorDivider),
                             ),
+                    ),
+                    child: ReorderableDelayedDragStartListener(
+                      index: index,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _openCategory(cat),
+                        child: Container(
+                          height: 54,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: spacingL,
+                          ),
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => _delete(cat.name),
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: colorDelete,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove,
+                                    size: 16,
+                                    color: colorTextOnPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: spacingS),
+                              Container(
+                                width: sizeCategoryCircle,
+                                height: sizeCategoryCircle,
+                                decoration: const BoxDecoration(
+                                  color: colorIconLightBackground,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  cat.icon,
+                                  size: iconSizeXLarge,
+                                  color: colorIconGray,
+                                ),
+                              ),
+                              const SizedBox(width: spacingS),
+                              Expanded(child: Text(cat.name, style: textBody)),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  Container(height: 1, color: colorDivider),
-                ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
+            Container(height: 1, color: colorDivider),
           ],
         ),
       ),
