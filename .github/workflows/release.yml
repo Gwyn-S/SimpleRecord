@@ -38,6 +38,27 @@ jobs:
           if [ -n "${{ secrets.TENCENT_ASR_SECRET_ID }}" ]; then echo "TENCENT_ASR_SECRET_ID=${{ secrets.TENCENT_ASR_SECRET_ID }}" >> .env.release; fi
           if [ -n "${{ secrets.TENCENT_ASR_SECRET_KEY }}" ]; then echo "TENCENT_ASR_SECRET_KEY=${{ secrets.TENCENT_ASR_SECRET_KEY }}" >> .env.release; fi
 
+      - name: Restore Android Signing Key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "${KEYSTORE_B64}" ]; then
+            printf '%s' "${KEYSTORE_B64}" | base64 --decode > app/android/simplerecord-release.jks
+            printf '%s\n' \
+              "storePassword=${STORE_PASSWORD}" \
+              "keyPassword=${KEY_PASSWORD}" \
+              "keyAlias=${KEY_ALIAS}" \
+              "storeFile=simplerecord-release.jks" \
+              > app/android/key.properties
+            echo "Release signing key restored from secrets."
+          else
+            echo "WARNING: ANDROID_KEYSTORE_BASE64 not set, falling back to ephemeral debug key."
+          fi
+
       - run: flutter pub get
 
       - name: Build APK
@@ -152,8 +173,14 @@ jobs:
           test -n "${APK}" || { echo "APK artifact not found" >&2; exit 1; }
           test -n "${IPA}" || { echo "IPA artifact not found" >&2; exit 1; }
 
-          gh release create "${TAG}" "${APK}" "${IPA}" \
-            --title "${VERSION}" \
-            --notes-file "${BODY_FILE}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists, replacing assets."
+            gh release upload "${TAG}" "${APK}" "${IPA}" --clobber
+            gh release edit "${TAG}" --title "${VERSION}" --notes-file "${BODY_FILE}"
+          else
+            gh release create "${TAG}" "${APK}" "${IPA}" \
+              --title "${VERSION}" \
+              --notes-file "${BODY_FILE}"
+          fi
 
           echo "Published: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/${TAG}"
