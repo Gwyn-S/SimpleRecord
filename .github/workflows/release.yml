@@ -47,13 +47,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           if [ -n "${KEYSTORE_B64}" ]; then
-            printf '%s' "${KEYSTORE_B64}" | base64 --decode > app/android/simplerecord-release.jks
+            printf '%s' "${KEYSTORE_B64}" | base64 --decode > android/simplerecord-release.jks
             printf '%s\n' \
               "storePassword=${STORE_PASSWORD}" \
               "keyPassword=${KEY_PASSWORD}" \
               "keyAlias=${KEY_ALIAS}" \
               "storeFile=simplerecord-release.jks" \
-              > app/android/key.properties
+              > android/key.properties
             echo "Release signing key restored from secrets."
           else
             echo "WARNING: ANDROID_KEYSTORE_BASE64 not set, falling back to ephemeral debug key."
