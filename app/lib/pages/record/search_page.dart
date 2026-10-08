@@ -94,7 +94,8 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _allRecords = records;
       _filtered = _filterRecords();
-      _page = 1;
+      // 修改/删除后数据变化，尽量保持当前页；仅在页数缩减时回退到最后一页。
+      if (_page > _totalPages) _page = _totalPages;
     });
   }
 
