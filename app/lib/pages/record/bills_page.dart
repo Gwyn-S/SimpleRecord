@@ -70,7 +70,6 @@ class _BillsPageState extends State<BillsPage> {
     var shared =
         ledgerId != null && await SyncService.instance.isSharedBook(ledgerId);
     if (seq != _loadSeq || !mounted) return;
-    final prevExpanded = {..._expandedDays};
     setState(() {
       _isShared = shared;
       _records = records;
@@ -83,14 +82,7 @@ class _BillsPageState extends State<BillsPage> {
       _monthIncome = monthIncome(records);
       _monthExpense = monthExpense(records);
       _monthBudget = monthBudget;
-      if (!_initialized) {
-        _expandedDays.clear();
-        if (_sortedKeys.isNotEmpty) {
-          _expandedDays.add(_sortedKeys.first);
-        }
-      } else {
-        _expandedDays.removeWhere((k) => !_sortedKeys.contains(k));
-      }
+      _expandedDays.removeWhere((k) => !_sortedKeys.contains(k));
       _loading = false;
     });
   }

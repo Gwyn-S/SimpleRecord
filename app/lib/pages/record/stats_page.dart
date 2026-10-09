@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
@@ -31,6 +32,7 @@ class _StatsPageState extends State<StatsPage> {
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _itemKeys = {};
   final Map<StatsRange, int> _selectedIndexMap = {};
+  final Map<StatsRange, double> _scrollOffsets = {};
   String _customPreset = '最近30天';
   DateTime _customStart = DateTime.now().subtract(const Duration(days: 30));
   DateTime _customEnd = DateTime.now();
@@ -60,7 +62,7 @@ class _StatsPageState extends State<StatsPage> {
     _selectedIndexMap[_selectedRange] = _selectedIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _scrollToSelected();
+      _restoreScrollPosition();
       _loadData();
     });
     recordsVersion.addListener(_loadData);
@@ -71,7 +73,6 @@ class _StatsPageState extends State<StatsPage> {
     void apply() {
       try {
         if (!mounted || !_scrollController.hasClients) return;
-        final pos = _scrollController.position;
         final ctx = _itemKeys[_selectedIndex]?.currentContext;
         if (ctx != null && ctx.mounted) {
           // 目标项已构建：平滑滚动到视口居中。
@@ -81,18 +82,23 @@ class _StatsPageState extends State<StatsPage> {
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOut,
           );
-          return;
-        }
-        // 目标项未构建（超出视口，如“本周/本月/本年”在末尾）：
-        // 直接跳转到滚动范围末尾。
-        if (pos.hasContentDimensions && pos.maxScrollExtent > 0) {
-          _scrollController.jumpTo(pos.maxScrollExtent);
         }
       } catch (_) {}
     }
 
     // 等一帧，确保 setState 引起重建后再定位。
     WidgetsBinding.instance.addPostFrameCallback((_) => apply());
+  }
+
+  /// 切回某 tab 时，把横向标签条恢复到离开前的滚动位置；
+  /// 从未滚过的 tab 落到 maxScrollExtent（最新一项贴右端的默认位置）。
+  void _restoreScrollPosition() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      final saved = _scrollOffsets[_selectedRange] ?? max;
+      _scrollController.jumpTo(saved.clamp(0.0, max));
+    });
   }
 
   ({DateTime start, DateTime end})? _getDateRange() {
@@ -250,6 +256,9 @@ class _StatsPageState extends State<StatsPage> {
               selectedIndex: _selectedRange.index,
               onChanged: (i) {
                 final newRange = StatsRange.values[i];
+                if (_scrollController.hasClients) {
+                  _scrollOffsets[_selectedRange] = _scrollController.offset;
+                }
                 _selectedIndexMap[_selectedRange] = _selectedIndex;
                 _selectedRange = newRange;
                 _selectedIndex = _selectedIndexMap[newRange] ?? _lastIndex;
@@ -274,7 +283,7 @@ class _StatsPageState extends State<StatsPage> {
                   }
                 });
                 _loadData();
-                _scrollToSelected();
+                _restoreScrollPosition();
               },
             ),
           ),
@@ -286,6 +295,9 @@ class _StatsPageState extends State<StatsPage> {
                   child: ListView.separated(
                     controller: _scrollController,
                     scrollDirection: Axis.horizontal,
+                    // 预构建全部标签：让 maxScrollExtent 一次到位（SliverList
+                    // 对未构建项的估算偏小，跳“最新端”会跳不到真底）。
+                    scrollCacheExtent: ScrollCacheExtent.pixels(10000),
                     padding: const EdgeInsets.symmetric(horizontal: spacingXS),
                     itemCount: _items.length,
                     separatorBuilder: (_, a) =>
