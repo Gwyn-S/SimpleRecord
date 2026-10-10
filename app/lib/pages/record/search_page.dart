@@ -31,8 +31,13 @@ class _SearchPageState extends State<SearchPage> {
   static const _noAccountFilter = '__no_account__';
   static const _allAccountFilter = '__all_accounts__';
   static const _pageSize = 100;
+  // 筛选条白底总高：导出按钮 36 + 上下间距 8×2
+  static const _filterBarHeight = 36 + spacingS * 2;
 
   final _searchController = TextEditingController();
+  final _flowMenuController = MenuController();
+  final _accountMenuController = MenuController();
+  final _exportBtnKey = GlobalKey();
   List<Record> _allRecords = [];
   List<Record> _filtered = [];
   List<AssetAccount> _accounts = [];
@@ -162,7 +167,7 @@ class _SearchPageState extends State<SearchPage> {
             Expanded(
               child: Container(
                 height: 36,
-                margin: const EdgeInsets.only(right: spacingL),
+                margin: const EdgeInsets.only(right: spacingS),
                 padding: const EdgeInsets.symmetric(horizontal: spacingS),
                 decoration: BoxDecoration(
                   color: colorBackgroundCard,
@@ -196,41 +201,40 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
             _buildFlowFilter(colorTextOnPrimary),
-            const SizedBox(width: spacingL),
+            const SizedBox(width: spacingS),
           ],
         ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: spacingL,
-              vertical: spacingM,
-            ),
-            child: Row(
-              children: [
-                _buildAccountFilter(themeColor),
-                const SizedBox(width: spacingL),
-                _buildDateFilter(themeColor),
-                const SizedBox(width: spacingL),
-                _buildAmountFilter(themeColor),
-                const Spacer(),
-                OutlinedButton(
-                  onPressed: _busy ? null : _exportCsv,
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: themeColor,
-                    foregroundColor: colorTextOnPrimary,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(radiusSmall),
+            padding: const EdgeInsets.only(right: spacingL),
+            child: SizedBox(
+              height: _filterBarHeight,
+              child: Row(
+                children: [
+                  _buildAccountFilter(themeColor),
+                  _buildDateFilter(themeColor),
+                  _buildAmountFilter(themeColor),
+                  const Spacer(),
+                  OutlinedButton(
+                    key: _exportBtnKey,
+                    onPressed: _busy ? null : _exportCsv,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: colorTextOnPrimary,
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(radiusSmall),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: spacingM),
+                      minimumSize: const Size(0, 36),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: spacingM),
-                    minimumSize: const Size(0, 32),
-                    visualDensity: VisualDensity.compact,
+                    child: const Text('导出'),
                   ),
-                  child: const Text('导出'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Container(
@@ -351,6 +355,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   /// 账户筛选下拉：不限 + 无账户 + 全部账户（带图标/卡号）。
+  /// 弹窗从屏幕左边贴齐，右侧截止到「导出」按钮左侧。
   Widget _buildAccountFilter(Color themeColor) {
     String selectedName;
     if (_accountFilter == null) {
@@ -361,87 +366,128 @@ class _SearchPageState extends State<SearchPage> {
       final match = _accounts.where((a) => a.id == _accountFilter).toList();
       selectedName = match.isEmpty ? '账户不限' : match.first.name;
     }
-    return PopupMenuButton<String?>(
-      tooltip: '',
-      offset: const Offset(0, 30),
-      menuPadding: EdgeInsets.zero,
-      itemBuilder: (context) => [
+    final menuWidth = _accountMenuWidth;
+
+    void onSelected(String v) => setState(() {
+      // 不限用哨兵值传递，避免 null value 被吞掉
+      _accountFilter = v == _allAccountFilter ? null : v;
+      _applyFilter();
+    });
+    return MenuAnchor(
+      controller: _accountMenuController,
+      // 锚点左侧正好是 spacingL，向左退回贴到屏幕左缘；下方留 spacingXS 缝隙
+      alignmentOffset: const Offset(-spacingL, spacingXS),
+      style: const MenuStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+      menuChildren: [
         for (final a in _accounts)
-          PopupMenuItem<String?>(
-            value: a.id,
+          _accountMenuItem(
+            width: menuWidth,
             height: 36,
-            padding: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: spacingM),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: AccountAvatar(
-                      account: a,
-                      size: 18,
-                      color: colorTextSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: spacingS),
-                  Expanded(
-                    child: Text(
-                      a.displayName,
-                      style: textBody,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_accountFilter == a.id)
-                    Icon(Icons.check, size: 18, color: themeColor),
-                ],
-              ),
-            ),
-          ),
-        PopupMenuItem<String?>(
-          value: _noAccountFilter,
-          height: 32,
-          padding: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingM),
+            onTap: () => onSelected(a.id),
             child: Row(
               children: [
-                // 预留图标宽度，与账户项文字对齐
-                const SizedBox(width: 20 + spacingS),
-                Text('无账户', style: textBody),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: AccountAvatar(
+                    account: a,
+                    size: 18,
+                    color: colorTextSecondary,
+                  ),
+                ),
+                const SizedBox(width: spacingS),
+                Expanded(
+                  child: Text(
+                    a.displayName,
+                    style: textBody,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (_accountFilter == a.id)
+                  Icon(Icons.check, size: 18, color: themeColor),
               ],
             ),
+          ),
+        _accountMenuItem(
+          width: menuWidth,
+          height: 32,
+          onTap: () => onSelected(_noAccountFilter),
+          child: Row(
+            children: const [
+              // 预留图标宽度，与账户项文字对齐
+              SizedBox(width: 20 + spacingS),
+              Text('无账户', style: textBody),
+            ],
           ),
         ),
-        PopupMenuItem<String?>(
-          value: _allAccountFilter,
+        _accountMenuItem(
+          width: menuWidth,
           height: 32,
-          padding: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: spacingM),
-            child: Row(
-              children: [
-                const SizedBox(width: 20 + spacingS),
-                Text('不限', style: textBody),
-              ],
-            ),
+          onTap: () => onSelected(_allAccountFilter),
+          child: const Row(
+            children: [
+              SizedBox(width: 20 + spacingS),
+              Text('不限', style: textBody),
+            ],
           ),
         ),
       ],
-      onSelected: (v) => setState(() {
-        // 不限用哨兵值传递，避免 null value 被 PopupMenuButton 吞掉
-        _accountFilter = v == _allAccountFilter ? null : v;
-        _applyFilter();
-      }),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(selectedName, style: textBody),
-          Icon(Icons.arrow_drop_down, color: colorTextPrimary),
-        ],
+      child: InkWell(
+        onTap: () => _accountMenuController.isOpen
+            ? _accountMenuController.close()
+            : _accountMenuController.open(),
+        child: Container(
+          height: _filterBarHeight,
+          padding: const EdgeInsets.only(left: spacingL),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(selectedName, style: textBody),
+              Icon(Icons.arrow_drop_down, color: colorTextPrimary),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  /// 账户下拉单个选项：整行固定宽度，选中后关闭菜单。
+  Widget _accountMenuItem({
+    required double width,
+    required double height,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return MenuItemButton(
+      onPressed: onTap,
+      style: ButtonStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: WidgetStatePropertyAll(Size(width, height)),
+        maximumSize: WidgetStatePropertyAll(Size(width, height)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      ),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: spacingM),
+          child: Align(alignment: Alignment.centerLeft, child: child),
+        ),
+      ),
+    );
+  }
+
+  /// 账户弹窗宽度 = 屏幕左缘 → 导出按钮左缘。
+  double get _accountMenuWidth {
+    final screenW = MediaQuery.of(context).size.width;
+    final box = _exportBtnKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null && box.attached) {
+      return box.localToGlobal(Offset.zero).dx.clamp(0, screenW);
+    }
+    return screenW - spacingL * 2; // 兜底
   }
 
   /// 金额筛选：点击弹出 ≥/≤ 输入弹窗，不限/确定生效。
@@ -460,12 +506,17 @@ class _SearchPageState extends State<SearchPage> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openAmountFilter,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: textBody),
-          Icon(Icons.arrow_drop_down, color: colorTextPrimary),
-        ],
+      child: Container(
+        height: _filterBarHeight,
+        padding: const EdgeInsets.only(left: spacingL),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: textBody),
+            Icon(Icons.arrow_drop_down, color: colorTextPrimary),
+          ],
+        ),
       ),
     );
   }
@@ -611,12 +662,17 @@ class _SearchPageState extends State<SearchPage> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openDateFilter,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: textBody),
-          Icon(Icons.arrow_drop_down, color: colorTextPrimary),
-        ],
+      child: Container(
+        height: _filterBarHeight,
+        padding: const EdgeInsets.only(left: spacingL),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: textBody),
+            Icon(Icons.arrow_drop_down, color: colorTextPrimary),
+          ],
+        ),
       ),
     );
   }
@@ -646,36 +702,59 @@ class _SearchPageState extends State<SearchPage> {
 
   /// 收支三态轮换：点开下拉只显示除当前外的另外两个选项。
   Widget _buildFlowFilter(Color color) {
-    return PopupMenuButton<int>(
-      tooltip: '',
-      offset: const Offset(0, 36),
-      menuPadding: EdgeInsets.zero,
-      itemBuilder: (context) => [
+    // 右侧贴屏幕边缘、左侧留 spacingL（PopupMenuButton 会强制留 8px，故改用 MenuAnchor）。
+    final menuWidth = MediaQuery.of(context).size.width - spacingL;
+    return MenuAnchor(
+      controller: _flowMenuController,
+      alignmentOffset: const Offset(0, spacingM),
+      style: const MenuStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+      menuChildren: [
         for (var i = 0; i < _flowLabels.length; i++)
           if (i != _flowFilter)
-            PopupMenuItem<int>(
-              height: 32,
-              padding: EdgeInsets.zero,
-              value: i,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: spacingM),
-                child: Text(_flowLabels[i]),
+            MenuItemButton(
+              onPressed: () => setState(() {
+                _flowFilter = i;
+                _applyFilter();
+              }),
+              style: ButtonStyle(
+                padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+                minimumSize: WidgetStatePropertyAll(Size(menuWidth, 40)),
+                maximumSize: WidgetStatePropertyAll(Size(menuWidth, 40)),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+              ),
+              child: SizedBox(
+                width: menuWidth,
+                height: 40,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: spacingL),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(_flowLabels[i], style: textBody),
+                  ),
+                ),
               ),
             ),
       ],
-      onSelected: (v) => setState(() {
-        _flowFilter = v;
-        _applyFilter();
-      }),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _flowLabels[_flowFilter],
-            style: textBody.copyWith(color: color),
+      child: InkWell(
+        onTap: () => _flowMenuController.isOpen
+            ? _flowMenuController.close()
+            : _flowMenuController.open(),
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: spacingS),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _flowLabels[_flowFilter],
+                style: textBody.copyWith(color: color),
+              ),
+              Icon(Icons.arrow_drop_down, color: color),
+            ],
           ),
-          Icon(Icons.arrow_drop_down, color: color),
-        ],
+        ),
       ),
     );
   }
