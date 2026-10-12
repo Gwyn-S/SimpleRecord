@@ -94,6 +94,7 @@ class AssetAccount {
   String cardLast4;
   String iconPath;
   String inviteCode;
+  int createdAt;
 
   AssetAccount({
     required this.id,
@@ -105,6 +106,7 @@ class AssetAccount {
     this.cardLast4 = '',
     this.iconPath = '',
     this.inviteCode = '',
+    this.createdAt = 0,
   });
 
   AssetAccountCategory? get category {
@@ -128,6 +130,7 @@ class AssetAccount {
     'card_last4': cardLast4,
     'icon_path': iconPath,
     'invite_code': inviteCode,
+    'created_at': createdAt,
   };
 
   factory AssetAccount.fromDbMap(Map<String, dynamic> map) => AssetAccount(
@@ -140,5 +143,6 @@ class AssetAccount {
     cardLast4: (map['card_last4'] as String?) ?? '',
     iconPath: (map['icon_path'] as String?) ?? '',
     inviteCode: (map['invite_code'] as String?) ?? '',
+    createdAt: (map['created_at'] as int?) ?? 0,
   );
 }

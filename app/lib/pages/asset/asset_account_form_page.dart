@@ -103,6 +103,7 @@ final isVault = widget.categoryName == '小金库';
       iconPath: widget.presetIconPath,
       // 编辑时保留既有邀请码，避免把金库 invite_code 覆盖成空。
       inviteCode: widget.existingAccount?.inviteCode ?? '',
+      createdAt: widget.existingAccount?.createdAt ?? 0,
     );
     final onCloud = widget.onCloudCreate;
     if (onCloud != null) {
@@ -184,7 +185,14 @@ final isVault = widget.categoryName == '小金库';
         await VaultOpService.instance.activateVault(account.id);
       }
     }
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      // 新建：一路返回资产页（根路由）；修改：只关本表单页，回详情页。
+      if (widget.existingAccount != null) {
+        Navigator.pop(context);
+      } else {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    }
   }
 
   @override

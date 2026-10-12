@@ -61,10 +61,22 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      // 未发布阶段：schema 恒为 V1，改动直接改 _onCreate 全量重建，
-      // 不做版本迁移（旧库需删除后重建）。
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: (db, from, to) async {
+        // v1→v2：资产账户加 created_at，按旧排序（分类名, 账户名）回填名次。
+        await db.execute(
+          'ALTER TABLE asset_accounts ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0',
+        );
+        await db.execute('''
+          UPDATE asset_accounts SET created_at = (
+            SELECT COUNT(*) FROM asset_accounts a2
+            WHERE a2.category_name < asset_accounts.category_name
+               OR (a2.category_name = asset_accounts.category_name
+                   AND a2.name <= asset_accounts.name)
+          )
+        ''');
+      },
     );
     return db;
   }
@@ -106,7 +118,8 @@ class DatabaseHelper {
         remark TEXT NOT NULL DEFAULT '',
         card_last4 TEXT NOT NULL DEFAULT '',
         icon_path TEXT NOT NULL DEFAULT '',
-        invite_code TEXT NOT NULL DEFAULT ''
+        invite_code TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''

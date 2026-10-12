@@ -48,12 +48,15 @@ Future<void> backfillAccountIcons() async {
 
 Future<List<AssetAccount>> loadAssetAccounts() async {
   final db = await DatabaseHelper.instance.database;
-  final rows = await db.query('asset_accounts', orderBy: 'category_name, name');
+  final rows = await db.query('asset_accounts', orderBy: 'created_at');
   return rows.map(AssetAccount.fromDbMap).toList();
 }
 
 Future<void> insertAssetAccount(AssetAccount account) async {
   final db = await DatabaseHelper.instance.database;
+  if (account.createdAt == 0) {
+    account.createdAt = DateTime.now().millisecondsSinceEpoch;
+  }
   await db.insert(
     'asset_accounts',
     account.toDbMap(),

@@ -43,9 +43,16 @@ Future<void> _loadAccounts() async {
     for (final a in accounts) {
       map.putIfAbsent(a.categoryName, () => []).add(a);
     }
+    // 分类组按预设分类顺序排列（与添加入口一致），组内保持添加时间升序。
+    final order = {
+      for (var i = 0; i < assetAccountCategories.length; i++)
+        assetAccountCategories[i].name: i,
+    };
+    final entries = map.entries.toList()
+      ..sort((a, b) => (order[a.key]!).compareTo(order[b.key]!));
     setState(() {
       _accounts = accounts;
-      _categoryEntries = map.entries.toList();
+      _categoryEntries = entries;
     });
   }
 
