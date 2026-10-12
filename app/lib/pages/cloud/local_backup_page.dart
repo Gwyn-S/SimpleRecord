@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
@@ -30,6 +31,43 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
   void initState() {
     super.initState();
     _refresh();
+    _checkStoragePermission();
+  }
+
+  /// Android 11+ 读写公共 Documents 需要“所有文件访问”权限；
+  /// 未授予则引导去系统设置开启，返回后刷新。桌面端无需处理。
+  Future<void> _checkStoragePermission() async {
+    if (!Platform.isAndroid) return;
+    if (await Permission.manageExternalStorage.isGranted) return;
+    if (!mounted) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('需要“所有文件访问”权限'),
+        content: const Text('备份文件存放在公共 Documents 目录，需授权后才能查看和管理。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              '开启',
+              style: TextStyle(
+                color: Theme.of(
+                  context,
+                ).extension<AppThemeColors>()!.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    await Permission.manageExternalStorage.request();
+    if (!mounted) return;
+    await _refresh();
   }
 
   Future<void> _refresh() async {
