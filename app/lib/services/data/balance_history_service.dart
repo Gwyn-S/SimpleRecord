@@ -79,11 +79,19 @@ class BalanceHistoryService {
       if (day < startDay) startDay = day;
     }
 
+    // 有流水/调整的账户：整段重写，连"早于当前最早流水日"的历史残留也一并清掉。
+    // 补录早期账、或改正错误日期后 startDay 会变晚，若只删 date>=startDay，
+    // 旧起点之前的前缀会残留，导致走势图在真实期初前显示旧基数（期初漂移）。
+    // 无流水/调整的账户期初无从重放，保持原行为（只重写 startDay 起的区间），
+    // 避免误清其早期基线快照。
+    final hasEvents = daily.isNotEmpty || adjustments.isNotEmpty;
     await db.transaction((txn) async {
       await txn.delete(
         'balance_snapshots',
-        where: 'account_id = ? AND date >= ?',
-        whereArgs: [accountId, startDay],
+        where: hasEvents ? 'account_id = ?' : 'account_id = ? AND date >= ?',
+        whereArgs: hasEvents
+            ? <Object?>[accountId]
+            : <Object?>[accountId, startDay],
       );
       var running = opening;
       final buf = <Map<String, dynamic>>[];
