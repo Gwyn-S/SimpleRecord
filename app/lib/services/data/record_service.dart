@@ -21,6 +21,9 @@ final ValueNotifier<DateTime> currentMonth = ValueNotifier(
   DateTime(DateTime.now().year, DateTime.now().month),
 );
 
+/// 刚记的那一天；账单页每次加载数据时消费它来自动展开该天（消费后置 null）。
+final ValueNotifier<DateTime?> focusRecordDay = ValueNotifier(null);
+
 Future<void> loadCurrentLedgerId() async {
   currentLedgerId.value = await Settings.getString(_currentLedgerKey);
 }
@@ -180,6 +183,12 @@ Future<void> insertRecord(Record record) async {
       sign: 1,
     );
   });
+  // 记一笔后：账单页会在下次加载数据时读取它并自动展开该天。
+  focusRecordDay.value = DateTime(
+    record.date.year,
+    record.date.month,
+    record.date.day,
+  );
   recordsVersion.value++;
   assetAccountsVersion.value++;
   BalanceHistoryService.instance.notifyChanged(record.accountId);

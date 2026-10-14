@@ -83,6 +83,15 @@ class _BillsPageState extends State<BillsPage> {
       _monthExpense = monthExpense(records);
       _monthBudget = monthBudget;
       _expandedDays.removeWhere((k) => !_sortedKeys.contains(k));
+      // 记一笔后：展开刚记的那一天；不在当前月则保留，等切到该月再展开。
+      final focus = focusRecordDay.value;
+      if (focus != null) {
+        final k = formatDateYmd(focus);
+        if (_sortedKeys.contains(k)) {
+          _expandedDays.add(k);
+          focusRecordDay.value = null;
+        }
+      }
       _loading = false;
     });
   }
