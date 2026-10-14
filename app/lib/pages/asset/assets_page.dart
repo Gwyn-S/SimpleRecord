@@ -37,7 +37,7 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
 Future<void> _loadAccounts() async {
-    final accounts = await loadAssetAccounts();
+    final accounts = await loadAssetAccountsByCreatedAt();
     if (!mounted) return;
     final map = <String, List<AssetAccount>>{};
     for (final a in accounts) {

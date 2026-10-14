@@ -46,7 +46,21 @@ Future<void> backfillAccountIcons() async {
   if (rows.isNotEmpty) assetAccountsVersion.value++;
 }
 
+/// 账户按记账笔数降序（常用账户靠前），同笔数时按插入顺序（rowid）稳定排列。
 Future<List<AssetAccount>> loadAssetAccounts() async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.rawQuery('''
+    SELECT a.*, COUNT(r.id) AS record_count
+    FROM asset_accounts a
+    LEFT JOIN records r ON r.account_id = a.id
+    GROUP BY a.id
+    ORDER BY record_count DESC, a.rowid ASC
+  ''');
+  return rows.map(AssetAccount.fromDbMap).toList();
+}
+
+/// 账户按创建时间升序，供资产页分组内保持添加顺序使用。
+Future<List<AssetAccount>> loadAssetAccountsByCreatedAt() async {
   final db = await DatabaseHelper.instance.database;
   final rows = await db.query('asset_accounts', orderBy: 'created_at');
   return rows.map(AssetAccount.fromDbMap).toList();
