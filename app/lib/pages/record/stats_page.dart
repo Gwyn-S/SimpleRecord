@@ -293,6 +293,9 @@ class _StatsPageState extends State<StatsPage> {
               children: [
                 Expanded(
                   child: ListView.separated(
+                    key: PageStorageKey<String>(
+                      'statsRangeTabs_${_selectedRange.name}',
+                    ),
                     controller: _scrollController,
                     scrollDirection: Axis.horizontal,
                     // 预构建全部标签：让 maxScrollExtent 一次到位（SliverList
