@@ -22,6 +22,7 @@ class AssetTrendPage extends StatefulWidget {
 class _AssetTrendPageState extends State<AssetTrendPage> {
   late DateTime _selectedMonth;
   Map<int, int> _balances = {};
+  int _startBalance = 0;
 
   @override
   void initState() {
@@ -54,8 +55,15 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
       from,
       to,
     );
+    final before = await BalanceHistoryService.instance.balancesAt(
+      [(id: widget.account.id, isDebt: widget.account.isDebtAccount)],
+      from - 1,
+    );
     if (!mounted) return;
-    setState(() => _balances = balances);
+    setState(() {
+      _balances = balances;
+      _startBalance = before[widget.account.id] ?? 0;
+    });
   }
 
   @override
@@ -156,7 +164,7 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     final year = _selectedMonth.year;
     final month = _selectedMonth.month;
     final points = <_DailyPoint>[];
-    var running = 0;
+    var running = _startBalance;
     for (var i = 1; i <= _daysToShow; i++) {
       final day = toEpochDay(DateTime(year, month, i));
       running = _balances[day] ?? running;
