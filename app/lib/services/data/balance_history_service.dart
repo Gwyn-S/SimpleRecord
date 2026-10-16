@@ -20,12 +20,25 @@ class BalanceHistoryService {
   final Set<String> _dirty = {};
   bool _pumping = false;
 
+  /// 快照数据版本：写操作投喂与重算落地各推进一次，供内存缓存判失效。
+  int _version = 0;
+
+  /// 进行中的重算（账户 → Future）。[ensureFresh] 用它等待，堵住
+  /// "从 [_dirty] 取走到重算落地"的窗口：否则该窗口内 [_dirty] 已无此账户，
+  /// 兜底会误判"已新鲜"直接返回，读到重算前的旧快照，随后又被重算结果覆盖，
+  /// 走势图就会先出一版再跳一下。
+  final Map<String, Future<void>> _inflight = {};
+
+  /// [monthlyNetByYear] 结果缓存：key → (数据版本, 12 个月净值)。
+  final Map<String, (int, List<int>)> _monthlyCache = {};
+
   Future<Database> get _db => DatabaseHelper.instance.database;
 
   /// 写时触发：将账户标记为待重算并投喂到串行异步队列（不阻塞调用方）。
   void notifyChanged(String? accountId) {
     if (accountId == null || accountId.isEmpty) return;
     _dirty.add(accountId);
+    _version++;
     _pump();
   }
 
@@ -38,15 +51,15 @@ class BalanceHistoryService {
   Future<void> _pumpLoop() async {
     try {
       while (_dirty.isNotEmpty) {
-        final ids = _dirty.toList();
-        _dirty.clear();
-        for (final id in ids) {
-          try {
-            await _recompute(id);
-          } catch (_) {
-            // 重算失败时把该账户放回待算队列，下次触发/兜底再试
-            _dirty.add(id);
-          }
+        // 逐个取走：取走与登记 [_inflight] 之间不插入 await，
+        // 保证 [ensureFresh] 看到的要么是"还在 _dirty"要么是"已登记在算"。
+        final id = _dirty.first;
+        _dirty.remove(id);
+        try {
+          await _runRecompute(id);
+        } catch (_) {
+          // 重算失败时把该账户放回待算队列，下次触发/兜底再试
+          _dirty.add(id);
         }
       }
     } finally {
@@ -54,11 +67,33 @@ class BalanceHistoryService {
     }
   }
 
-  /// 读图兜底：若该账户还有未落地的重算，立即同步补齐后再返回。
+  /// 执行重算并登记为进行中；同账户并发调用共享同一个 Future。
+  Future<void> _runRecompute(String accountId) {
+    final existing = _inflight[accountId];
+    if (existing != null) return existing;
+    final future = _recompute(accountId).whenComplete(() {
+      _inflight.remove(accountId);
+    });
+    _inflight[accountId] = future;
+    return future;
+  }
+
+  /// 读图兜底：若该账户还有未落地的重算（本机触发的或后台排队中的），
+  /// 等它补齐后再返回，杜绝读到旧数据。
   Future<void> ensureFresh(String? accountId) async {
     if (accountId == null || accountId.isEmpty) return;
+    final inflight = _inflight[accountId];
+    if (inflight != null) {
+      try {
+        await inflight;
+      } catch (_) {
+        // 重算失败由后台队列放回重试；此处按"读当前数据"处理，
+        // 与原先直读的行为一致，不额外向读取方抛错。
+      }
+      return;
+    }
     if (!_dirty.remove(accountId)) return;
-    await _recompute(accountId);
+    await _runRecompute(accountId);
   }
 
   /// 从最早流水日到"今天"整段重写该账户的快照（期初计入最早流水日）。
@@ -101,6 +136,8 @@ class BalanceHistoryService {
       }
       await _batchInsert(txn, buf);
     });
+    // 快照已落地，推进版本让走势图缓存失效。
+    _version++;
   }
 
   /// 手动改余额：以"今天"为准使快照今日余额对齐 balance_cents。
@@ -316,22 +353,112 @@ class BalanceHistoryService {
 
   /// 某年各月末的净资产曲线：资产账户求和减负债账户（负债取绝对值）。
   /// 返回 1..12 每月的月末净资产；早于该账户期初的月份计为 0。
+  ///
+  /// 结果与"逐月对每个账户各查一次最近快照"完全等价，但后者是
+  /// 12×N 次串行往返（6 个账户 72 趟），这里先统一 [ensureFresh] 一次，
+  /// 再用 2 次索引查询取出「年初前最近一条快照」与「年内全部快照」，
+  /// 在内存里按月单调前推，压成 2 趟。
   Future<List<int>> monthlyNetByYear(
     int year,
     List<({String id, bool isDebt})> accounts,
   ) async {
-    final result = <int>[];
+    if (accounts.isEmpty) return List<int>.filled(12, 0);
+    final key = _monthlyCacheKey(year, accounts);
+    final hit = _monthlyCache[key];
+    if (hit != null && hit.$1 == _version) return List<int>.from(hit.$2);
+
+    for (final a in accounts) {
+      await ensureFresh(a.id);
+    }
+    // 版本在补算之后取：补算本身会推进版本，取早了会导致结果永远存不进缓存。
+    final version = _version;
+
+    final db = await _db;
+    final ids = [for (final a in accounts) a.id];
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final yearStart = toEpochDay(DateTime(year, 1, 1));
+    final yearEnd = toEpochDay(DateTime(year, 12, 31));
+
+    // 各账户在年初前最近的一条快照：全年各月末前推的基线（无则该账户计 0）。
+    final headRows = await db.rawQuery(
+      'SELECT s.account_id, s.date, s.balance '
+      'FROM balance_snapshots AS s '
+      'JOIN (SELECT account_id, MAX(date) AS d FROM balance_snapshots '
+      '      WHERE account_id IN ($placeholders) AND date < ? '
+      '      GROUP BY account_id) AS m '
+      'ON m.account_id = s.account_id AND m.d = s.date',
+      <Object?>[...ids, yearStart],
+    );
+    // 年内全部快照：逐月末前推时逐段消费。
+    final yearRows = await db.query(
+      'balance_snapshots',
+      columns: ['account_id', 'date', 'balance'],
+      where: 'account_id IN ($placeholders) AND date >= ? AND date <= ?',
+      whereArgs: <Object?>[...ids, yearStart, yearEnd],
+    );
+
+    final byAccount = <String, List<(int, int)>>{};
+    void collect(Map<String, Object?> row) {
+      final id = row['account_id'] as String;
+      (byAccount[id] ??= []).add((row['date'] as int, row['balance'] as int));
+    }
+
+    for (final r in headRows) {
+      collect(r);
+    }
+    for (final r in yearRows) {
+      collect(r);
+    }
+    for (final series in byAccount.values) {
+      series.sort((a, b) => a.$1.compareTo(b.$1));
+    }
+
+    final result = List<int>.filled(12, 0);
+    final cursors = <String, int>{};
     for (var m = 1; m <= 12; m++) {
       final day = toEpochDay(DateTime(year, m + 1, 0));
-      final bal = await balancesAt(accounts, day);
       var net = 0;
       for (final a in accounts) {
-        final b = bal[a.id] ?? 0;
-        net += a.isDebt ? -b.abs() : b;
+        final series = byAccount[a.id];
+        if (series == null) continue;
+        var i = cursors[a.id] ?? 0;
+        var balance = 0;
+        while (i < series.length && series[i].$1 <= day) {
+          balance = series[i].$2;
+          i++;
+        }
+        cursors[a.id] = i;
+        net += a.isDebt ? -balance.abs() : balance;
       }
-      result.add(net);
+      result[m - 1] = net;
+    }
+
+    if (version == _version) {
+      _monthlyCache[key] = (version, result);
+      if (_monthlyCache.length > 32) _monthlyCache.clear();
     }
     return result;
+  }
+
+  /// 同步取 [monthlyNetByYear] 的缓存结果；未命中返回 null。
+  ///
+  /// 供走势图在切类型/切年份时同步画出新曲线，避免"等一个异步往返
+  /// 导致旧曲线或占位线先闪一帧"。
+  List<int>? monthlyNetByYearCached(
+    int year,
+    List<({String id, bool isDebt})> accounts,
+  ) {
+    if (accounts.isEmpty) return List<int>.filled(12, 0);
+    final hit = _monthlyCache[_monthlyCacheKey(year, accounts)];
+    if (hit == null || hit.$1 != _version) return null;
+    return List<int>.from(hit.$2);
+  }
+
+  /// 缓存键含账户集合与年份；账户顺序无关（排序后拼接）。
+  String _monthlyCacheKey(int year, List<({String id, bool isDebt})> accounts) {
+    final parts = [for (final a in accounts) '${a.id}:${a.isDebt ? 1 : 0}']
+      ..sort();
+    return '$year#${parts.join(',')}';
   }
 
   // ========================= 内部工具 =========================
@@ -442,12 +569,18 @@ class BalanceHistoryService {
     DatabaseExecutor db,
     List<Map<String, dynamic>> rows,
   ) async {
+    if (rows.isEmpty) return;
+    // 逐条 insert 每条都是一趟 IPC 往返：从最早流水日重写到今天的历史，
+    // 三年就是上千趟。收进一个 Batch 在事务内一次提交，原子性与语义不变
+    // （事务里的 batch 随事务一起生效），只是把上千趟压成一趟。
+    final batch = db.batch();
     for (final r in rows) {
-      await db.insert(
+      batch.insert(
         'balance_snapshots',
         r,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+    await batch.commit(noResult: true);
   }
 }

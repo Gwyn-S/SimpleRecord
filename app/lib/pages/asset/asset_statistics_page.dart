@@ -313,19 +313,31 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       if (mounted) setState(() {});
       return;
     }
-    final monthly = await BalanceHistoryService.instance.monthlyNetByYear(
+    final service = BalanceHistoryService.instance;
+    // 缓存命中时同步赋值：initState/didUpdateWidget 之后必有一次 build，
+    // 新曲线当帧就画出来，不再先显示占位 0 线或上一组账户的旧曲线。
+    final cached = service.monthlyNetByYearCached(
+      widget.year,
+      _lastAccounts,
+    );
+    if (cached != null) {
+      _points = _toTrendPoints(cached);
+      return;
+    }
+    final monthly = await service.monthlyNetByYear(
       widget.year,
       _lastAccounts,
     );
     if (!mounted) return;
-    setState(() {
-      final now = DateTime.now();
-      final currentMonth = now.month;
-      _points = [];
-      for (var m = 1; m <= currentMonth; m++) {
-        _points.add(_TrendPoint(month: m, value: monthly[m - 1]));
-      }
-    });
+    setState(() => _points = _toTrendPoints(monthly));
+  }
+
+  List<_TrendPoint> _toTrendPoints(List<int> monthly) {
+    final currentMonth = DateTime.now().month;
+    return [
+      for (var m = 1; m <= currentMonth; m++)
+        _TrendPoint(month: m, value: monthly[m - 1]),
+    ];
   }
 
   @override
