@@ -6,6 +6,7 @@ import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/data/asset_account.dart';
 import '../../services/core/theme_service.dart';
+import '../../utils/formatters.dart';
 import '../common/account_avatar.dart';
 
 /// 选择「不关联账户」时由底部弹层返回的标记；区别于取消（返回 null）。
@@ -19,6 +20,7 @@ Future<Object?> showAccountPicker(
   return showModalBottomSheet<Object?>(
     context: context,
     backgroundColor: colorBackgroundCard,
+    isScrollControlled: true,
     builder: (ctx) => _AccountPickerSheet(
       accounts: accounts,
       selectedId: selectedId,
@@ -41,7 +43,7 @@ class _AccountPickerSheet extends StatelessWidget {
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
+          maxHeight: MediaQuery.of(context).size.height * 0.95,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -76,29 +78,34 @@ class _AccountPickerSheet extends StatelessWidget {
             ),
             const Divider(height: 1, color: colorDivider),
             Flexible(
-              child: ListView(
+              child: ListView.separated(
                 shrinkWrap: true,
-                children: [
-                  _buildItem(
+                itemCount: accounts.length + 1,
+                separatorBuilder: (_, _) => const Divider(
+                  height: borderWidthThin,
+                  thickness: borderWidthThin,
+                  color: colorDivider,
+                ),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _buildItem(
+                      context,
+                      iconPath: 'assets/icons/assets.svg',
+                      title: '无账户',
+                      selected: selectedId == null,
+                      onTap: () => Navigator.pop(context, noAccountSelection),
+                    );
+                  }
+                  final a = accounts[index - 1];
+                  return _buildItem(
                     context,
-                    iconPath: 'assets/icons/assets.svg',
-                    title: '无账户',
-                    subtitle: null,
-                    selected: selectedId == null,
-                    onTap: () => Navigator.pop(context, noAccountSelection),
-                  ),
-                  if (accounts.isNotEmpty)
-                    ...accounts.map(
-                      (a) => _buildItem(
-                        context,
-                        account: a,
-                        title: a.name,
-                        subtitle: a.categoryName,
-                        selected: a.id == selectedId,
-                        onTap: () => Navigator.pop(context, a),
-                      ),
-                    ),
-                ],
+                    account: a,
+                    title: a.name,
+                    amount: formatAmount(a.balanceCents),
+                    selected: a.id == selectedId,
+                    onTap: () => Navigator.pop(context, a),
+                  );
+                },
               ),
             ),
           ],
@@ -113,7 +120,7 @@ class _AccountPickerSheet extends StatelessWidget {
     String? iconPath,
     AssetAccount? account,
     required String title,
-    required String? subtitle,
+    String? amount,
     required bool selected,
     required VoidCallback onTap,
   }) {
@@ -122,7 +129,10 @@ class _AccountPickerSheet extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: spacingL, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingL,
+          vertical: spacingM,
+        ),
         child: Row(
           children: [
             if (account != null)
@@ -148,17 +158,12 @@ class _AccountPickerSheet extends StatelessWidget {
                 color: themeColor,
               ),
             const SizedBox(width: spacingM),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: textListItem),
-                  if (subtitle != null) Text(subtitle, style: textItemSub),
-                ],
-              ),
-            ),
-            if (selected)
+            Expanded(child: Text(title, style: textListItem)),
+            if (amount != null) Text(amount, style: textAccountAmount),
+            if (selected) ...[
+              const SizedBox(width: spacingS),
               Icon(Icons.check, size: iconSizeDefault, color: themeColor),
+            ],
           ],
         ),
       ),
