@@ -10,6 +10,9 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/card_container.dart';
 import '../../widgets/common/month_year_picker.dart';
 
+/// 年月选择器整行高度 = 原「AppBar 底 → 余额卡片顶」之间的留白（12 + 29 + 12 ≈ 53）。
+const double _kMonthPickerHeight = 53;
+
 class AssetTrendPage extends StatefulWidget {
   final AssetAccount account;
 
@@ -84,10 +87,9 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
       ),
       backgroundColor: colorBackgroundPage,
       body: ListView(
-        padding: const EdgeInsets.all(spacingM),
+        padding: const EdgeInsets.fromLTRB(spacingM, 0, spacingM, spacingM),
         children: [
           _buildMonthPicker(),
-          const SizedBox(height: spacingM),
           _buildTrendCard(dailyPoints),
           const SizedBox(height: spacingM),
           _buildDetailCard(dailyPoints),
@@ -97,23 +99,54 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
   }
 
   Widget _buildMonthPicker() {
-    return GestureDetector(
-      onTap: _pickMonth,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: spacingM,
-            vertical: spacingXS,
+    return SizedBox(
+      height: _kMonthPickerHeight,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _monthArrow(Icons.chevron_left, () => _stepMonth(-1)),
+          GestureDetector(
+            onTap: _pickMonth,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: spacingS),
+              child: Text(
+                formatMonthLabel(_selectedMonth),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorTextPrimary,
+                ),
+              ),
+            ),
           ),
-          decoration: BoxDecoration(
-            color: colorDivider,
-            borderRadius: BorderRadius.circular(radiusSmall),
-          ),
-          child: Text(formatMonthLabel(_selectedMonth), style: textTagSmall),
-        ),
+          _monthArrow(Icons.chevron_right, () => _stepMonth(1)),
+        ],
       ),
     );
+  }
+
+  Widget _monthArrow(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: spacingM),
+        child: Icon(icon, size: iconSizeDefault, color: colorTextPrimary),
+      ),
+    );
+  }
+
+  /// 左右箭头翻月；不允许翻到当前月之后（未来无数据）。
+  void _stepMonth(int delta) {
+    final next = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    final now = DateTime.now();
+    if (next.isAfter(DateTime(now.year, now.month))) return;
+    setState(() => _selectedMonth = DateTime(next.year, next.month));
+    _load();
   }
 
   Future<void> _pickMonth() async {
