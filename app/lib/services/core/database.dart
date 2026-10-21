@@ -66,7 +66,28 @@ class DatabaseHelper {
       version: 1,
       onCreate: _onCreate,
     );
+    await _ensureIndexes(db);
     return db;
+  }
+
+  /// 补建余额查询所需的账户+日期索引（幂等，不涉及 schema 版本）。
+  Future<void> _ensureIndexes(Database db) async {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_records_account_date '
+      'ON records(account_id, date)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transfers_from_account_date '
+      'ON transfers(from_account_id, date)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transfers_to_account_date '
+      'ON transfers(to_account_id, date)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_balance_adjustments_account_date '
+      'ON balance_adjustments(account_id, date)',
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {

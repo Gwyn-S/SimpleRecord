@@ -170,7 +170,6 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
         child: _TrendLineChart(
           accounts: _filteredAccounts,
           year: _selectedYear,
-          showFlatZero: _filteredAccounts.isEmpty,
         ),
       ),
     );
@@ -257,13 +256,8 @@ class _AssetStatisticsPageState extends State<AssetStatisticsPage> {
 class _TrendLineChart extends StatefulWidget {
   final List<AssetAccount> accounts;
   final int year;
-  final bool showFlatZero;
 
-  const _TrendLineChart({
-    required this.accounts,
-    required this.year,
-    this.showFlatZero = false,
-  });
+  const _TrendLineChart({required this.accounts, required this.year});
 
   @override
   State<_TrendLineChart> createState() => _TrendLineChartState();
@@ -271,14 +265,12 @@ class _TrendLineChart extends StatefulWidget {
 
 class _TrendLineChartState extends State<_TrendLineChart> {
   List<_TrendPoint> _points = [];
-  List<({String id, bool isDebt})> _lastAccounts = const [];
-  bool _ready = false;
+  List<({String id, bool isDebt, bool isVault})> _lastAccounts = const [];
 
   @override
   void initState() {
     super.initState();
     _lastAccounts = _toAccountSpecs(widget.accounts);
-    _ready = widget.showFlatZero || widget.accounts.isEmpty;
     _load();
   }
 
@@ -294,62 +286,73 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       _lastAccounts = spec;
     }
     if (changedAccounts || changedYear) {
-      _ready = widget.showFlatZero || widget.accounts.isEmpty;
-      if (_ready) {
-        _points = [];
-      }
       _load();
     }
   }
 
-  List<({String id, bool isDebt})> _toAccountSpecs(
+  List<({String id, bool isDebt, bool isVault})> _toAccountSpecs(
     List<AssetAccount> accounts,
   ) {
-    return [for (final a in accounts) (id: a.id, isDebt: a.isDebtAccount)];
+    return [
+      for (final a in accounts)
+        (id: a.id, isDebt: a.isDebtAccount, isVault: a.categoryName == '小金库'),
+    ];
+  }
+
+  /// 该画到几月：当年画到当前月，往年画满 12 个月。
+  int get _lastMonth {
+    final now = DateTime.now();
+    return widget.year == now.year ? now.month : 12;
   }
 
   Future<void> _load() async {
-    if (widget.showFlatZero || widget.accounts.isEmpty) {
-      if (mounted) setState(() {});
+    final yearAtStart = widget.year;
+    if (widget.accounts.isEmpty) {
+      _points = [];
       return;
     }
     final service = BalanceHistoryService.instance;
-    // 缓存命中时同步赋值：initState/didUpdateWidget 之后必有一次 build，
-    // 新曲线当帧就画出来，不再先显示占位 0 线或上一组账户的旧曲线。
-    final cached = service.monthlyNetByYearCached(
-      widget.year,
-      _lastAccounts,
-    );
-    if (cached != null) {
-      _points = _toTrendPoints(cached);
+    // 缓存命中当帧出图；隔天的旧缓存先用旧曲线打底并后台静默刷新
+    // （跨月末时顺带补落锚点）；真 miss 先清空为空白，不画假零线。
+    final cached = service.monthlyNetByYearCached(widget.year, _lastAccounts);
+    final today = toEpochDay(DateTime.now());
+    if (cached != null && cached.cachedDay == today) {
+      _points = _toTrendPoints(cached.months);
+      _prefetchAdjacentYears();
       return;
     }
-    final monthly = await service.monthlyNetByYear(
-      widget.year,
-      _lastAccounts,
-    );
-    if (!mounted) return;
+    if (cached != null) {
+      _points = _toTrendPoints(cached.months);
+    } else {
+      _points = [];
+    }
+    final monthly = await service.monthlyNetByYear(widget.year, _lastAccounts);
+    if (!mounted || widget.year != yearAtStart) return;
     setState(() => _points = _toTrendPoints(monthly));
+    _prefetchAdjacentYears();
+  }
+
+  /// 相邻年份后台预热（不画图），让切年大多直接命中缓存、不闪空白。
+  void _prefetchAdjacentYears() {
+    final service = BalanceHistoryService.instance;
+    final currentYear = DateTime.now().year;
+    for (final y in [widget.year - 1, widget.year + 1]) {
+      if (y > currentYear || y < 2000) continue;
+      service.monthlyNetByYear(y, _lastAccounts);
+    }
   }
 
   List<_TrendPoint> _toTrendPoints(List<int> monthly) {
-    final currentMonth = DateTime.now().month;
     return [
-      for (var m = 1; m <= currentMonth; m++)
+      for (var m = 1; m <= _lastMonth; m++)
         _TrendPoint(month: m, value: monthly[m - 1]),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final currentMonth = now.month;
-    final points = _points.isEmpty
-        ? List.generate(
-            currentMonth,
-            (i) => _TrendPoint(month: i + 1, value: 0),
-          )
-        : _points;
+    if (_points.isEmpty) return const SizedBox.shrink();
+    final points = _points;
 
     final values = points.map((p) => p.value.toDouble()).toList();
     final (minY, maxY) = computeYRange(values);
@@ -390,7 +393,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       plotAreaBorderWidth: 0,
       primaryXAxis: NumericAxis(
         minimum: 0,
-        maximum: (currentMonth - 1).toDouble(),
+        maximum: (_lastMonth - 1).toDouble(),
         interval: 1,
         majorGridLines: const MajorGridLines(width: 0),
         majorTickLines: const MajorTickLines(size: 0),

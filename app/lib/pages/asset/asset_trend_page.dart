@@ -24,15 +24,22 @@ class AssetTrendPage extends StatefulWidget {
 
 class _AssetTrendPageState extends State<AssetTrendPage> {
   late DateTime _selectedMonth;
-  Map<int, int> _balances = {};
-  int _startBalance = 0;
+  Map<int, int> _dailyBalances = {};
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month);
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prefetch());
+  }
+
+  Future<void> _prefetch() async {
+    final balances = await BalanceHistoryService.instance.fullDailyBalances(
+      widget.account.id,
+    );
+    if (!mounted) return;
+    setState(() => _dailyBalances = balances);
   }
 
   /// 当月的截止日：选中当前月时只到当天，历史月份到月末。
@@ -48,25 +55,10 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     return isCurrentMonth ? now.day : daysInMonth;
   }
 
-  Future<void> _load() async {
-    final year = _selectedMonth.year;
-    final month = _selectedMonth.month;
-    final from = toEpochDay(DateTime(year, month, 1));
-    final to = toEpochDay(DateTime(year, month, _daysToShow));
-    final balances = await BalanceHistoryService.instance.balancesForAccount(
-      widget.account.id,
-      from,
-      to,
-    );
-    final before = await BalanceHistoryService.instance.balancesAt(
-      [(id: widget.account.id, isDebt: widget.account.isDebtAccount)],
-      from - 1,
-    );
-    if (!mounted) return;
-    setState(() {
-      _balances = balances;
-      _startBalance = before[widget.account.id] ?? 0;
-    });
+  /// 选中月份是否在当前月之后（未来月份没有数据可画）。
+  bool get _isFutureMonth {
+    final now = DateTime.now();
+    return _selectedMonth.isAfter(DateTime(now.year, now.month));
   }
 
   @override
@@ -91,8 +83,10 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
         children: [
           _buildMonthPicker(),
           _buildTrendCard(dailyPoints),
-          const SizedBox(height: spacingM),
-          _buildDetailCard(dailyPoints),
+          if (dailyPoints.isNotEmpty) ...[
+            const SizedBox(height: spacingM),
+            _buildDetailCard(dailyPoints),
+          ],
         ],
       ),
     );
@@ -140,27 +134,28 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
     );
   }
 
-  /// 左右箭头翻月；不允许翻到当前月之后（未来无数据）。
+  /// 左右箭头翻月。
   void _stepMonth(int delta) {
     final next = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
-    final now = DateTime.now();
-    if (next.isAfter(DateTime(now.year, now.month))) return;
     setState(() => _selectedMonth = DateTime(next.year, next.month));
-    _load();
   }
 
   Future<void> _pickMonth() async {
     final picked = await showMonthYearPicker(context, _selectedMonth);
     if (picked != null && mounted) {
       setState(() => _selectedMonth = DateTime(picked.year, picked.month));
-      _load();
     }
   }
 
   Widget _buildTrendCard(List<_DailyPoint> points) {
     return CardContainer(
       title: '余额走势图',
-      child: SizedBox(height: 160, child: _DailyTrendChart(points: points)),
+      child: SizedBox(
+        height: 160,
+        child: points.isEmpty
+            ? const SizedBox.shrink()
+            : _DailyTrendChart(points: points),
+      ),
     );
   }
 
@@ -194,13 +189,23 @@ class _AssetTrendPageState extends State<AssetTrendPage> {
   }
 
   List<_DailyPoint> _generateDailyPoints() {
+    if (_dailyBalances.isEmpty || _isFutureMonth) return const [];
     final year = _selectedMonth.year;
     final month = _selectedMonth.month;
     final points = <_DailyPoint>[];
-    var running = _startBalance;
+    // 月初前的最后余额作种子：历史月份从系列起点算起。
+    final monthStart = toEpochDay(DateTime(year, month, 1));
+    var running = 0;
+    var seedDay = -1;
+    for (final entry in _dailyBalances.entries) {
+      if (entry.key < monthStart && entry.key > seedDay) {
+        seedDay = entry.key;
+        running = entry.value;
+      }
+    }
     for (var i = 1; i <= _daysToShow; i++) {
       final day = toEpochDay(DateTime(year, month, i));
-      running = _balances[day] ?? running;
+      running = _dailyBalances[day] ?? running;
       points.add(_DailyPoint(date: DateTime(year, month, i), value: running));
     }
     return points;
