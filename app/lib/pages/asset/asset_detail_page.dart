@@ -91,13 +91,17 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
         resolvedTransfers.add(t);
       }
     }
-    // 调整流水：金库上的手动调余/记账也带上操作者（author_id 维度）。
+    // 调整流水：金库上的调余/记账带上操作者。record_key 带 -init- 的
+    // 初始余额只是账本凭证（重算与 B 端重建依赖），不展示成流水。
     final adjustments = await BalanceHistoryService.instance
         .adjustmentsForAccount(account.id);
+    final visibleAdjustments = adjustments
+        .where((a) => !(a['record_key']?.toString() ?? '').contains('-init-'))
+        .toList();
     final adjustedAdjustments = <Map<String, dynamic>>[];
     if (VaultOpService.instance.isSharedVault(account)) {
       final auth = AuthorService.instance;
-      for (final a in adjustments) {
+      for (final a in visibleAdjustments) {
         final opEmail = a['operator_email']?.toString() ?? '';
         if (opEmail.isNotEmpty) {
           final nick = await auth.displayNameFor(opEmail);
@@ -112,7 +116,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
         }
       }
     } else {
-      adjustedAdjustments.addAll(adjustments);
+      adjustedAdjustments.addAll(visibleAdjustments);
     }
     if (!mounted) return;
     final entries = <_FlowEntry>[];
