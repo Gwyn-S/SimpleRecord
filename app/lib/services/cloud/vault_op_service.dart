@@ -65,9 +65,7 @@ class VaultOpService {
     if (fromVault) {
       await _enqueue(
         vaultId: t.fromAccountId,
-        entityId: op == 'delete'
-            ? '${t.id}-from-del'
-            : '${t.id}-from',
+        entityId: op == 'delete' ? '${t.id}-from-del' : '${t.id}-from',
         op: op == 'delete' ? 'delete' : 'withdraw',
         payload: payloadBase,
       );
@@ -75,9 +73,7 @@ class VaultOpService {
     if (toVault) {
       await _enqueue(
         vaultId: t.toAccountId,
-        entityId: op == 'delete'
-            ? '${t.id}-to-del'
-            : '${t.id}-to',
+        entityId: op == 'delete' ? '${t.id}-to-del' : '${t.id}-to',
         op: op == 'delete' ? 'delete' : 'deposit',
         payload: payloadBase,
       );
@@ -144,7 +140,8 @@ class VaultOpService {
     await _enqueue(
       vaultId: account.id,
       entityId:
-          entityId ?? '$account.id-init-${DateTime.now().microsecondsSinceEpoch}',
+          entityId ??
+          '${account.id}-init-${DateTime.now().microsecondsSinceEpoch}',
       op: 'adjust',
       payload: {
         'delta_cents': account.balanceCents,
@@ -179,8 +176,7 @@ class VaultOpService {
 
     await _enqueue(
       vaultId: accountId,
-      entityId:
-          '$recordKey-${_opSuffix(date, createdAt)}',
+      entityId: '$recordKey-${_opSuffix(date, createdAt)}',
       op: 'adjust',
       payload: {
         'delta_cents': deltaCents,
@@ -210,8 +206,7 @@ class VaultOpService {
 
     await _enqueue(
       vaultId: accountId,
-      entityId:
-          '$recordKey-del-${_opSuffix(date, createdAt)}',
+      entityId: '$recordKey-del-${_opSuffix(date, createdAt)}',
       op: 'adjust',
       payload: {
         'after_cents': afterCents,
@@ -283,11 +278,7 @@ class VaultOpService {
     final db = await DatabaseHelper.instance.database;
     final supabase = SupabaseManager.instance;
     if (supabase.isReady == false || supabase.uid == null) return false;
-    final rows = await db.query(
-      'vault_outbox',
-      orderBy: 'id',
-      limit: 200,
-    );
+    final rows = await db.query('vault_outbox', orderBy: 'id', limit: 200);
     if (rows.isEmpty) return false;
     final deviceId = await getOrCreateDeviceId();
     final done = <int>[];
@@ -447,7 +438,8 @@ class VaultOpService {
     if (!isSharedVault(byId[accountId])) return;
     await _enqueue(
       vaultId: accountId,
-      entityId: '$accountId-vault-$name-$remark-${DateTime.now().microsecondsSinceEpoch}',
+      entityId:
+          '$accountId-vault-$name-$remark-${DateTime.now().microsecondsSinceEpoch}',
       op: 'profile',
       payload: {
         'author_id': SupabaseManager.instance.email ?? '',
@@ -548,8 +540,7 @@ class VaultOpService {
           // 一并删除，保证"删调整=撤销记账"两端一致。金库余额由 after
           // 对齐（快照重算对金库跳过 records），无需额外回退。
           if (recordKey.startsWith('$vaultId-rec-')) {
-            final recordId =
-                recordKey.substring('$vaultId-rec-'.length);
+            final recordId = recordKey.substring('$vaultId-rec-'.length);
             final recRows = await db.query(
               'records',
               where: 'id = ?',
@@ -564,8 +555,10 @@ class VaultOpService {
               recordsVersion.value++;
             }
           }
-          await BalanceHistoryService.instance
-              .removeAdjustmentByRecordKey(vaultId, recordKey);
+          await BalanceHistoryService.instance.removeAdjustmentByRecordKey(
+            vaultId,
+            recordKey,
+          );
           break;
         }
         if (recordKey.isNotEmpty) {
@@ -580,7 +573,8 @@ class VaultOpService {
             deltaCents: delta,
             beforeCents: before,
             afterCents: after,
-            createdAt: (p['created_at'] as num?)?.toInt() ??
+            createdAt:
+                (p['created_at'] as num?)?.toInt() ??
                 DateTime.now().millisecondsSinceEpoch,
             sourceId: op['entity_id']?.toString() ?? '',
             operatorEmail: p['operator_email']?.toString() ?? '',
@@ -598,7 +592,8 @@ class VaultOpService {
           deltaCents: delta,
           beforeCents: before,
           afterCents: after,
-          createdAt: (p['created_at'] as num?)?.toInt() ??
+          createdAt:
+              (p['created_at'] as num?)?.toInt() ??
               DateTime.now().millisecondsSinceEpoch,
           sourceId: op['entity_id']?.toString() ?? '',
           operatorEmail: p['operator_email']?.toString() ?? '',
@@ -659,9 +654,12 @@ class VaultOpService {
   Future<void> _subscribeVaultOps(String vaultId) async {
     final supabase = SupabaseManager.instance;
     if (supabase.isReady == false) return;
-    await supabase.subscribeVaultOps(vaultId: vaultId, callback: (_) {
-      unawaited(syncVaultOps(vaultId));
-    });
+    await supabase.subscribeVaultOps(
+      vaultId: vaultId,
+      callback: (_) {
+        unawaited(syncVaultOps(vaultId));
+      },
+    );
   }
 
   /// 创建小金库落库后调用：把云端初始事件拉回并订阅实时，让创建方

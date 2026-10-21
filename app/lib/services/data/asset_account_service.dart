@@ -66,7 +66,12 @@ Future<List<AssetAccount>> loadAssetAccountsByCreatedAt() async {
   return rows.map(AssetAccount.fromDbMap).toList();
 }
 
-Future<void> insertAssetAccount(AssetAccount account) async {
+/// [notifyRecompute] 为 false 时不排队重算锚点（金库建库时由紧随的
+/// 初始余额调整负责通知）。
+Future<void> insertAssetAccount(
+  AssetAccount account, {
+  bool notifyRecompute = true,
+}) async {
   final db = await DatabaseHelper.instance.database;
   if (account.createdAt == 0) {
     account.createdAt = DateTime.now().millisecondsSinceEpoch;
@@ -77,7 +82,9 @@ Future<void> insertAssetAccount(AssetAccount account) async {
     conflictAlgorithm: ConflictAlgorithm.replace,
   );
   assetAccountsVersion.value++;
-  BalanceHistoryService.instance.notifyChanged(account.id);
+  if (notifyRecompute) {
+    BalanceHistoryService.instance.notifyChanged(account.id);
+  }
 }
 
 Future<void> updateAssetAccount(

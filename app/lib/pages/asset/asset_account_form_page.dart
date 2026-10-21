@@ -29,7 +29,7 @@ class AddAssetAccountFormPage extends StatefulWidget {
   /// 返回 null 表示云端失败，此时不落本地也不关页。典型场景：小金库新建时
   /// 先建云端金库房间、成功后本地才插入资产账户。
   final Future<String?> Function(BuildContext context, AssetAccount account)?
-      onCloudCreate;
+  onCloudCreate;
 
   const AddAssetAccountFormPage({
     super.key,
@@ -87,7 +87,7 @@ class _AddAssetAccountFormPageState extends State<AddAssetAccountFormPage> {
         balanceText.isEmpty || double.tryParse(balanceText) == null
         ? 0
         : yuanToCents(balanceText);
-final isVault = widget.categoryName == '小金库';
+    final isVault = widget.categoryName == '小金库';
     final account = AssetAccount(
       id: widget.existingAccount?.id ?? genId(),
       categoryName: widget.categoryName,
@@ -161,7 +161,11 @@ final isVault = widget.categoryName == '小金库';
         }
       }
     } else {
-      await insertAssetAccount(account);
+      // 金库的初始余额由下面的 adjust 落库并通知，这里不重算。
+      await insertAssetAccount(
+        account,
+        notifyRecompute: account.categoryName != '小金库',
+      );
       // 新建小金库：期初 0，初始余额本身作为第一条「调整」事件通告云端，
       // B 端加入时据 events 重建金库余额；随后订阅实时通道，否则创建方
       // 收不到对方后续的转账/调整。本地与事件共用 entityId，幂等防双算。
@@ -178,6 +182,8 @@ final isVault = widget.categoryName == '小金库';
           sourceId: initId,
           operatorEmail: SupabaseManager.instance.email ?? '',
         );
+        // 初始余额为 0 时 recordAdjustment 早退不通知，这里补排一次。
+        BalanceHistoryService.instance.notifyChanged(account.id);
         await VaultOpService.instance.pushInitialBalance(
           account,
           entityId: initId,
