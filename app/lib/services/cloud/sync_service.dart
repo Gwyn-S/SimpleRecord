@@ -95,9 +95,13 @@ class SyncService {
     final bookId = record.ledgerId;
     if (bookId == null) return;
     if (!await isSharedBook(bookId)) return;
-    final payload = record.toDbMap()
-      ..remove('image_path')
-      ..['account_id'] = null;
+    final db = await DatabaseHelper.instance.database;
+    final payload = record.toDbMap()..remove('image_path');
+    // 只有共享金库账户（两端同 id 的多人房间）才保留 account_id；
+    // 普通账户属记账人私有，id 对对方无意义，一律置空。
+    if (!await _isSharedVaultAccount(db, record.accountId)) {
+      payload['account_id'] = null;
+    }
     await _enqueue(
       entityType: 'record',
       entityId: record.id,
@@ -322,9 +326,15 @@ class SyncService {
     if (payload == null) return;
 
     if (entityType == 'record') {
-      payload
-        ..remove('image_path')
-        ..['account_id'] = null;
+      payload.remove('image_path');
+      // 下行与上行同一规则：只放行共享金库的 account_id，
+      // 其余（对方私有账户/无账户）置空，杜绝把对方本地 id 落进本库。
+      if (!await _isSharedVaultAccount(
+            db,
+            payload['account_id']?.toString(),
+          )) {
+        payload['account_id'] = null;
+      }
       switch (entityOp) {
         case 'insert':
         case 'update':
@@ -496,12 +506,15 @@ class SyncService {
     }
     await supabase.subscribeLedgerOps(ledgerId: ledger.id, callback: _onLedgerOpInsert);
     final records = await _loadRecords(ledger.id);
+    final db = await DatabaseHelper.instance.database;
     for (final r in records) {
       final bookId = r.ledgerId;
       if (bookId == null) continue;
-      final payload = r.toDbMap()
-        ..remove('image_path')
-        ..['account_id'] = null;
+      final payload = r.toDbMap()..remove('image_path');
+      // 与 enqueueRecord 同一规则：共享金库才带 account_id。
+      if (!await _isSharedVaultAccount(db, r.accountId)) {
+        payload['account_id'] = null;
+      }
       await _enqueue(
         entityType: 'record',
         entityId: r.id,
@@ -620,6 +633,19 @@ class SyncService {
   }
 
   // ==================== 本地辅助 ====================
+
+  /// 记录账户 id 是否指向共享金库（小金库分类=多人共享房间，两端同 id）。
+  /// 同步 payload 只放行金库的 account_id；普通账户/无账户一律置空。
+  Future<bool> _isSharedVaultAccount(Database db, String? accountId) async {
+    if (accountId == null || accountId.isEmpty) return false;
+    final rows = await db.query(
+      'asset_accounts',
+      columns: ['category_name'],
+      where: 'id = ?',
+      whereArgs: [accountId],
+    );
+    return rows.isNotEmpty && rows.first['category_name'] == '小金库';
+  }
 
   /// 判断账本是否为共享账本（本地 sync_mode=1）。
   Future<bool> isSharedBook(String bookId) async {
