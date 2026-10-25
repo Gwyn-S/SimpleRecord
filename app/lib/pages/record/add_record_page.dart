@@ -41,7 +41,13 @@ class _AddRecordPageState extends State<AddRecordPage> {
   int? _selectedCategory = 0;
   String _amount = '0';
   DateTime _selectedDate = DateTime.now();
-  AssetAccount? _selectedAccount;
+  // 账户栏只存"显示名 + 记录用 id"两个值，打开编辑时直接用记录里
+  // 已有的快照填充，不再异步反查账户对象（图标本就是写死的钱包图标）。
+  String? _accountId;
+  String? _accountName;
+  /// 只读兜底：多人账本中他人记的私有/无账户记录不允许在页面内保存。
+  /// 金库是共享账户，不算在内。
+  bool _readOnly = false;
   String? _selectedTag;
   final _remarkController = TextEditingController();
   List<String> _imagePaths = [];
@@ -61,19 +67,17 @@ class _AddRecordPageState extends State<AddRecordPage> {
       _remarkController.text = r.remark;
       _selectedTag = r.tag;
       _imagePaths = r.imagePaths ?? [];
-      if (r.accountId != null) _loadSelectedAccount(r.accountId!);
+      _accountId = r.accountId;
+      _accountName = r.accountName;
+      _checkReadOnly();
     }
   }
 
-  Future<void> _loadSelectedAccount(String id) async {
-    final accounts = await loadAssetAccounts();
+  /// 只读判定（写库层另有 canWriteRecord 校验，这里只为提前给 UI 感知）。
+  Future<void> _checkReadOnly() async {
+    final canWrite = await canWriteRecord(widget.initialRecord!);
     if (!mounted) return;
-    for (final a in accounts) {
-      if (a.id == id) {
-        setState(() => _selectedAccount = a);
-        return;
-      }
-    }
+    setState(() => _readOnly = !canWrite);
   }
 
   @override
@@ -89,6 +93,10 @@ class _AddRecordPageState extends State<AddRecordPage> {
   }
 
   Future<bool> _saveRecord() async {
+    if (_readOnly) {
+      safeShowToast(context, '该账由其他成员记账，仅可查看');
+      return false;
+    }
     final (amountCents, amountError) = parseAmountCents(_amount);
     if (amountError != null) {
       safeShowToast(context, amountError);
@@ -98,7 +106,8 @@ class _AddRecordPageState extends State<AddRecordPage> {
     final record = Record(
       id: origin?.id ?? genId(),
       ledgerId: origin?.ledgerId ?? currentLedgerId.value,
-      accountId: _selectedAccount?.id,
+      accountId: _accountId,
+      accountName: _accountName,
       isExpense: _isExpense,
       categoryName: _getCategoryName(),
       amountCents: amountCents,
@@ -107,6 +116,9 @@ class _AddRecordPageState extends State<AddRecordPage> {
       date: _selectedDate,
       createdAt: origin?.createdAt ?? DateTime.now(),
       imagePaths: _imagePaths,
+      // 编辑时保留原记账人：作者永远是记账的人，不随编辑者变。
+      author: origin?.author,
+      authorId: origin?.authorId,
     );
     if (origin != null) {
       await updateRecord(record);
@@ -361,10 +373,13 @@ class _AddRecordPageState extends State<AddRecordPage> {
                   },
                 ),
                 OptionBarItem(
-                  width: _fitCell(_selectedAccount?.name ?? '无账户', cell),
+                  width: _fitCell(_accountName ?? '无账户', cell),
                   icon: Icons.account_balance_wallet_outlined,
-                  label: _selectedAccount?.name ?? '无账户',
-                  onTap: _pickAccount,
+                  label: _accountName ?? '无账户',
+                  onTap: () {
+                    if (_readOnly) return;
+                    _pickAccount();
+                  },
                 ),
                 OptionBarItem(
                   width: _fitCell(_selectedTag ?? '标签', cell),
@@ -443,15 +458,21 @@ class _AddRecordPageState extends State<AddRecordPage> {
     final result = await showAccountPicker(
       context,
       accounts: accounts,
-      selectedId: _selectedAccount?.id,
+      selectedId: _accountId,
     );
     if (result == null || !mounted) return;
     if (result == noAccountSelection) {
-      setState(() => _selectedAccount = null);
+      setState(() {
+        _accountId = null;
+        _accountName = null;
+      });
       return;
     }
     if (result is AssetAccount) {
-      setState(() => _selectedAccount = result);
+      setState(() {
+        _accountId = result.id;
+        _accountName = result.name;
+      });
     }
   }
 }

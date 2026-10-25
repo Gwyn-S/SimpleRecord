@@ -111,7 +111,13 @@ class _SearchPageState extends State<SearchPage> {
       if (_flowFilter == 2 && !r.isExpense) return false;
       if (_accountFilter == _noAccountFilter) {
         final acc = r.accountId;
-        if (acc != null && acc.isNotEmpty) return false;
+        final name = r.accountName;
+        // 「无账户」= id 与账户名快照皆空。多人账本中他人私有账户的
+        // 记录（id 不出门、只剩名字）不算无账户，避免混入清点。
+        if ((acc != null && acc.isNotEmpty) ||
+            (name != null && name.isNotEmpty)) {
+          return false;
+        }
       } else if (_accountFilter != null && r.accountId != _accountFilter) {
         return false;
       }

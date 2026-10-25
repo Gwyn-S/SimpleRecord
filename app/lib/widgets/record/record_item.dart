@@ -167,12 +167,19 @@ class RecordItem extends StatelessWidget {
     );
   }
 
-  void _showActions(BuildContext context) {
+  /// 弹出账单详情/操作弹层。写权限判定：多人账本中
+  /// 「非共享金库 + 非作者本人」的记录以只读方式打开（弹层顶部有提示，
+  /// 无修改/删除/删图入口）；共享金库两端是同一本账，任何成员都可操作。
+  /// 服务层 updateRecord/deleteRecord 另有 canWriteRecord 校验兜底。
+  Future<void> _showActions(BuildContext context) async {
+    final canWrite = await canWriteRecord(record);
+    if (!context.mounted) return;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: colorBackgroundCard,
       builder: (sheetContext) => BillDetailSheet(
         record: record,
+        readOnly: !canWrite,
         onEdit: () {
           Navigator.pop(sheetContext);
           onEdit?.call();

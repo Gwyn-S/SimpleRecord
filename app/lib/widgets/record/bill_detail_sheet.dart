@@ -10,6 +10,10 @@ import '../common/full_image_viewer.dart';
 
 class BillDetailSheet extends StatelessWidget {
   final Record record;
+
+  /// 只读：多人账本中他人记的私有/无账户记录，不显示修改/删除/删图，
+  /// 顶部改为提示文字，避免误以为按钮丢失是 bug。
+  final bool readOnly;
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
   final ValueChanged<String>? onDeleteImage;
@@ -17,8 +21,9 @@ class BillDetailSheet extends StatelessWidget {
   const BillDetailSheet({
     super.key,
     required this.record,
-    required this.onDelete,
+    this.readOnly = false,
     this.onEdit,
+    required this.onDelete,
     this.onDeleteImage,
   });
 
@@ -42,16 +47,20 @@ class BillDetailSheet extends StatelessWidget {
             children: [
               const Text('账单详情', style: textTitleBold),
               const Spacer(),
-              if (onEdit != null)
+              if (readOnly)
+                const Text('由其他成员记账，仅可查看', style: textHint)
+              else ...[
+                if (onEdit != null)
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: const Text('修改', style: textButtonDefault),
+                  ),
+                if (onEdit != null) const SizedBox(width: spacingL),
                 GestureDetector(
-                  onTap: onEdit,
-                  child: const Text('修改', style: textButtonDefault),
+                  onTap: onDelete,
+                  child: const Text('删除', style: textButtonDanger),
                 ),
-              if (onEdit != null) const SizedBox(width: spacingL),
-              GestureDetector(
-                onTap: onDelete,
-                child: const Text('删除', style: textButtonDanger),
-              ),
+              ],
             ],
           ),
         ),
@@ -134,6 +143,8 @@ class BillDetailSheet extends StatelessWidget {
         builder: (_) => FullImageViewer(
           imagePaths: paths,
           initialIndex: initialIndex,
+          // 只读记录连看图也不带删图按钮。
+          showDelete: !readOnly,
           onDelete: (i) {
             if (paths.isNotEmpty && i >= 0 && i < paths.length) {
               onDeleteImage?.call(paths[i]);
