@@ -54,16 +54,14 @@ Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
     args.add(start);
     args.add(end);
   }
-  final sql = StringBuffer(
-    'SELECT records.*, asset_accounts.name AS account_name '
-    'FROM records LEFT JOIN asset_accounts '
-    'ON records.account_id = asset_accounts.id',
+  // account_name 直接读 records 自身的快照列，不再 JOIN asset_accounts：
+  // 多人账本里"对方私有账户"的记录没有本地 id，靠同步过来的快照名显示。
+  final rows = await db.query(
+    'records',
+    where: where.isEmpty ? null : where.join(' AND '),
+    whereArgs: where.isEmpty ? null : args,
+    orderBy: 'date DESC, created_at DESC',
   );
-  if (where.isNotEmpty) {
-    sql.write(' WHERE ${where.join(' AND ')}');
-  }
-  sql.write(' ORDER BY date DESC, created_at DESC');
-  final rows = await db.rawQuery(sql.toString(), args);
   return AuthorService.instance.applyLatestNicknames(
     rows.map(Record.fromDbMap).toList(),
   );
@@ -87,14 +85,13 @@ Future<List<Record>> loadRecordsByDateRange({
   where.add('date >= ? AND date < ?');
   args.add(startEpoch);
   args.add(endEpoch);
-  final sql = StringBuffer(
-    'SELECT records.*, asset_accounts.name AS account_name '
-    'FROM records LEFT JOIN asset_accounts '
-    'ON records.account_id = asset_accounts.id',
+  // 与 loadRecords 同一快照列规则。
+  final rows = await db.query(
+    'records',
+    where: where.join(' AND '),
+    whereArgs: args,
+    orderBy: 'date DESC, created_at DESC',
   );
-  sql.write(' WHERE ${where.join(' AND ')}');
-  sql.write(' ORDER BY date DESC, created_at DESC');
-  final rows = await db.rawQuery(sql.toString(), args);
   return AuthorService.instance.applyLatestNicknames(
     rows.map(Record.fromDbMap).toList(),
   );
@@ -161,7 +158,62 @@ Future<String?> currentNickname() {
   return AuthorService.instance.ownNickname();
 }
 
+/// 按账户 id 取账户名；无此账户返回 null。
+Future<String?> _accountNameById(String accountId) async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.query(
+    'asset_accounts',
+    columns: ['name'],
+    where: 'id = ?',
+    whereArgs: [accountId],
+  );
+  return rows.isEmpty ? null : rows.first['name'] as String?;
+}
+
+/// 账户 id 是否指向共享金库（小金库分类 = 多人共享房间，两端同 id）。
+Future<bool> isVaultAccountId(String accountId) async {
+  final db = await DatabaseHelper.instance.database;
+  final rows = await db.query(
+    'asset_accounts',
+    columns: ['category_name'],
+    where: 'id = ?',
+    whereArgs: [accountId],
+  );
+  return rows.isNotEmpty && rows.first['category_name'] == '小金库';
+}
+
+/// 给记录补账户名快照：account_name 随记录同步，是"两端都能看到账户"
+/// 的唯一来源；创建入口（手动/AI）未带时按 accountId 回查一次兜底。
+Future<Record> _withAccountSnapshot(Record record) async {
+  if (record.accountName != null && record.accountName!.isNotEmpty) {
+    return record;
+  }
+  final accId = record.accountId;
+  if (accId == null || accId.isEmpty) return record;
+  final name = await _accountNameById(accId);
+  if (name == null || name.isEmpty) return record;
+  return record.copyWith(accountName: name);
+}
+
+/// 当前登录账号对一条记录是否可写：
+/// 绑共享金库的记录人人可写（两端同一本账，谁改都会同步对齐），
+/// 其余记录仅作者本人可写；未登录或记录无作者归属时不拦（本地单人使用）。
+Future<bool> canWriteRecord(Record record) async {
+  final myId = await AuthorService.instance.existingAuthorId();
+  if (myId == null || myId.isEmpty) return true;
+  final authorId = record.authorId;
+  if (authorId == null || authorId.isEmpty) return true;
+  if (authorId == myId) return true;
+  final accId = record.accountId;
+  if (accId != null && accId.isNotEmpty && await isVaultAccountId(accId)) {
+    return true;
+  }
+  return false;
+}
+
 Future<void> insertRecord(Record record) async {
+  // 账户名快照兜底：手动/AI 创建入口未带时按 accountId 回查。
+  record = await _withAccountSnapshot(record);
   final nickname = await currentNickname();
   final authorId = await AuthorService.instance.ensureAuthorId();
   record = record.copyWith(
@@ -209,17 +261,9 @@ Future<void> _pushVaultDelta(
   required String op,
 }) async {
   if (accountId == null || accountId.isEmpty) return;
-  final db = await DatabaseHelper.instance.database;
   // 仅金库账户需要：普通账户记账走本地完整流水，不生成「调整」数值事件。
-  final accRows = await db.query(
-    'asset_accounts',
-    columns: ['category_name'],
-    where: 'id = ?',
-    whereArgs: [accountId],
-  );
-  final isVault =
-      accRows.isNotEmpty && accRows.first['category_name'] == '小金库';
-  if (!isVault) return;
+  if (!await isVaultAccountId(accountId)) return;
+  final db = await DatabaseHelper.instance.database;
   // 后段读回终值余额作 after（insert/update 时记账事务已改好，
   // delete 时记账事务已回退）。
   final balRows = await db.query(
@@ -278,7 +322,11 @@ Future<void> _pushVaultDelta(
   );
 }
 
-Future<void> updateRecord(Record record) async {
+Future<bool> updateRecord(Record record) async {
+  // 写权限兜底：他人记的私有/无账户记录只读（UI 已收口，此处防旁路）。
+  if (!await canWriteRecord(record)) return false;
+  // 账户名快照兜底：更新（含换账户）时同理。
+  record = await _withAccountSnapshot(record);
   final nickname = await currentNickname();
   final authorId = await AuthorService.instance.ensureAuthorId();
   record = record.copyWith(
@@ -328,12 +376,21 @@ Future<void> updateRecord(Record record) async {
     await _pushVaultDelta(oldAccountId, record, op: 'delete');
   }
   await _pushVaultDelta(record.accountId, record, op: 'update');
+  return true;
 }
 
 /// 删除一条记账。返回是否真的删到了 records 行（本地不存在则以 no-op
 /// 处理，调用方可据此决定回退到调整行删除流程）。
 Future<bool> deleteRecord(String id) async {
   final db = await DatabaseHelper.instance.database;
+  // 写权限兜底：金库记录人人可删，其余仅作者本人；本地不存在时 no-op。
+  final preRows = await db.query(
+    'records',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+  if (preRows.isEmpty) return false;
+  if (!await canWriteRecord(Record.fromDbMap(preRows.first))) return false;
   Record? old;
   await db.transaction((txn) async {
     final rows = await txn.query('records', where: 'id = ?', whereArgs: [id]);

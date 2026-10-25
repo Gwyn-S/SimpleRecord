@@ -213,8 +213,11 @@ Future<int> deleteCategory({
     whereArgs: [ledgerId, name, isExpense ? 1 : 0],
   );
   final ids = rows.map((r) => r['id'] as String).toList();
+  // 逐条走 deleteRecord（带作者校验：金库记录人人可删，其余仅作者本人），
+  // 只统计实际删到的；无权删除的记录保留原账不掉钱。
+  var removed = 0;
   for (final id in ids) {
-    await deleteRecord(id);
+    if (await deleteRecord(id)) removed++;
   }
   await db.delete(
     'categories',
@@ -227,5 +230,5 @@ Future<int> deleteCategory({
     'is_expense': isExpense ? 1 : 0,
   }, op: 'delete');
   await loadCategoryCache();
-  return ids.length;
+  return removed;
 }

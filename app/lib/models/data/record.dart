@@ -53,6 +53,7 @@ class Record {
     'id': id,
     'book_id': ledgerId,
     'account_id': accountId,
+    'account_name': accountName,
     'is_expense': isExpense ? 1 : 0,
     'category_name': categoryName,
     'amount_cents': amountCents,
@@ -95,7 +96,12 @@ class Record {
       authorId: map['author_id'] as String?,
     );
   }
-  Record copyWith({String? author, String? authorId, String? authorAvatarUrl}) {
+  Record copyWith({
+    String? author,
+    String? authorId,
+    String? authorAvatarUrl,
+    String? accountName,
+  }) {
     return Record(
       id: id,
       ledgerId: ledgerId,
@@ -107,7 +113,7 @@ class Record {
       tag: tag,
       date: date,
       createdAt: createdAt,
-      accountName: accountName,
+      accountName: accountName ?? this.accountName,
       imagePaths: imagePaths,
       author: author ?? this.author,
       authorId: authorId ?? this.authorId,

@@ -61,31 +61,51 @@ class DatabaseHelper {
     _dbPath = dbPath;
     final db = await openDatabase(
       dbPath,
-      // 未发布阶段：schema 恒为 V1，改动直接改 _onCreate 全量重建，
-      // 不做版本迁移（旧库需删除后重建）。
-      version: 1,
-      onCreate: _onCreate,
+      version: 2,
+      onCreate: _onCreateAll,
+      onUpgrade: _onUpgrade,
     );
-    await _ensureIndexes(db);
     return db;
   }
 
-  /// 补建余额查询所需的账户+日期索引（幂等，不涉及 schema 版本）。
-  Future<void> _ensureIndexes(Database db) async {
+  /// 新库建表路径：全量建表 + 索引一次齐。
+  Future<void> _onCreateAll(Database db, int version) async {
+    await _onCreate(db, version);
+    await _createIndexes(db);
+  }
+
+  /// 版本迁移：只增不改。升 2 = 补余额查询索引 + 记录账户名快照列。
+  /// 迁移不设幂等保护：1.0.5 用户的库从没建过索引，只会执行一次；
+  /// 测试设备若带着半新数据直接升级，删除 simplerecord.db 重装即可。
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await _createIndexes(db);
+      await db.execute(
+        'ALTER TABLE records ADD COLUMN account_name TEXT',
+      );
+    }
+  }
+
+  /// 余额查询所需的账户+日期索引（onCreate/onUpgrade 各建一次）。
+  Future<void> _createIndexes(Database db) async {
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_records_account_date '
+      'CREATE INDEX idx_records_account_date '
       'ON records(account_id, date)',
     );
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_transfers_from_account_date '
+      'CREATE INDEX idx_transfers_from_account_date '
       'ON transfers(from_account_id, date)',
     );
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_transfers_to_account_date '
+      'CREATE INDEX idx_transfers_to_account_date '
       'ON transfers(to_account_id, date)',
     );
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_balance_adjustments_account_date '
+      'CREATE INDEX idx_balance_adjustments_account_date '
       'ON balance_adjustments(account_id, date)',
     );
   }
@@ -113,6 +133,7 @@ class DatabaseHelper {
         created_at INTEGER NOT NULL,
         tag TEXT,
         image_path TEXT,
+        account_name TEXT,
         author TEXT,
         author_id TEXT
       )
