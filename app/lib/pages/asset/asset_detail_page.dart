@@ -812,12 +812,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               final result = await BalanceHistoryService.instance
                   .deleteAdjustment(account.id, f.adjustmentId);
               account.balanceCents = result?.newBalance ?? account.balanceCents;
-              // 金库调整行：删除事件推到云端，对端按 record_key 删行并对齐余额。
+              // 金库调整行：删除事件推到云端，对端删行并按行回退余额。
               if (isVault && result != null && result.recordKey.isNotEmpty) {
                 await VaultOpService.instance.pushRecordDeltaDelete(
                   accountId: account.id,
                   recordKey: result.recordKey,
-                  afterCents: result.newBalance,
                   date: toEpochDay(f.date),
                   createdAt: DateTime.now().millisecondsSinceEpoch,
                 );

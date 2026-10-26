@@ -12,7 +12,6 @@ import '../core/database.dart';
 import '../core/cloud_config.dart';
 import '../data/asset_account_service.dart';
 import '../data/balance_history_service.dart';
-import '../data/record_service.dart';
 import '../data/transfer_service.dart';
 import 'supabase_service.dart';
 
@@ -155,20 +154,18 @@ class VaultOpService {
     unawaited(flush());
   }
 
-  /// 普通记账落库后入队：记账把金库余额改变了 Δ（收入 +、支出 -），
-  /// 等价于一次余额调整，以 adjust 语义通告对端（不传流水明细，只传数值+时间）。
-  /// [before]/[after]/[date]/[createdAt] 由调用方从记账终态读出。
-  /// [recordKey] 由调用方传入（= 本地该记录调整行的稳定键），对端据此
-  /// 覆盖更新同一行（一笔记账一行，update 不追加）；事件 entity_id 每 op
-  /// 独立（含随机后缀），避免改/重发同笔时被 vault_outbox/云端唯一键吞掉。
+  /// 记账落库后入队：把该记录的行目标态 delta（收入 +、支出 -）通告对端。
+  /// [recordKey] 为调整行稳定键，一笔记账一行，对端据此覆盖同一行；
+  /// entity_id 每 op 独立（含随机后缀），避免同笔改/重发被唯一键吞掉。
+  /// [before]/[after] 仅作详情页展示字段，消费端不得用于余额赋值。
   Future<void> pushRecordDelta({
     required String accountId,
     required String recordKey,
     required int deltaCents,
-    required int beforeCents,
-    required int afterCents,
     required int date,
     required int createdAt,
+    int? beforeCents,
+    int? afterCents,
   }) async {
     final accounts = await _loadAccounts();
     final byId = {for (final a in accounts) a.id: a};
@@ -180,8 +177,8 @@ class VaultOpService {
       op: 'adjust',
       payload: {
         'delta_cents': deltaCents,
-        'before_cents': beforeCents,
-        'after_cents': afterCents,
+        'before_cents': ?beforeCents,
+        'after_cents': ?afterCents,
         'date': date,
         'created_at': createdAt,
         'operator_email': SupabaseManager.instance.email,
@@ -191,12 +188,11 @@ class VaultOpService {
     unawaited(flush());
   }
 
-  /// 删除记账后入队：对端据 [recordKey] 删掉对应调整行（不追加反向记录），
-  /// 并把余额对齐 [afterCents]。
+  /// 记账流水撤销后入队（删账/解绑/换出金库）：对端据 [recordKey] 删调整行
+  /// 并按行回退余额，不触碰 records 表（记账生命周期由 record 同步通道负责）。
   Future<void> pushRecordDeltaDelete({
     required String accountId,
     required String recordKey,
-    required int afterCents,
     required int date,
     required int createdAt,
   }) async {
@@ -209,12 +205,12 @@ class VaultOpService {
       entityId: '$recordKey-del-${_opSuffix(date, createdAt)}',
       op: 'adjust',
       payload: {
-        'after_cents': afterCents,
         'date': date,
         'created_at': createdAt,
         'operator_email': SupabaseManager.instance.email,
         'record_key': recordKey,
-        'record_deleted': true,
+        // revoked = 撤销该记录的金库流水。
+        'revoked': true,
       },
     );
     unawaited(flush());
@@ -397,6 +393,8 @@ class VaultOpService {
     if (appliedAny) {
       assetAccountsVersion.value++;
       transfersVersion.value++;
+      // 批尾校准：流水收口一次，兜住重放期间的缓存漂移。
+      await BalanceHistoryService.instance.recalcVaultBalance(vaultId);
     }
   }
 
@@ -522,84 +520,91 @@ class VaultOpService {
         }
         break;
       case 'adjust':
-        final after = (p['after_cents'] as num?)?.toInt();
-        if (after == null) return;
         final recordKey = p['record_key']?.toString() ?? '';
-        final recordDeleted = p['record_deleted'] == true;
-        // 手动调余额是绝对值语义（"把余额调成 X"），对端直接对齐 after。
-        // 前提是事件流不丢失（创建/加入都订阅后事件全量可达），两端收敛。
-        await db.update(
-          'asset_accounts',
-          {'balance_cents': after},
-          where: 'id = ?',
-          whereArgs: [vaultId],
-        );
-        if (recordKey.isNotEmpty && recordDeleted) {
-          // 记账删除：直接删掉该记录对应的调整行，不追加反向记录；
-          // 若本地还保留着这条 records（记账者本机/账本同步存在），
-          // 一并删除，保证"删调整=撤销记账"两端一致。金库余额由 after
-          // 对齐（快照重算对金库跳过 records），无需额外回退。
-          if (recordKey.startsWith('$vaultId-rec-')) {
-            final recordId = recordKey.substring('$vaultId-rec-'.length);
-            final recRows = await db.query(
-              'records',
-              where: 'id = ?',
-              whereArgs: [recordId],
-            );
-            if (recRows.isNotEmpty) {
-              await db.delete(
-                'records',
-                where: 'id = ?',
-                whereArgs: [recordId],
-              );
-              recordsVersion.value++;
-            }
-          }
-          await BalanceHistoryService.instance.removeAdjustmentByRecordKey(
-            vaultId,
-            recordKey,
-          );
+        // 撤销记账流水（删账/解绑/换出）：删该 recordKey 的调整行并按行
+        // 回退，不碰 records 表（记账生命周期由 record 同步通道负责）。
+        final revoked = p['revoked'] == true;
+        if (recordKey.isNotEmpty && revoked) {
+          await _revokeFlowRowRemote(db, vaultId, recordKey);
           break;
         }
-        if (recordKey.isNotEmpty) {
-          // 记账 insert/update：按稳定 record_key 覆盖更新同一行，
-          // 换设备重放 / 本机拉回自己事件均幂等（覆盖同值）。
-          final delta = (p['delta_cents'] as num?)?.toInt();
-          final before = (p['before_cents'] as num?)?.toInt();
-          if (delta == null || before == null) return;
-          await BalanceHistoryService.instance.recordAdjustment(
-            accountId: vaultId,
-            date: (p['date'] as num?)?.toInt() ?? toEpochDay(DateTime.now()),
-            deltaCents: delta,
-            beforeCents: before,
-            afterCents: after,
-            createdAt:
-                (p['created_at'] as num?)?.toInt() ??
-                DateTime.now().millisecondsSinceEpoch,
-            sourceId: op['entity_id']?.toString() ?? '',
-            operatorEmail: p['operator_email']?.toString() ?? '',
-            recordKey: recordKey,
-          );
-          break;
-        }
-        // 手调/init 等无 record_key 的 adjust：按 source_id 幂等插一条。
+        // 记账/手调/init 同一套行结果化收口：按幂等键（recordKey 优先、
+        // 否则 sourceId）覆盖/去重落行，余额按行 delta 变化量增量，
+        // 不再对齐 after；重放/重复投递零副作用。
         final delta = (p['delta_cents'] as num?)?.toInt();
-        final before = (p['before_cents'] as num?)?.toInt();
-        if (delta == null || before == null) return;
-        await BalanceHistoryService.instance.recordAdjustment(
-          accountId: vaultId,
-          date: (p['date'] as num?)?.toInt() ?? toEpochDay(DateTime.now()),
-          deltaCents: delta,
-          beforeCents: before,
-          afterCents: after,
-          createdAt:
-              (p['created_at'] as num?)?.toInt() ??
-              DateTime.now().millisecondsSinceEpoch,
-          sourceId: op['entity_id']?.toString() ?? '',
-          operatorEmail: p['operator_email']?.toString() ?? '',
+        if (delta == null) return;
+        await _applyFlowRowRemote(
+          db,
+          vaultId,
+          op['entity_id']?.toString() ?? '',
+          p,
+          recordKey,
+          delta,
         );
         break;
     }
+  }
+
+  /// 对端行驱动落行：与本机 _applyVaultFlow 同构——事务内落行 + 缓存按
+  /// 行 delta 变化量增量。[before]/[after] 仅作流水展示字段。
+  Future<void> _applyFlowRowRemote(
+    Database db,
+    String vaultId,
+    String sourceId,
+    Map<String, dynamic> p,
+    String recordKey,
+    int delta,
+  ) async {
+    final dateMs = (p['date'] as num?)?.toInt();
+    final createdAtMs = (p['created_at'] as num?)?.toInt();
+    final beforeCents = (p['before_cents'] as num?)?.toInt();
+    final afterCents = (p['after_cents'] as num?)?.toInt();
+    await db.transaction((txn) async {
+      final change = await BalanceHistoryService.instance.applyFlowRow(
+        txn,
+        accountId: vaultId,
+        sourceId: sourceId,
+        recordKey: recordKey,
+        deltaCents: delta,
+        date: dateMs ?? toEpochDay(DateTime.now()),
+        createdAt: createdAtMs ?? DateTime.now().millisecondsSinceEpoch,
+        operatorEmail: p['operator_email']?.toString() ?? '',
+        beforeCents: beforeCents ?? 0,
+        afterCents: afterCents ?? 0,
+      );
+      if (change != 0) {
+        await txn.rawUpdate(
+          'UPDATE asset_accounts SET balance_cents = balance_cents + ? '
+          'WHERE id = ?',
+          [change, vaultId],
+        );
+      }
+    });
+    // 通知快照锚点异步重算。
+    BalanceHistoryService.instance.notifyChanged(vaultId);
+  }
+
+  /// 对端记账流水撤销：删调整行并按行回退余额，幂等。
+  Future<void> _revokeFlowRowRemote(
+    Database db,
+    String vaultId,
+    String recordKey,
+  ) async {
+    await db.transaction((txn) async {
+      final change = await BalanceHistoryService.instance.revokeFlowRow(
+        txn,
+        accountId: vaultId,
+        recordKey: recordKey,
+      );
+      if (change != 0) {
+        await txn.rawUpdate(
+          'UPDATE asset_accounts SET balance_cents = balance_cents + ? '
+          'WHERE id = ?',
+          [change, vaultId],
+        );
+      }
+    });
+    BalanceHistoryService.instance.notifyChanged(vaultId);
   }
 
   /// 远端转账事件重建本地记录：用 payload 里的两端账户 ID 与时间重建。

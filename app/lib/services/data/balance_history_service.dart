@@ -211,6 +211,121 @@ class BalanceHistoryService {
     }
   }
 
+  /// 行结果化底层（事务级）：把 (account_id, 幂等键) 的调整行置为目标态。
+  /// 幂等键 = recordKey 优先，空则 sourceId 去重；均为空时直插。
+  /// deltaCents == 0 = 撤销：删旧行，不落 0 值行。
+  /// 返回余额缓存净变化（新行 delta − 旧行 delta，重复应用同值 = 0）；
+  /// 调用方负责把返回值写入 balance_cents 并事后调用 [notifyChanged]。
+  Future<int> applyFlowRow(
+    DatabaseExecutor db, {
+    required String accountId,
+    String sourceId = '',
+    String recordKey = '',
+    required int deltaCents,
+    int date = 0,
+    int createdAt = 0,
+    String operatorEmail = '',
+    int beforeCents = 0,
+    int afterCents = 0,
+  }) async {
+    final key = recordKey.isNotEmpty ? recordKey : sourceId;
+    // 读旧行 delta，用于计算缓存净变化。
+    Map<String, Object?>? existing;
+    if (key.isNotEmpty) {
+      final rows = await db.query(
+        'balance_adjustments',
+        where: 'account_id = ? AND record_key = ?',
+        whereArgs: [accountId, key],
+      );
+      if (rows.isNotEmpty) existing = rows.first;
+    }
+    final oldDelta =
+        existing == null ? 0 : (existing['delta'] as num? ?? 0).toInt();
+
+    // 目标态 0 = 撤销：删行。
+    if (deltaCents == 0) {
+      if (existing != null) {
+        await db.delete(
+          'balance_adjustments',
+          where: 'account_id = ? AND record_key = ?',
+          whereArgs: [accountId, key],
+        );
+        return -oldDelta;
+      }
+      return 0;
+    }
+
+    final values = <String, dynamic>{
+      'date': date,
+      'delta': deltaCents,
+      'before_cents': beforeCents,
+      'after_cents': afterCents,
+      'created_at': createdAt,
+      'operator_email': operatorEmail,
+    };
+    if (key.isNotEmpty && existing != null) {
+      await db.update(
+        'balance_adjustments',
+        values,
+        where: 'account_id = ? AND record_key = ?',
+        whereArgs: [accountId, key],
+      );
+    } else {
+      await db.insert('balance_adjustments', {
+        ...values,
+        'account_id': accountId,
+        'source_id': sourceId,
+        'record_key': key,
+      });
+    }
+    // 新建 = 全额、覆盖 = 差额、重复应用同值 = 0。
+    return deltaCents - oldDelta;
+  }
+
+  /// 撤销一条调整行（事务级）：删行并返回缓存回退量（−旧行 delta，
+  /// 行不存在返回 0）。不写余额、不通知快照，由调用方收口；重复调用幂等。
+  Future<int> revokeFlowRow(
+    DatabaseExecutor db, {
+    required String accountId,
+    required String recordKey,
+  }) async {
+    final rows = await db.query(
+      'balance_adjustments',
+      columns: ['delta'],
+      where: 'account_id = ? AND record_key = ?',
+      whereArgs: [accountId, recordKey],
+    );
+    if (rows.isEmpty) return 0;
+    final oldDelta = (rows.first['delta'] as num? ?? 0).toInt();
+    await db.delete(
+      'balance_adjustments',
+      where: 'account_id = ? AND record_key = ?',
+      whereArgs: [accountId, recordKey],
+    );
+    return -oldDelta;
+  }
+
+  /// 金库余额校准：按快照同口径（opening + adjustments + transfers）从流水
+  /// 重放终值写回 balance_cents。低频动作，vault_ops 批尾收口用，
+  /// 日常记账走行驱动增量不走这里。
+  Future<void> recalcVaultBalance(String accountId) async {
+    final db = await _db;
+    final acc = await _readAccountAmounts(db, accountId);
+    if (acc == null || !acc.isVault) return;
+    final today = toEpochDay(DateTime.now());
+    final deltas = await _dailyDeltas(db, accountId, isVault: true);
+    var balance = acc.opening;
+    for (final (day, d) in deltas) {
+      if (day <= today) balance += d;
+    }
+    await db.update(
+      'asset_accounts',
+      {'balance_cents': balance},
+      where: 'id = ?',
+      whereArgs: [accountId],
+    );
+  }
+
   /// 金库记账/对端同步共用：把一条余额调整落库（仿手动调余额的历史记录），
   /// 让详情页流水可见。Δ 以 [date] 为准生效（记账日），供快照重算复原。
   /// 锚点交给 [notifyChanged] 队列异步重算。
@@ -231,70 +346,19 @@ class BalanceHistoryService {
     String operatorEmail = '',
     String recordKey = '',
   }) async {
-    final db = await _db;
-    // Δ=0 的调整不落库：无实际余额变化，纯属噪音（如初始余额为 0 的 init 事件）。
+    // Δ=0 不落库（无余额变化的噪音）；撤销语义不走这里，见 applyFlowRow。
     if (deltaCents == 0) return;
-    // 手调/init 等无显式 record_key 的行，用 sourceId 作为稳定键回退，
-    // 保证"删手调/删 init"在两端都能按 record_key 精确定位删除。
-    final key = recordKey.isNotEmpty ? recordKey : sourceId;
-    // 记账记录：按稳定键覆盖更新，保证一笔记账只占一行。
-    if (key.isNotEmpty) {
-      final existing = await db.query(
-        'balance_adjustments',
-        columns: ['id'],
-        where: 'account_id = ? AND record_key = ?',
-        whereArgs: [accountId, key],
-      );
-      final values = {
-        'date': date,
-        'delta': deltaCents,
-        'before_cents': beforeCents,
-        'after_cents': afterCents,
-        'created_at': createdAt,
-        'operator_email': operatorEmail,
-      };
-      if (existing.isNotEmpty) {
-        await db.update(
-          'balance_adjustments',
-          values,
-          where: 'account_id = ? AND record_key = ?',
-          whereArgs: [accountId, key],
-        );
-      } else {
-        await db.insert('balance_adjustments', {
-          ...values,
-          'account_id': accountId,
-          'source_id': sourceId,
-          'record_key': key,
-        });
-      }
-      notifyChanged(accountId);
-      return;
-    }
-    await db.insert('balance_adjustments', {
-      'account_id': accountId,
-      'date': date,
-      'delta': deltaCents,
-      'before_cents': beforeCents,
-      'after_cents': afterCents,
-      'created_at': createdAt,
-      'source_id': sourceId,
-      'operator_email': operatorEmail,
-    });
-    notifyChanged(accountId);
-  }
-
-  /// 删除一笔记账对应的调整记录（金库记账删除时调用）：删掉该 record
-  /// 关联的一行，不追加反向记录。锚点交给 [notifyChanged] 异步重算。
-  Future<void> removeAdjustmentByRecordKey(
-    String accountId,
-    String recordKey,
-  ) async {
-    final db = await _db;
-    await db.delete(
-      'balance_adjustments',
-      where: 'account_id = ? AND record_key = ?',
-      whereArgs: [accountId, recordKey],
+    await applyFlowRow(
+      await _db,
+      accountId: accountId,
+      sourceId: sourceId,
+      recordKey: recordKey,
+      deltaCents: deltaCents,
+      date: date,
+      createdAt: createdAt,
+      operatorEmail: operatorEmail,
+      beforeCents: beforeCents,
+      afterCents: afterCents,
     );
     notifyChanged(accountId);
   }
