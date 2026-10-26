@@ -74,9 +74,8 @@ class DatabaseHelper {
     await _createIndexes(db);
   }
 
-  /// 版本迁移：只增不改。升 2 = 补余额查询索引 + 记录账户名快照列。
-  /// 迁移不设幂等保护：1.0.5 用户的库从没建过索引，只会执行一次；
-  /// 测试设备若带着半新数据直接升级，删除 simplerecord.db 重装即可。
+  /// 版本迁移：只增不改。升 2 = 补余额查询索引 + 记录账户名快照列 +
+  /// 旧记录账户名一次性回填（按本机账户表回查，等价旧版 JOIN 显示）。
   Future<void> _onUpgrade(
     Database db,
     int oldVersion,
@@ -87,6 +86,12 @@ class DatabaseHelper {
       await db.execute(
         'ALTER TABLE records ADD COLUMN account_name TEXT',
       );
+      // 旧记录快照列全空，按本机账户表回填一次；
+      // 本机无对应账户的记录（对方私有账户）维持 NULL，维持方案设计。
+      await db.execute('''
+        UPDATE records SET account_name =
+          (SELECT a.name FROM asset_accounts a WHERE a.id = records.account_id)
+      ''');
     }
   }
 
