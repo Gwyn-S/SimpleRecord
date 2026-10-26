@@ -99,6 +99,8 @@ class SyncService {
     final payload = record.toDbMap()..remove('image_path');
     // 只有共享金库账户（两端同 id 的多人房间）才保留 account_id；
     // 普通账户属记账人私有，id 对对方无意义，一律置空。
+    // 判定只在发送端做：发送方本地有实体、判定永远准确；
+    // 下行不再二次校验（见 _applyRemoteOp，金库 id 允许悬空落地）。
     if (!await _isSharedVaultAccount(db, record.accountId)) {
       payload['account_id'] = null;
     }
@@ -327,14 +329,10 @@ class SyncService {
 
     if (entityType == 'record') {
       payload.remove('image_path');
-      // 下行与上行同一规则：只放行共享金库的 account_id，
-      // 其余（对方私有账户/无账户）置空，杜绝把对方本地 id 落进本库。
-      if (!await _isSharedVaultAccount(
-            db,
-            payload['account_id']?.toString(),
-          )) {
-        payload['account_id'] = null;
-      }
+      // account_id 只来自金库房间（上行白名单保证，两端同 id），
+      // 原样落地不再校验本地实体：本地还没有该金库时先悬空存着，
+      // 加入金库后自然有根。悬空期 B 端只读（canWriteRecord 查无此
+      // 账户），且金库余额不读 records，不会造成幽灵扣款。
       switch (entityOp) {
         case 'insert':
         case 'update':
@@ -512,6 +510,7 @@ class SyncService {
       if (bookId == null) continue;
       final payload = r.toDbMap()..remove('image_path');
       // 与 enqueueRecord 同一规则：共享金库才带 account_id。
+      // （同上：判定只在发送端，下行悬空落地、加入金库后自然有根。）
       if (!await _isSharedVaultAccount(db, r.accountId)) {
         payload['account_id'] = null;
       }
