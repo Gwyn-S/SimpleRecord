@@ -47,10 +47,26 @@ class SyncService {
 
   // ==================== 生命周期 ====================
 
+  /// 进行中的启动 Future：并发调用 start() 共享同一次启动，
+  /// 防止重复订阅实时通道 / 重复先吐后拉。
+  Future<bool>? _starting;
+
   /// 启动：初始化 -> 确认真实账号已登录 -> 订阅实时通道 -> 先吐后拉。
   /// 未配置 Supabase / 未登录（邮箱）时静默返回 false，不阻塞 App 正常使用。
   Future<bool> start() async {
     if (_started) return true;
+    final inFlight = _starting;
+    if (inFlight != null) return inFlight;
+    final future = _startOnce();
+    _starting = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_starting, future)) _starting = null;
+    }
+  }
+
+  Future<bool> _startOnce() async {
     await SupabaseManager.instance.init();
     if (!SupabaseManager.instance.isReady) return false;
     if (!await SupabaseManager.instance.ensureSignedIn()) return false;
@@ -206,7 +222,11 @@ class SyncService {
   /// 一路发到 outbox 清空（防批量入队漏发）。入队时新塞的日志会被
   /// 当前这一轮循环顺手搬走。
   Future<void> flush() async {
-    if (!_online) return;
+    // 离线自愈：启动时若 start 失败（如网络抖动导致登录态刷新失败），
+    // _online 会整段保持 false，记录通道静默积压——金库通道门槛不同
+    // （isReady/uid）仍会推送，表现为「金库同步了、记录不同步」。
+    // 这里先尝试重新拉起引擎，拉不起来才放弃本轮；下次入队会再试。
+    if (!_online && !await ensureOnline()) return;
     if (_flushing) {
       // 已在跑：标记"结束后再扫一轮"，当前循环会顺手搬走新入队的。
       _recheck = true;

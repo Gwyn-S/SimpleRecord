@@ -167,7 +167,7 @@ Future<bool> _applyVaultFlow(
 }) async {
   final id = accountId;
   if (id == null || id.isEmpty) return false;
-  if (!await isVaultAccountId(id)) return false;
+  if (!await isVaultAccountIdOn(txn, id)) return false;
   final change = await BalanceHistoryService.instance.applyFlowRow(
     txn,
     accountId: id,
@@ -204,9 +204,11 @@ Future<String?> _accountNameById(String accountId) async {
   return rows.isEmpty ? null : rows.first['name'] as String?;
 }
 
-/// 账户 id 是否指向共享金库（小金库分类 = 多人共享房间，两端同 id）。
-Future<bool> isVaultAccountId(String accountId) async {
-  final db = await DatabaseHelper.instance.database;
+/// 按账户 id 判断是否共享金库（小金库分类 = 多人共享房间，两端同 id）。
+/// [db] 允许传事务对象：sqflite 事务持有库级锁，事务回调里再发数据库级
+/// 查询会互相等锁造成死锁（表现：金库记账保存时 App 整体卡死），必须走
+/// 事务对象本身查询。
+Future<bool> isVaultAccountIdOn(DatabaseExecutor db, String accountId) async {
   final rows = await db.query(
     'asset_accounts',
     columns: ['category_name'],
@@ -214,6 +216,13 @@ Future<bool> isVaultAccountId(String accountId) async {
     whereArgs: [accountId],
   );
   return rows.isNotEmpty && rows.first['category_name'] == '小金库';
+}
+
+/// 账户 id 是否指向共享金库（数据库级入口，事务外使用；事务内请用
+/// [isVaultAccountIdOn]）。
+Future<bool> isVaultAccountId(String accountId) async {
+  final db = await DatabaseHelper.instance.database;
+  return isVaultAccountIdOn(db, accountId);
 }
 
 /// 给记录补账户名快照：account_name 随记录同步，是"两端都能看到账户"
@@ -384,7 +393,7 @@ Future<bool> updateRecord(Record record) async {
               sign: -1,
             );
           }
-        } else if (!await isVaultAccountId(oldAccountId!)) {
+        } else if (!await isVaultAccountIdOn(txn, oldAccountId!)) {
           // 同普通账户改金额：退旧值与下方应用相抵；金库账户改金额不在此退，
           // 由下方行覆盖一次算出差额。
           await _applyBalance(
