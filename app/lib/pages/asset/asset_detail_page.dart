@@ -203,7 +203,10 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => SearchPage(initialAccountId: account.id),
+                builder: (_) => SearchPage(
+                  initialAccountId: account.id,
+                  accountScope: true,
+                ),
               ),
             ),
             style: TextButton.styleFrom(

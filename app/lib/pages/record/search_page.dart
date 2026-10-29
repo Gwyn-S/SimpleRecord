@@ -20,7 +20,15 @@ class SearchPage extends StatefulWidget {
   /// 预填的账户筛选（null=不限），用于资产详情"账单"入口。
   final String? initialAccountId;
 
-  const SearchPage({super.key, this.initialAccountId});
+  /// true=按账户维度跨账本查看（资产详情"账单"入口）：
+  /// 只按 account_id 取数，不叠加当前账本的 book_id 过滤。
+  final bool accountScope;
+
+  const SearchPage({
+    super.key,
+    this.initialAccountId,
+    this.accountScope = false,
+  });
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -74,7 +82,8 @@ class _SearchPageState extends State<SearchPage> {
     _load();
     _loadAccounts();
     recordsVersion.addListener(_load);
-    currentLedgerId.addListener(_load);
+    // 账户维度跨账本查看不受当前账本影响，无需监听切换。
+    if (!widget.accountScope) currentLedgerId.addListener(_load);
     assetAccountsVersion.addListener(_loadAccounts);
   }
 
@@ -82,7 +91,7 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _searchController.dispose();
     recordsVersion.removeListener(_load);
-    currentLedgerId.removeListener(_load);
+    if (!widget.accountScope) currentLedgerId.removeListener(_load);
     assetAccountsVersion.removeListener(_loadAccounts);
     super.dispose();
   }
@@ -94,7 +103,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _load() async {
-    final records = await loadRecords(ledgerId: currentLedgerId.value);
+    final records = widget.accountScope
+        ? await loadRecords(accountId: widget.initialAccountId)
+        : await loadRecords(ledgerId: currentLedgerId.value);
     if (!mounted) return;
     setState(() {
       _allRecords = records;
@@ -219,7 +230,8 @@ class _SearchPageState extends State<SearchPage> {
               height: _filterBarHeight,
               child: Row(
                 children: [
-                  _buildAccountFilter(themeColor),
+                  // 账户维度看账单时账户已锁定，不提供账户切换。
+                  if (!widget.accountScope) _buildAccountFilter(themeColor),
                   _buildDateFilter(themeColor),
                   _buildAmountFilter(themeColor),
                   const Spacer(),

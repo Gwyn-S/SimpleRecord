@@ -39,13 +39,21 @@ Future<void> saveCurrentLedgerId(String? id) async {
   currentLedgerId.value = id;
 }
 
-Future<List<Record>> loadRecords({String? ledgerId, DateTime? month}) async {
+Future<List<Record>> loadRecords({
+  String? ledgerId,
+  String? accountId,
+  DateTime? month,
+}) async {
   final db = await DatabaseHelper.instance.database;
   final where = <String>[];
   final args = <Object>[];
   if (ledgerId != null) {
     where.add('book_id = ?');
     args.add(ledgerId);
+  }
+  if (accountId != null) {
+    where.add('account_id = ?');
+    args.add(accountId);
   }
   if (month != null) {
     final start = toEpochDay(month);
