@@ -485,9 +485,11 @@ class _LedgerListPageState extends State<LedgerListPage> {
                 final income = stats?.income ?? 0;
                 final expense = stats?.expense ?? 0;
                 return GestureDetector(
-                  onTap: () {
-                    saveCurrentLedgerId(ledger.id);
-                    loadCategoryCache();
+                  onTap: () async {
+                    await saveCurrentLedgerId(ledger.id);
+                    // 账本 id 生效后再取分类，否则取到上一个账本的。
+                    await loadCategoryCache();
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                   },
                   child: Padding(

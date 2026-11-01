@@ -29,14 +29,14 @@ Future<void> loadCurrentLedgerId() async {
 }
 
 Future<void> saveCurrentLedgerId(String? id) async {
+  // 先置 notifier 再落盘：调用方常紧接读取，放在 await 后会读到旧账本。
+  // 值变化本身即触发 reload，不再额外 ++recordsVersion。
+  currentLedgerId.value = id;
   if (id == null) {
     await Settings.remove(_currentLedgerKey);
   } else {
     await Settings.setString(_currentLedgerKey, id);
   }
-  // 只置 currentLedgerId：ValueNotifier 值变化本身就会触发一次 reload，
-  // 不再额外 ++recordsVersion，避免切账本时双触发两次全量加载。
-  currentLedgerId.value = id;
 }
 
 Future<List<Record>> loadRecords({
