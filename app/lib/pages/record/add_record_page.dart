@@ -10,6 +10,7 @@ import '../../models/data/category.dart';
 import '../../models/data/record.dart';
 import '../../models/data/asset_account.dart';
 import '../../services/data/record_service.dart';
+import '../../services/data/category_service.dart';
 import '../../services/data/asset_account_service.dart';
 import '../../services/image/image_storage_service.dart';
 import '../../utils/calculator.dart';
@@ -56,6 +57,7 @@ class _AddRecordPageState extends State<AddRecordPage> {
   @override
   void initState() {
     super.initState();
+    categoriesVersion.addListener(_onCategoriesChanged);
     final r = widget.initialRecord;
     if (r != null) {
       _isExpense = r.isExpense;
@@ -82,8 +84,33 @@ class _AddRecordPageState extends State<AddRecordPage> {
 
   @override
   void dispose() {
+    categoriesVersion.removeListener(_onCategoriesChanged);
     _remarkController.dispose();
     super.dispose();
+  }
+
+  /// 分类变动后重建栅格；选中项按下标存，需按名字重新定位。
+  void _onCategoriesChanged() {
+    if (!mounted) return;
+    final cats = _isExpense ? expenseCategories : incomeCategories;
+    final keep = _currentCategoryName();
+    setState(() {
+      if (keep != null) {
+        final idx = cats.indexWhere((c) => c.name == keep);
+        _selectedCategory = idx >= 0 ? idx : (cats.isEmpty ? null : 0);
+      } else if (_selectedCategory != null) {
+        // 下标越界（列表变短）：归位到合法项。
+        _selectedCategory = cats.isEmpty ? null : 0;
+      }
+    });
+  }
+
+  /// 当前选中分类名；未选中或越界返回 null。
+  String? _currentCategoryName() {
+    final cats = _isExpense ? expenseCategories : incomeCategories;
+    final i = _selectedCategory;
+    if (i == null || i < 0 || i >= cats.length) return null;
+    return cats[i].name;
   }
 
   String _getCategoryName() {
@@ -214,9 +241,10 @@ class _AddRecordPageState extends State<AddRecordPage> {
                       : categories[index];
                   final selected = _selectedCategory == index;
                   return GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       if (isSettings) {
-                        openCategoryManage(context);
+                        // 返回时监听已刷新栅格。
+                        await openCategoryManage(context);
                         return;
                       }
                       setState(() => _selectedCategory = index);

@@ -30,7 +30,8 @@ void openTagManage(BuildContext context) => Navigator.push(
   MaterialPageRoute(builder: (_) => const TagManagePage()),
 );
 
-void openCategoryManage(BuildContext context) => Navigator.push(
+/// 打开分类管理；可 await，返回后刷新栅格。
+Future<void> openCategoryManage(BuildContext context) => Navigator.push(
   context,
   MaterialPageRoute(builder: (_) => const CategoryManagePage()),
 );

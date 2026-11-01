@@ -7,6 +7,7 @@ import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/data/category.dart';
 import '../../services/data/record_service.dart';
+import '../../services/data/category_service.dart';
 import '../../services/data/budget_service.dart';
 import '../../services/core/theme_service.dart';
 import '../../utils/formatters.dart';
@@ -36,6 +37,7 @@ class _BudgetPageState extends State<BudgetPage> {
     recordsVersion.addListener(_load);
     currentLedgerId.addListener(_load);
     currentMonth.addListener(_load);
+    categoriesVersion.addListener(_load);
   }
 
   @override
@@ -43,6 +45,7 @@ class _BudgetPageState extends State<BudgetPage> {
     recordsVersion.removeListener(_load);
     currentLedgerId.removeListener(_load);
     currentMonth.removeListener(_load);
+    categoriesVersion.removeListener(_load);
     super.dispose();
   }
 

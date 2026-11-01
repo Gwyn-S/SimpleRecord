@@ -24,6 +24,23 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
   void initState() {
     super.initState();
     _categories = List.of(expenseCategories);
+    categoriesVersion.addListener(_onCategoriesChanged);
+  }
+
+  @override
+  void dispose() {
+    categoriesVersion.removeListener(_onCategoriesChanged);
+    super.dispose();
+  }
+
+  /// 别处刷新了分类缓存：同步本页列表（不重载，避免版本号自增递归）。
+  void _onCategoriesChanged() {
+    if (!mounted) return;
+    setState(() {
+      _categories = List.of(
+        _isExpense ? expenseCategories : incomeCategories,
+      );
+    });
   }
 
   void _switchTab(bool isExpense) {
