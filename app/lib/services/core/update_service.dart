@@ -73,7 +73,7 @@ class UpdateService {
   }
 
   Future<UpdateInfo?> _fetchLatestRemote() async {
-    for (final url in GitHubMirror.candidates(_releasesApi)) {
+    for (final url in GitHubMirror.apiCandidates(_releasesApi)) {
       final info = await _tryFetchLatest(url);
       if (info != null) return info;
     }

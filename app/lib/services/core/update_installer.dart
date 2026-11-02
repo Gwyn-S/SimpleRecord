@@ -45,7 +45,7 @@ class UpdateInstaller {
       await dir.create(recursive: true);
     } catch (_) {}
     if (_isValidApk(file)) return file;
-    for (final candidate in GitHubMirror.candidates(url)) {
+    for (final candidate in GitHubMirror.downloadCandidates(url)) {
       final done = await _tryDownload(candidate, file, onProgress);
       if (done != null) return done;
     }
