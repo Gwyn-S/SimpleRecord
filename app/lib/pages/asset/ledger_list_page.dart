@@ -52,6 +52,11 @@ class _LedgerListPageState extends State<LedgerListPage> {
 
   Future<void> _loadLedgers() async {
     try {
+      // 顺手对账：被对端删除的共享账本在这里降级为本机账本（不删数据）。
+      // 后台跑、不阻塞列表渲染；真发生降级时再刷一次列表。
+      SyncService.instance.reconcileSharedLedgers().then((changed) {
+        if (changed && mounted) _loadLedgers();
+      });
       await ensureCurrentLedgerId();
       final loaded = await loadLedgers();
       if (!mounted) return;

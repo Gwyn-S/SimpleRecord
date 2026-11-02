@@ -594,9 +594,14 @@ class SupabaseManager {
 
   /// 拉取当前账号所属的全部房间（RLS 已限定为成员）。
   /// 换新设备/清数据后登录时，据此恢复本地共享账本列表。
-  Future<List<Map<String, dynamic>>> fetchMyLedgers() async {
+  Future<List<Map<String, dynamic>>> fetchMyLedgers() async =>
+      await tryFetchMyLedgers() ?? const [];
+
+  /// 同 [fetchMyLedgers]，但用 null 明确区分「请求失败」与「确实一个都没有」。
+  /// 孤儿对账依赖这个区别：把网络失败当成「云端已删」会把共享账本误降级。
+  Future<List<Map<String, dynamic>>?> tryFetchMyLedgers() async {
     final client = this.client;
-    if (client == null) return const [];
+    if (client == null) return null;
     try {
       final res = await client.from('ledger').select('id,name,created_at,invite_code');
       return res
@@ -605,7 +610,7 @@ class SupabaseManager {
           .toList();
     } catch (e) {
       appLog('[sync] fetchMyLedgers failed: $e');
-      return const [];
+      return null;
     }
   }
 

@@ -36,6 +36,12 @@ class SyncService {
   bool _recheck = false;
   String? _deviceId;
 
+  /// 上行失败的账本 id：flush 结束后据此确认它是否已被对端删除。
+  final Set<String> _suspectBooks = {};
+
+  /// 上次孤儿对账时间，用于节流（避免网络异常时反复查询云端）。
+  DateTime? _lastReconcileAt;
+
   /// 邀请码本地缓存：避免每次打开编辑弹窗都联网查询。
   final Map<String, String> _inviteCodeCache = {};
 
@@ -236,6 +242,12 @@ class SyncService {
     try {
       // 串行循环：一路搬到 outbox 清空；期间有新入队则再扫一轮。
       while (await _flushBatch() || _takeRecheck()) {}
+      // 写不进去未必是网络问题：账本可能已被对端删除（云端房间没了，
+      // RLS 直接拒绝写入）。对账一次，把它降级并清掉积压的待推行。
+      if (_suspectBooks.isNotEmpty) {
+        _suspectBooks.clear();
+        await reconcileSharedLedgers();
+      }
     } finally {
       _flushing = false;
     }
@@ -271,7 +283,11 @@ class SyncService {
         payload: _decodePayload(row['payload'] as String),
         deviceId: deviceId,
       );
-      if (ok != null) done.add(row['id'] as int);
+      if (ok != null) {
+        done.add(row['id'] as int);
+      } else {
+        _suspectBooks.add(row['book_id'] as String);
+      }
     }
     if (done.isEmpty) return false; // 本批全失败，退回避免空转
     final batch = db.batch();
@@ -385,22 +401,16 @@ class SyncService {
           );
           break;
         case 'delete':
-          await db.delete(
-            'records',
-            where: 'book_id = ?',
+          // 对方删除账本：不跟着删本地数据，只把这本降级为本机账本——
+          // 多人图标消失、多人记账开关回退，流水/分类/预算全部保留。
+          await db.update(
+            'books',
+            {'sync_mode': 0},
+            where: 'id = ?',
             whereArgs: [entityId],
           );
-          await db.delete(
-            'categories',
-            where: 'ledger_id = ?',
-            whereArgs: [entityId],
-          );
-          await db.delete(
-            'budgets',
-            where: 'ledger_id = ?',
-            whereArgs: [entityId],
-          );
-          await db.delete('books', where: 'id = ?', whereArgs: [entityId]);
+          await removeSharedState(entityId);
+          _inviteCodeCache.remove(entityId);
           break;
       }
     } else if (entityType == 'category') {
@@ -523,11 +533,23 @@ class SyncService {
       );
     }
     await supabase.subscribeLedgerOps(ledgerId: ledger.id, callback: _onLedgerOpInsert);
-    final records = await _loadRecords(ledger.id);
+    await _pushLocalLedgerState(ledger.id);
+    await pullForLedger(ledger.id);
+    return true;
+  }
+
+  /// 把本地账本存量（记录 + 分类）全量入队并推送。
+  ///
+  /// 语义：只补「新增/修改」——逐条 upsert，不做任何删除。
+  /// 用于两种场景：
+  /// - 本地账本首次开启共享（[enableSync]）；
+  /// - 曾共享、被对端删除而降级成本地账本后，重新加入共享
+  ///   （[joinByInvite]）——否则本地这段时间记的账只留在本机。
+  Future<void> _pushLocalLedgerState(String ledgerId) async {
+    final records = await _loadRecords(ledgerId);
     final db = await DatabaseHelper.instance.database;
     for (final r in records) {
-      final bookId = r.ledgerId;
-      if (bookId == null) continue;
+      if (r.ledgerId == null) continue;
       final payload = r.toDbMap()..remove('image_path');
       // 与 enqueueRecord 同一规则：共享金库才带 account_id。
       // （同上：判定只在发送端，下行悬空落地、加入金库后自然有根。）
@@ -538,23 +560,21 @@ class SyncService {
         entityType: 'record',
         entityId: r.id,
         op: 'insert',
-        bookId: bookId,
+        bookId: ledgerId,
         payload: payload,
       );
     }
-    final categories = await _loadCategories(ledger.id);
+    final categories = await _loadCategories(ledgerId);
     for (final c in categories) {
       await _enqueue(
         entityType: 'category',
         entityId: '${c['name']}|${(c['is_expense'] as int) == 1 ? 1 : 0}',
         op: 'insert',
-        bookId: ledger.id,
+        bookId: ledgerId,
         payload: c,
       );
     }
     await flush();
-    await pullForLedger(ledger.id);
-    return true;
   }
 
   /// 关闭多人记账：清缓存并置本地 sync_mode 0（不再参与该房间同步）。
@@ -593,6 +613,11 @@ class SyncService {
     );
     // 加入即归属当前登录账号，换号后该账本只对当前账号显示。
     final ownerId = await AuthorService.instance.existingAuthorId();
+    // 本地已有这本账、且不是共享态 = 曾共享被对端删除而降级（或用户主动
+    // 关闭过共享）。这种情况本地存量要先合流上传，否则本地记的账只留在
+    // 本机，其他成员永远看不到。
+    final needPush =
+        existing.isNotEmpty && (existing.first['sync_mode'] as int? ?? 0) != 1;
     late final Ledger ledger;
     if (existing.isNotEmpty) {
       ledger = Ledger.fromDbMap(existing.first)..syncMode = 1;
@@ -620,6 +645,9 @@ class SyncService {
     if (inviteCode != null && inviteCode.isNotEmpty) {
       _inviteCodeCache[ledgerId] = inviteCode;
     }
+    // 先推后拉：本地存量以较新的 op 上行，随后拉取时自己的 op 会被
+    // device_id 跳过，云端的历史按序覆盖，最终保留本地最新版本。
+    if (needPush) await _pushLocalLedgerState(ledgerId);
     await pullForLedger(ledgerId);
     // 拉取后分类为空（账本尚无分类记录，如老账本/功能上线前创建）时，
     // 用默认分类兜底，保证新加入成员也有可用分类。
@@ -750,6 +778,12 @@ class SyncService {
       where: 'key = ?',
       whereArgs: ['ledger_ops_cursor:$bookId'],
     );
+    // 待推行一并清掉：房已不在（或已转本机），继续重试只会永远失败。
+    await db.delete(
+      'sync_outbox',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+    );
     await SupabaseManager.instance.unsubscribeLedgerOps(bookId);
   }
 
@@ -783,12 +817,16 @@ class SyncService {
     final supabase = SupabaseManager.instance;
     final myEmail = supabase.email;
     if (myEmail == null || myEmail.isEmpty) return;
-    final ledgers = await supabase.fetchMyLedgers();
-    if (ledgers.isEmpty) return;
+    // 用 null 区分「请求失败」与「确实一个都没有」：失败时本轮整体跳过，
+    // 避免网络抖动把本地共享账本误判成已被对端删除。
+    final ledgers = await supabase.tryFetchMyLedgers();
+    if (ledgers == null) return;
     final db = await DatabaseHelper.instance.database;
+    final cloudIds = <String>{};
     for (final ledger in ledgers) {
       final ledgerId = ledger['id']?.toString();
       if (ledgerId == null || ledgerId.isEmpty) continue;
+      cloudIds.add(ledgerId);
       final name = ledger['name']?.toString();
       final createdAt = _parseEpochOrNull(ledger['created_at']);
       final inviteCode = ledger['invite_code']?.toString();
@@ -823,7 +861,68 @@ class SyncService {
       }
       await supabase.subscribeLedgerOps(ledgerId: ledgerId, callback: _onLedgerOpInsert);
     }
+    // 本地 sync_mode=1 但云端房间已不存在 = 对端删了账本。
+    await _demoteOrphanSharedLedgers(db, cloudIds, myEmail);
     recordsVersion.value++;
+  }
+
+  /// 把「云端已不存在」的共享账本降级为本机账本（数据一条不删）。
+  ///
+  /// 对端删除共享账本时会物理删掉云端房间行与 ledger_ops，本机既收不到
+  /// 通知、也拉不到增量。这里用「本地 sync_mode=1 集合 − 云端房间集合」
+  /// 的差集识别孤儿账本，只做 1→0：多人图标消失、多人共享开关回退，
+  /// records/categories/budgets 全部保留。
+  ///
+  /// 只处理归属当前账号（owner_author_id 匹配或为空）的账本：换号登录时
+  /// 旧账号的共享账本本就不在云端列表里，不能因此被降级。
+  Future<bool> _demoteOrphanSharedLedgers(
+    Database db,
+    Set<String> cloudIds,
+    String myEmail,
+  ) async {
+    final rows = await db.query('books', where: 'sync_mode = 1');
+    var demoted = false;
+    for (final row in rows) {
+      final id = row['id'] as String;
+      if (cloudIds.contains(id)) continue;
+      final owner = row['owner_author_id'] as String?;
+      if (owner != null && owner.isNotEmpty && owner != myEmail) continue;
+      await db.update(
+        'books',
+        {'sync_mode': 0},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await removeSharedState(id);
+      _inviteCodeCache.remove(id);
+      demoted = true;
+    }
+    if (demoted) recordsVersion.value++;
+    return demoted;
+  }
+
+  /// 孤儿共享账本对账：拉一次云端房间列表，把已被对端删除的共享账本
+  /// 降级为本机账本。30 秒节流；网络失败（null）时整轮跳过，绝不把
+  /// 「请求失败」当成「云端一个都没有」。
+  /// 返回本轮是否真的降级了账本（供 UI 决定是否重载列表）。
+  Future<bool> reconcileSharedLedgers() async {
+    if (!_online) return false;
+    final now = DateTime.now();
+    final last = _lastReconcileAt;
+    if (last != null && now.difference(last).inSeconds < 30) return false;
+    _lastReconcileAt = now;
+    final supabase = SupabaseManager.instance;
+    final myEmail = supabase.email;
+    if (myEmail == null || myEmail.isEmpty) return false;
+    final ledgers = await supabase.tryFetchMyLedgers();
+    if (ledgers == null) return false;
+    final cloudIds = <String>{};
+    for (final ledger in ledgers) {
+      final id = ledger['id']?.toString();
+      if (id != null && id.isNotEmpty) cloudIds.add(id);
+    }
+    final db = await DatabaseHelper.instance.database;
+    return _demoteOrphanSharedLedgers(db, cloudIds, myEmail);
   }
 
   Future<void> _subscribeLedgers() async {
