@@ -78,7 +78,7 @@ jobs:
 
   build-ipa:
     name: Build iOS IPA(UnSigned)
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: app
