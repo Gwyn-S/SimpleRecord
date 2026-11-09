@@ -105,15 +105,16 @@ Future<List<Record>> loadRecordsByDateRange({
   );
 }
 
-/// 按日期范围查询并按分类聚合（支出）
+/// 按日期范围查询并按分类聚合（默认支出，可传 isExpense=false 查收入）
 Future<List<({String categoryName, int amountCents, int count})>>
 loadExpenseByCategory({
   String? ledgerId,
   required DateTime start,
   required DateTime end,
+  bool isExpense = true,
 }) async {
   final db = await DatabaseHelper.instance.database;
-  final where = <String>['is_expense = 1'];
+  final where = <String>['is_expense = ${isExpense ? 1 : 0}'];
   final args = <Object>[];
   if (ledgerId != null) {
     where.add('book_id = ?');

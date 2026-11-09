@@ -143,6 +143,7 @@ class _StatsPageState extends State<StatsPage> {
         totalItems: _items.length,
         customStart: _customStart,
         customEnd: _customEnd,
+        isExpense: _isExpense,
       );
 
       // 已有更新的查询发出：丢弃本次过期结果，避免旧数据覆盖新数据。
@@ -165,6 +166,7 @@ class _StatsPageState extends State<StatsPage> {
         ledgerId: currentLedgerId.value,
         customStart: _customStart,
         customEnd: _customEnd,
+        isExpense: _isExpense,
       );
       _dataCache[cacheKey.toString()] = data;
     } catch (e) {
@@ -238,7 +240,11 @@ class _StatsPageState extends State<StatsPage> {
       appBar: TabSwitcherAppBar(
         tabs: const ['支出', '收入'],
         selectedIndex: _isExpense ? 0 : 1,
-        onChanged: (i) => setState(() => _isExpense = i == 0),
+        onChanged: (i) {
+          if ((i == 0) == _isExpense) return;
+          setState(() => _isExpense = i == 0);
+          _loadData();
+        },
         backgroundColor: themeColor,
       ),
       backgroundColor: colorBackgroundPage,
@@ -269,6 +275,7 @@ class _StatsPageState extends State<StatsPage> {
                   ledgerId: currentLedgerId.value,
                   customStart: _customStart,
                   customEnd: _customEnd,
+                  isExpense: _isExpense,
                 );
                 final cached = _dataCache[cacheKey.toString()];
                 setState(() {
@@ -405,7 +412,9 @@ class _StatsPageState extends State<StatsPage> {
     int dailyAvg = 0;
     if (range != null) {
       final days = range.end.difference(range.start).inDays;
-      if (days > 0) dailyAvg = _totalExpense ~/ days;
+      if (days > 0) {
+        dailyAvg = (_isExpense ? _totalExpense : _totalIncome) ~/ days;
+      }
     }
 
     return CardContainer(
@@ -425,7 +434,9 @@ class _StatsPageState extends State<StatsPage> {
             Row(
               children: [
                 Expanded(child: _buildSummaryItem('结余', balance)),
-                Expanded(child: _buildSummaryItem('日均支出', dailyAvg)),
+                Expanded(
+                  child: _buildSummaryItem(_isExpense ? '日均支出' : '日均收入', dailyAvg),
+                ),
               ],
             ),
           ],
@@ -466,7 +477,7 @@ class _StatsPageState extends State<StatsPage> {
   Widget _buildTrendChart() {
     if (_periodData.isEmpty) {
       return CardContainer(
-        title: '支出统计图',
+        title: _isExpense ? '支出统计图' : '收入统计图',
         trailing: _buildTrailingButton('详情', onTap: _openDetail),
         child: const SizedBox(height: 160),
       );
@@ -477,7 +488,7 @@ class _StatsPageState extends State<StatsPage> {
         .toList();
 
     return CardContainer(
-      title: '支出统计图',
+      title: _isExpense ? '支出统计图' : '收入统计图',
       trailing: _buildTrailingButton('详情', onTap: _openDetail),
       child: TrendLineChart(
         points: points,
@@ -488,14 +499,17 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildPieChart() {
     if (_expenseByCategory.isEmpty) {
-      return CardContainer(title: '支出占比', child: const SizedBox.shrink());
+      return CardContainer(
+        title: _isExpense ? '支出占比' : '收入占比',
+        child: const SizedBox.shrink(),
+      );
     }
 
     final total = _expenseByCategory.fold(0, (s, e) => s + e.amountCents);
     final colors = themeColorPalette;
 
     return CardContainer(
-      title: '支出占比',
+      title: _isExpense ? '支出占比' : '收入占比',
       child: SizedBox(
         height: 220,
         child: DonutPieChart(
@@ -515,7 +529,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildRankingCard() {
     return StatsRankingCard(
-      title: '支出排行',
+      title: _isExpense ? '支出排行' : '收入排行',
       items: _expenseByCategory
           .map(
             (e) => RankingItem(
@@ -529,13 +543,14 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   String get _periodTitle {
+    final kind = _isExpense ? '支出' : '收入';
     switch (_selectedRange) {
       case StatsRange.week:
-        return '周支出汇总';
+        return '周$kind汇总';
       case StatsRange.month:
-        return '月支出汇总';
+        return '月$kind汇总';
       case StatsRange.year:
-        return '年支出汇总';
+        return '年$kind汇总';
       case StatsRange.custom:
         return '';
     }

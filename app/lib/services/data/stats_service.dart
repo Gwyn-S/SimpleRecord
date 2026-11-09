@@ -13,6 +13,7 @@ class StatsCacheKey {
   final String? ledgerId;
   final DateTime? customStart;
   final DateTime? customEnd;
+  final bool isExpense;
 
   const StatsCacheKey({
     required this.range,
@@ -21,13 +22,15 @@ class StatsCacheKey {
     this.ledgerId,
     this.customStart,
     this.customEnd,
+    this.isExpense = true,
   });
 
   @override
   String toString() =>
       '${ledgerId ?? 'none'}-$range-$index-$year-'
       '${customStart != null ? toEpochDay(customStart!) : ''}-'
-      '${customEnd != null ? toEpochDay(customEnd!) : ''}';
+      '${customEnd != null ? toEpochDay(customEnd!) : ''}-'
+      '${isExpense ? 'expense' : 'income'}';
 }
 
 /// 统计数据结果
@@ -101,7 +104,7 @@ class StatsData {
   }
 }
 
-/// 加载统计数据
+/// 加载统计数据（isExpense=false 时，分类/趋势/汇总均返回收入口径）
 Future<StatsData?> loadStatsData({
   required StatsRange range,
   required int index,
@@ -109,6 +112,7 @@ Future<StatsData?> loadStatsData({
   required int totalItems,
   required DateTime customStart,
   required DateTime customEnd,
+  bool isExpense = true,
 }) async {
   final dateRange = getDateRange(
     range: range,
@@ -148,6 +152,7 @@ Future<StatsData?> loadStatsData({
       ledgerId: ledgerId,
       start: dateRange.start,
       end: dateRange.end,
+      isExpense: isExpense,
     ),
   ]);
 
@@ -175,10 +180,10 @@ Future<StatsData?> loadStatsData({
     totalExpense: totalExpense,
     totalIncome: totalIncome,
     expenseByCategory: expenseByCategory,
-    periodData: _buildPeriodData(records, range, dateRange),
-    weekSummary: _buildWeekSummaryData(records),
-    monthSummary: _buildMonthSummaryData(records),
-    yearSummary: _buildYearSummaryData(records),
+    periodData: _buildPeriodData(records, range, dateRange, isExpense),
+    weekSummary: _buildWeekSummaryData(records, isExpense),
+    monthSummary: _buildMonthSummaryData(records, isExpense),
+    yearSummary: _buildYearSummaryData(records, isExpense),
   );
 }
 
@@ -186,6 +191,7 @@ List<({String label, int amountCents})> _buildPeriodData(
   List<Record> records,
   StatsRange range,
   ({DateTime start, DateTime end})? dateRange,
+  bool isExpense,
 ) {
   if (dateRange == null) return [];
 
@@ -219,29 +225,30 @@ List<({String label, int amountCents})> _buildPeriodData(
       break;
   }
 
-  final dailyExpense = List.filled(days, 0);
+  final dailyAmounts = List.filled(days, 0);
   final startEpoch = toEpochDay(start);
   for (final r in records) {
-    if (!r.isExpense) continue;
+    if (r.isExpense != isExpense) continue;
     final dayIndex = toEpochDay(r.date) - startEpoch;
     if (dayIndex >= 0 && dayIndex < days) {
-      dailyExpense[dayIndex] += r.amountCents;
+      dailyAmounts[dayIndex] += r.amountCents;
     }
   }
 
   return List.generate(days, (i) {
     final date = start.add(Duration(days: i));
-    return (label: labelFn(date), amountCents: dailyExpense[i]);
+    return (label: labelFn(date), amountCents: dailyAmounts[i]);
   });
 }
 
 List<({String label, int amountCents})> _buildWeekSummaryData(
   List<Record> records,
+  bool isExpense,
 ) {
   final wi = _weekInfo();
-  final weeklyExpense = List.filled(wi.currentWeek, 0);
+  final weeklyAmounts = List.filled(wi.currentWeek, 0);
   for (final r in records) {
-    if (!r.isExpense) continue;
+    if (r.isExpense != isExpense) continue;
     final rMonday = DateTime(
       r.date.year,
       r.date.month,
@@ -249,7 +256,7 @@ List<({String label, int amountCents})> _buildWeekSummaryData(
     ).subtract(Duration(days: r.date.weekday - 1));
     final weekIndex = ((rMonday.difference(wi.jan1Monday).inDays) / 7).floor();
     if (weekIndex >= 0 && weekIndex < wi.currentWeek) {
-      weeklyExpense[weekIndex] += r.amountCents;
+      weeklyAmounts[weekIndex] += r.amountCents;
     }
   }
   return List.generate(wi.currentWeek, (i) {
@@ -260,20 +267,21 @@ List<({String label, int amountCents})> _buildWeekSummaryData(
         : isLastWeek
         ? '上周'
         : '${i + 1}周';
-    return (label: label, amountCents: weeklyExpense[i]);
+    return (label: label, amountCents: weeklyAmounts[i]);
   });
 }
 
 List<({String label, int amountCents})> _buildMonthSummaryData(
   List<Record> records,
+  bool isExpense,
 ) {
   final now = DateTime.now();
-  final monthlyExpense = List.filled(now.month, 0);
+  final monthlyAmounts = List.filled(now.month, 0);
   for (final r in records) {
-    if (!r.isExpense) continue;
+    if (r.isExpense != isExpense) continue;
     final monthIndex = r.date.month - 1;
     if (monthIndex >= 0 && monthIndex < now.month) {
-      monthlyExpense[monthIndex] += r.amountCents;
+      monthlyAmounts[monthIndex] += r.amountCents;
     }
   }
   return List.generate(now.month, (i) {
@@ -284,22 +292,23 @@ List<({String label, int amountCents})> _buildMonthSummaryData(
         : isLastMonth
         ? '上月'
         : '${i + 1}月';
-    return (label: label, amountCents: monthlyExpense[i]);
+    return (label: label, amountCents: monthlyAmounts[i]);
   });
 }
 
 List<({String label, int amountCents})> _buildYearSummaryData(
   List<Record> records,
+  bool isExpense,
 ) {
   final now = DateTime.now();
   final startYear = now.year - 5;
   const yearCount = 6;
-  final yearlyExpense = List.filled(yearCount, 0);
+  final yearlyAmounts = List.filled(yearCount, 0);
   for (final r in records) {
-    if (!r.isExpense) continue;
+    if (r.isExpense != isExpense) continue;
     final yearIndex = r.date.year - startYear;
     if (yearIndex >= 0 && yearIndex < yearCount) {
-      yearlyExpense[yearIndex] += r.amountCents;
+      yearlyAmounts[yearIndex] += r.amountCents;
     }
   }
   return List.generate(yearCount, (i) {
@@ -311,7 +320,7 @@ List<({String label, int amountCents})> _buildYearSummaryData(
         : year == now.year - 2
         ? '前年'
         : '$year';
-    return (label: label, amountCents: yearlyExpense[i]);
+    return (label: label, amountCents: yearlyAmounts[i]);
   });
 }
 
