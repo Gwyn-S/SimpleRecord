@@ -92,11 +92,18 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
       }
     }
     // 调整流水：金库上的调余/记账带上操作者。record_key 带 -init- 的
-    // 初始余额只是账本凭证（重算与 B 端重建依赖），不展示成流水。
+    // 初始余额只是账本凭证（重算与 B 端重建依赖），不展示成流水；
+    // 带 ledger-del- 前缀的是删账本固化的历史流水，行仍参与余额与
+    // 曲线计算，但展示出来会让人误以为手动调整过余额，一并隐藏。
     final adjustments = await BalanceHistoryService.instance
         .adjustmentsForAccount(account.id);
     final visibleAdjustments = adjustments
-        .where((a) => !(a['record_key']?.toString() ?? '').contains('-init-'))
+        .where(
+          (a) {
+            final key = a['record_key']?.toString() ?? '';
+            return !key.contains('-init-') && !key.startsWith('ledger-del-');
+          },
+        )
         .toList();
     final adjustedAdjustments = <Map<String, dynamic>>[];
     if (VaultOpService.instance.isSharedVault(account)) {
@@ -457,9 +464,6 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     if (f.type == _FlowType.adjustment) {
       final delta = f.deltaCents;
       final deltaText = '${delta > 0 ? '+' : '-'}${formatAmount(delta.abs())}';
-      // 账本删除固化的调整行（deleteLedger 逐笔落行）：标题区分来源，
-      // 且固化行不带余额前后值，不显示 before -> after。
-      final isLedgerDel = f.adjustmentRecordKey.startsWith('ledger-del-');
       return InkWell(
         onTap: () => _showDeleteAdjustDialog(f),
         child: Row(
@@ -482,11 +486,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                       children: [
                         Row(
                           children: [
-                            Flexible(
+                            const Flexible(
                               child: Text(
-                                isLedgerDel ? '账本删除' : '调整余额',
+                                '调整余额',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -524,15 +528,13 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                             ],
                           ],
                         ),
-                        if (!isLedgerDel) ...[
-                          const SizedBox(height: spacingXS),
-                          Text(
-                            '${formatAmount(f.beforeCents)} -> ${formatAmount(f.afterCents)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textItemSub,
-                          ),
-                        ],
+                        const SizedBox(height: spacingXS),
+                        Text(
+                          '${formatAmount(f.beforeCents)} -> ${formatAmount(f.afterCents)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textItemSub,
+                        ),
                       ],
                     ),
                   ),
