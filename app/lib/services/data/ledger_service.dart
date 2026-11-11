@@ -5,11 +5,14 @@ import 'package:sqflite/sqflite.dart';
 import '../../models/data/ledger.dart';
 import '../../models/data/ledger_stats.dart';
 import '../../models/data/record.dart';
+import '../../utils/formatters.dart';
 import '../../utils/id.dart';
 import '../core/author_service.dart';
 import '../core/cloud_config.dart';
 import '../core/database.dart';
 import '../image/image_storage_service.dart';
+import 'asset_account_service.dart' show assetAccountsVersion;
+import 'balance_history_service.dart';
 import 'record_service.dart';
 import 'category_service.dart';
 import '../cloud/supabase_service.dart';
@@ -146,13 +149,13 @@ Future<void> deleteLedger(String id) async {
       throw Exception('云端账本删除失败');
     }
   }
-  // 先查询该账本下所有记录的图片路径
-  final rows = await db.query(
-    'records',
-    columns: ['image_path'],
-    where: 'book_id = ?',
-    whereArgs: [id],
-  );
+  // 先查询该账本下所有记录：删除前把普通账户流水逐笔固化成调整行
+  // （balance_adjustments）。删账本删的是"容器"不是"撤销消费"——花出去
+  // 的钱不回退 balance_cents；但 records 真相删掉后曲线重放查不到那笔
+  // 账，把每笔流水按同日期、同 delta 落成固化调整行（余额缓存不动），
+  // 重算后曲线与余额继续一致。金库账户的调整行本就独立于 records 存在，
+  // 余额/曲线天然一致，完全不动。顺带取出图片路径。
+  final rows = await db.query('records', where: 'book_id = ?', whereArgs: [id]);
   for (final row in rows) {
     final imagePath = row['image_path'] as String?;
     if (imagePath != null && imagePath.isNotEmpty) {
@@ -162,13 +165,41 @@ Future<void> deleteLedger(String id) async {
       }
     }
   }
+  final affectedAccounts = <String>{};
+  final vaultChecked = <String, bool>{};
   await db.transaction((txn) async {
+    for (final row in rows) {
+      final record = Record.fromDbMap(row);
+      final accountId = record.accountId;
+      if (accountId == null || accountId.isEmpty) continue;
+      var isVault = vaultChecked[accountId];
+      if (isVault == null) {
+        isVault = await isVaultAccountIdOn(txn, accountId);
+        vaultChecked[accountId] = isVault;
+      }
+      if (isVault) continue;
+      affectedAccounts.add(accountId);
+      await BalanceHistoryService.instance.applyFlowRow(
+        txn,
+        accountId: accountId,
+        sourceId: 'ledger-del:$id',
+        recordKey: 'ledger-del-$id-rec-${record.id}',
+        deltaCents: record.isExpense ? -record.amountCents : record.amountCents,
+        date: toEpochDay(record.date),
+        createdAt: record.createdAt.millisecondsSinceEpoch,
+      );
+    }
     await txn.delete('records', where: 'book_id = ?', whereArgs: [id]);
     await txn.delete('categories', where: 'ledger_id = ?', whereArgs: [id]);
     await txn.delete('budgets', where: 'ledger_id = ?', whereArgs: [id]);
     await txn.delete('books', where: 'id = ?', whereArgs: [id]);
   });
   recordsVersion.value++;
+  assetAccountsVersion.value++;
+  // 涉及账户的快照曲线异步重算（notifyChanged 内部有串行队列去重）。
+  for (final accountId in affectedAccounts) {
+    BalanceHistoryService.instance.notifyChanged(accountId);
+  }
   await DatabaseHelper.instance.vacuum();
   if (wasShared) {
     unawaited(SyncService.instance.removeSharedState(id));

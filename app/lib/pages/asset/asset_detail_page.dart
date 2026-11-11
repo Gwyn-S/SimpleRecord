@@ -457,6 +457,9 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     if (f.type == _FlowType.adjustment) {
       final delta = f.deltaCents;
       final deltaText = '${delta > 0 ? '+' : '-'}${formatAmount(delta.abs())}';
+      // 账本删除固化的调整行（deleteLedger 逐笔落行）：标题区分来源，
+      // 且固化行不带余额前后值，不显示 before -> after。
+      final isLedgerDel = f.adjustmentRecordKey.startsWith('ledger-del-');
       return InkWell(
         onTap: () => _showDeleteAdjustDialog(f),
         child: Row(
@@ -479,11 +482,11 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                       children: [
                         Row(
                           children: [
-                            const Flexible(
+                            Flexible(
                               child: Text(
-                                '调整余额',
+                                isLedgerDel ? '账本删除' : '调整余额',
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -521,13 +524,15 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                             ],
                           ],
                         ),
-                        const SizedBox(height: spacingXS),
-                        Text(
-                          '${formatAmount(f.beforeCents)} -> ${formatAmount(f.afterCents)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textItemSub,
-                        ),
+                        if (!isLedgerDel) ...[
+                          const SizedBox(height: spacingXS),
+                          Text(
+                            '${formatAmount(f.beforeCents)} -> ${formatAmount(f.afterCents)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textItemSub,
+                          ),
+                        ],
                       ],
                     ),
                   ),
